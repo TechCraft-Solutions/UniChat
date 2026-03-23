@@ -1,0 +1,67 @@
+<div class="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
+  <div
+    class="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-slate-900/50"
+  >
+    <span
+      class="text-xs font-medium uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400"
+    >
+      Filter:
+    </span>
+    @for (channel of chatListService.getVisibleChannels(); track channel.id) {
+      <button
+        type="button"
+        (click)="toggleChannelFilter(channel.channelId)"
+        class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition"
+        [class]="
+          isChannelDisabled(channel.channelId)
+            ? 'border-slate-300 bg-slate-100 text-slate-400 line-through dark:border-white/20 dark:bg-white/5 dark:text-slate-500'
+            : 'border-emerald-500 bg-emerald-500 text-white dark:border-emerald-400'
+        "
+      >
+        <span
+          class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.2em]"
+          [class]="presentation.getPlatformBadgeClasses(channel.platform)"
+        >
+          {{ presentation.platformLabel(channel.platform) }}
+        </span>
+        {{ channel.channelName }}
+      </button>
+    }
+    <div class="ml-auto flex gap-2">
+      @if (disabledChannels().size > 0) {
+        <button
+          type="button"
+          (click)="enableAllChannels()"
+          class="text-xs text-emerald-600 underline hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+        >
+          Enable all
+        </button>
+      }
+      @if (disabledChannels().size < chatListService.getVisibleChannels().length) {
+        <button
+          type="button"
+          (click)="disableAllChannels()"
+          class="text-xs text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        >
+          Disable all
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div
+      class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-3 py-3 sm:px-4"
+      [appChatScrollRegion]="feedData.mixedScrollToken(disabledChannels())"
+    >
+      <div class="flex flex-col gap-y-2">
+        @for (message of feedData.getMixedFeedChronological(disabledChannels()); track message.id) {
+          <app-chat-message-card
+            [message]="message"
+            [highlighted]="interactions.isHighlightedMessage(message.id)"
+          />
+        }
+      </div>
+    </div>
+  </div>
+</div>
