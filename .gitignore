@@ -37,6 +37,10 @@ yarn-error.log
 testem.log
 /typings
 
+# Optimized build script markers
+.last-frontend-build
+.last-rust-build
+
 # System files
 .DS_Store
 Thumbs.db
