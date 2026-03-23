@@ -1,0 +1,46 @@
+app-id: com.tcs.unichat
+runtime: org.gnome.Platform
+runtime-version: "48"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
+command: unichat
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --share=ipc
+  - --share=network
+  - --filesystem=home
+
+modules:
+  - name: unichat-local
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/node22/bin:/usr/lib/sdk/rust-stable/bin
+    build-commands:
+      - install -Dm755 src-tauri/target/release/unichat /app/bin/unichat
+      - install -Dm644 com.tcs.unichat.desktop /app/share/applications/com.tcs.unichat.desktop
+      - install -Dm644 com.tcs.unichat.metainfo.xml /app/share/metainfo/com.tcs.unichat.metainfo.xml
+      - |
+        for size in 128x128 256x256; do
+          install -Dm644 src-tauri/icons/icon.png /app/share/icons/hicolor/$size/apps/com.tcs.unichat.png
+        done
+      - install -Dm644 src-tauri/icons/icon.png /app/share/icons/hicolor/scalable/apps/com.tcs.unichat.svg
+
+    sources:
+      - type: file
+        path: "com.tcs.unichat.desktop"
+      - type: file
+        path: "com.tcs.unichat.metainfo.xml"
+      - type: dir
+        path: "../src-tauri/icons"
+        dest: "src-tauri/icons"
+      - type: dir
+        path: "../src-tauri/target/release"
+        dest: "src-tauri/target/release"
+
+    cleanup:
+      - /share/man

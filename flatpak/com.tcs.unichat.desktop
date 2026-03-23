@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=UniChat
+Comment=Unified chat client for streaming platforms
+Icon=com.tcs.unichat
+Exec=unichat
+Terminal=false
+Categories=Network;InstantMessaging;
+Keywords=chat;twitch;kick;youtube;stream;
+StartupWMClass=unichat
+StartupNotify=true

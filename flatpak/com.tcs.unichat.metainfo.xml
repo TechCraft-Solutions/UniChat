@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.tcs.unichat</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>UniChat</name>
+  <summary>Unified desktop chat for Twitch, Kick, YouTube, and more</summary>
+
+  <developer id="com.tcs">
+    <name>TechCraft Solutions</name>
+  </developer>
+
+  <description>
+    <p>
+      UniChat is a Tauri desktop app that aggregates live chat from multiple streaming platforms in one
+      place, with mixed and split views, replies, and a focused developer workflow.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">com.tcs.unichat.desktop</launchable>
+
+  <url type="homepage">https://github.com/rusnakdima/UniChat</url>
+  <url type="bugtracker">https://github.com/rusnakdima/UniChat/issues</url>
+
+  <provides>
+    <binary>unichat</binary>
+  </provides>
+
+  <releases>
+    <release version="0.1.0" date="2026-03-24">
+      <description>
+        <p>Initial public layout with Angular + Tauri v2, mixed/split feeds, and packaging tooling.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+</component>
