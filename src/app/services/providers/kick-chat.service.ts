@@ -1,11 +1,9 @@
-import { Injectable } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
 import { createMessageActionState } from "@helpers/chat.helper";
 import { ChatMessageEmote } from "@models/chat.model";
-import {
-  BaseChatProviderService,
-  MockMessageTemplate,
-} from "@services/providers/base-chat-provider.service";
+import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
 import { invoke } from "@tauri-apps/api/core";
+import { ConnectionErrorService, ConnectionErrorCode } from "@services/core/connection-error.service";
 
 @Injectable({
   providedIn: "root",
@@ -20,6 +18,7 @@ export class KickChatService extends BaseChatProviderService {
   private readonly chatroomIdByChannel = new Map<string, number>();
   private readonly reconnectTimerByChannel = new Map<string, number>();
   private readonly historyNoticeLoggedChannels = new Set<string>();
+  private readonly errorService = inject(ConnectionErrorService);
 
   override connect(channelId: string): void {
     const normalizedChannel = channelId.trim().toLowerCase();
@@ -48,7 +47,7 @@ export class KickChatService extends BaseChatProviderService {
     this.historyNoticeLoggedChannels.delete(normalizedChannel);
   }
 
-  protected getActionStates() {
+  protected override getActionStates() {
     const account = this.authorizationService.getAccount("kick");
     const canReply = account?.authStatus === "authorized";
     return {
@@ -79,6 +78,11 @@ export class KickChatService extends BaseChatProviderService {
       this.openSocket(channelSlug, chatroomId);
     } catch (error) {
       console.error(`[KickChat] Error starting for ${channelSlug}:`, error);
+      this.errorService.reportNetworkError(
+        channelSlug,
+        "Failed to connect to Kick chat. Retrying...",
+        true
+      );
       this.scheduleReconnect(channelSlug);
     }
   }
@@ -110,6 +114,7 @@ export class KickChatService extends BaseChatProviderService {
 
     socket.addEventListener("error", (event) => {
       console.error(`[KickChat] WebSocket error for ${channelSlug}:`, event);
+      this.errorService.reportWebSocketError(channelSlug, "kick", true);
     });
 
     socket.addEventListener("close", (event) => {
@@ -121,11 +126,22 @@ export class KickChatService extends BaseChatProviderService {
   }
 
   private async fetchChatroomId(channelSlug: string): Promise<number> {
-    const chatroomId = await invoke<number>("kickFetchChatroomId", { channelSlug });
-    if (!chatroomId) {
-      throw new Error("missing kick chatroom id");
+    try {
+      const chatroomId = await invoke<number>("kickFetchChatroomId", { channelSlug });
+      if (!chatroomId) {
+        this.errorService.reportChannelNotFound(channelSlug, "kick");
+        throw new Error("missing kick chatroom id");
+      }
+      return chatroomId;
+    } catch (error) {
+      const message = String(error ?? "");
+      if (message.includes("404") || message.includes("not found")) {
+        this.errorService.reportChannelNotFound(channelSlug, "kick");
+      } else {
+        this.errorService.reportNetworkError(channelSlug, "Failed to fetch channel info");
+      }
+      throw error;
     }
-    return chatroomId;
   }
 
   private handleSocketMessage(channelSlug: string, rawData: string): void {

@@ -10,6 +10,7 @@ import { BaseChatProviderService } from "@services/providers/base-chat-provider.
 import tmi from "tmi.js";
 import { IconsCatalogService } from "@services/ui/icons-catalog.service";
 import { EmoteUrlService } from "@services/ui/emote-url.service";
+import { ConnectionErrorService, ConnectionErrorCode } from "@services/core/connection-error.service";
 
 export interface TwitchUserInfo {
   id: string;
@@ -127,6 +128,7 @@ export class TwitchChatService extends BaseChatProviderService {
   >();
   private readonly iconsCatalog = inject(IconsCatalogService);
   private readonly emoteUrl = inject(EmoteUrlService);
+  private readonly errorService = inject(ConnectionErrorService);
 
   override connect(channelId: string): void {
     void this.iconsCatalog.ensureGlobalLoaded();
@@ -169,6 +171,7 @@ export class TwitchChatService extends BaseChatProviderService {
 
     client.on("connected", () => {
       this.emitStatus(normalizedChannel, "connected");
+      this.errorService.clearError(normalizedChannel);
       // Don't load initial messages - only show new messages from current session
       // Old messages will be loaded only when user clicks "Load Previous Messages"
     });
@@ -177,6 +180,16 @@ export class TwitchChatService extends BaseChatProviderService {
     });
     client.on("reconnect", () => {
       this.emitStatus(normalizedChannel, "reconnecting");
+    });
+    // @ts-ignore - tmi.js emits connectionfailure but not in types
+    client.on("connectionfailure", () => {
+      this.errorService.reportNetworkTimeout(normalizedChannel, "twitch");
+    });
+    client.on("notice", (reason: string) => {
+      // Handle Twitch-specific notices like MSG_RATELIMITED, MSG_REJECTED, etc.
+      if (reason.includes("ratelimit") || reason.includes("rate limit")) {
+        this.errorService.reportRateLimited(normalizedChannel, "twitch");
+      }
     });
 
     void client.connect();
@@ -214,6 +227,7 @@ export class TwitchChatService extends BaseChatProviderService {
       !!account.username?.trim() &&
       !!account.accessToken?.trim();
     if (!hasAuthIdentity) {
+      this.errorService.reportAuthFailed(normalizedChannel);
       return false;
     }
 
@@ -224,6 +238,7 @@ export class TwitchChatService extends BaseChatProviderService {
 
     let client = this.clientsByChannel.get(normalizedChannel);
     if (!client) {
+      this.errorService.reportNetworkError(normalizedChannel, "Client not initialized");
       return false;
     }
 
@@ -236,6 +251,7 @@ export class TwitchChatService extends BaseChatProviderService {
         message.toLowerCase().includes("anonymous") ||
         message.toLowerCase().includes("not connected")
       ) {
+        this.errorService.reportWebSocketError(normalizedChannel, "twitch", true);
         this.disconnect(normalizedChannel);
         this.connect(normalizedChannel);
         await this.delay(900);
@@ -248,10 +264,15 @@ export class TwitchChatService extends BaseChatProviderService {
           await client.say(normalizedChannel, trimmed);
           return true;
         } catch {
+          this.errorService.reportNetworkError(
+            normalizedChannel,
+            "Failed to send message after reconnect"
+          );
           return false;
         }
       }
 
+      this.errorService.reportNetworkError(normalizedChannel, `Send failed: ${message}`);
       return false;
     }
   }
@@ -745,6 +766,15 @@ export class TwitchChatService extends BaseChatProviderService {
         const res = await fetch(url.toString());
         if (!res.ok) {
           console.warn(`[TwitchChat] Failed to fetch recent messages from Robotty: ${res.status}`);
+          if (res.status === 404) {
+            this.errorService.reportChannelNotFound(normalized, "twitch");
+          } else if (res.status >= 500) {
+            this.errorService.reportNetworkError(
+              normalized,
+              `Robotty service unavailable (${res.status})`,
+              true
+            );
+          }
           break;
         }
 
@@ -792,6 +822,11 @@ export class TwitchChatService extends BaseChatProviderService {
         beforeCursor = String(pageMinRm);
       } catch (error) {
         console.warn(`[TwitchChat] Error fetching recent messages from Robotty:`, error);
+        this.errorService.reportNetworkError(
+          normalized,
+          "Failed to load chat history. Check your connection.",
+          true
+        );
         break;
       }
     }

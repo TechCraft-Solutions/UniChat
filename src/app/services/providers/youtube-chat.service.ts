@@ -1,11 +1,9 @@
-import { Injectable } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
 import { ChatMessage, ChatMessageEmote, MessageAction } from "@models/chat.model";
 import { createMessageActionState } from "@helpers/chat.helper";
-import {
-  BaseChatProviderService,
-  MockMessageTemplate,
-} from "@services/providers/base-chat-provider.service";
+import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
 import { invoke } from "@tauri-apps/api/core";
+import { ConnectionErrorService, ConnectionErrorCode } from "@services/core/connection-error.service";
 
 type YoutubeTarget = { kind: "channel"; channelId: string } | { kind: "video"; videoId: string };
 
@@ -35,6 +33,7 @@ export class YouTubeChatService extends BaseChatProviderService {
   readonly platform = "youtube" as const;
   private readonly pollAbortByChannel = new Map<string, AbortController>();
   private readonly nextPageTokenByChannel = new Map<string, string>();
+  private readonly errorService = inject(ConnectionErrorService);
 
   override connect(channelId: string): void {
     const key = channelId.trim();
@@ -56,7 +55,7 @@ export class YouTubeChatService extends BaseChatProviderService {
     this.nextPageTokenByChannel.delete(key);
   }
 
-  protected getActionStates() {
+  protected override getActionStates() {
     const account = this.authorizationService.getAccount("youtube");
     const canReply = account?.authStatus === "authorized";
     return {
@@ -92,12 +91,14 @@ export class YouTubeChatService extends BaseChatProviderService {
           videoId = await invoke<string>("youtubeGetLiveVideoId", {
             channelHandle: target.channelId,
           });
-        } catch {
+        } catch (error) {
           console.warn(`[YouTubeChat] No live video found for channel ${target.channelId}`);
+          this.errorService.reportNetworkError(storageKey, "No live stream found");
           return;
         }
         if (!videoId) {
           console.warn(`[YouTubeChat] No live video found for channel ${target.channelId}`);
+          this.errorService.reportChannelNotFound(storageKey, "youtube");
           return;
         }
       }
@@ -105,6 +106,7 @@ export class YouTubeChatService extends BaseChatProviderService {
       await this.drainLiveChat(videoId, storageKey, abortController.signal);
     } catch (error) {
       console.error(`[YouTubeChat] Failed to start session for ${storageKey}:`, error);
+      this.errorService.reportNetworkError(storageKey, "Failed to start chat session", true);
     } finally {
       this.pollAbortByChannel.delete(storageKey);
     }
@@ -135,6 +137,7 @@ export class YouTubeChatService extends BaseChatProviderService {
     storageKey: string,
     signal: AbortSignal
   ): Promise<void> {
+    let consecutiveErrors = 0;
     while (this.connectedChannels.has(storageKey) && !signal.aborted) {
       try {
         const stored = this.nextPageTokenByChannel.get(storageKey);
@@ -146,6 +149,7 @@ export class YouTubeChatService extends BaseChatProviderService {
         const response = JSON.parse(responseJson) as YouTubeChatApiResponse;
 
         this.nextPageTokenByChannel.set(storageKey, response.nextPageToken ?? "");
+        consecutiveErrors = 0; // Reset error counter on success
 
         for (const item of response.items ?? []) {
           const sourceMessageId = item.id;
@@ -196,6 +200,17 @@ export class YouTubeChatService extends BaseChatProviderService {
         await this.delay(Math.max(500, waitMillis), signal);
       } catch (error) {
         console.error("[YouTubeChat] Error fetching messages:", error);
+        consecutiveErrors++;
+        
+        // Report error after consecutive failures
+        if (consecutiveErrors >= 2) {
+          this.errorService.reportNetworkError(
+            storageKey,
+            "Connection lost. Reconnecting...",
+            true
+          );
+        }
+        
         this.nextPageTokenByChannel.delete(storageKey);
         await this.delay(5000, signal).catch(() => undefined);
       }
