@@ -22,29 +22,21 @@
                 >
                   {{ getPlatformLbl(platform) }}
                 </span>
-                @if (authorizationService.isAuthorized(platform)) {
-                  <span class="text-sm text-emerald-600 dark:text-emerald-400"> Connected </span>
+                @if (getAuthorizedAccounts(platform).length > 0) {
+                  <span class="text-sm text-emerald-600 dark:text-emerald-400">
+                    {{ getAuthorizedAccounts(platform).length }} account(s) connected
+                  </span>
                 } @else {
                   <span class="text-sm text-slate-500 dark:text-slate-400"> Not connected </span>
                 }
               </div>
-              @if (authorizationService.isAuthorized(platform)) {
-                <button
-                  type="button"
-                  (click)="deauthorize(platform)"
-                  class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-500/20 dark:hover:bg-red-500/30 dark:text-red-400"
-                >
-                  Disconnect
-                </button>
-              } @else {
-                <button
-                  type="button"
-                  (click)="authorize(platform)"
-                  class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                >
-                  Connect
-                </button>
-              }
+              <button
+                type="button"
+                (click)="authorize(platform)"
+                class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+              >
+                {{ getAuthorizedAccounts(platform).length > 0 ? 'Connect Another' : 'Connect' }}
+              </button>
             </div>
 
             @if (getAuthorizedAccounts(platform).length > 0) {
@@ -54,9 +46,19 @@
                     class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-black/20"
                   >
                     <div class="flex min-w-0 flex-col">
-                      <span class="truncate text-sm font-medium text-slate-900 dark:text-white">
-                        {{ account.username }}
-                      </span>
+                      <div class="flex items-center gap-2">
+                        <span class="truncate text-sm font-medium text-slate-900 dark:text-white">
+                          {{ account.username }}
+                        </span>
+                        @if ($first) {
+                          <span
+                            class="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                            title="Primary account for this platform"
+                          >
+                            Primary
+                          </span>
+                        }
+                      </div>
                       <span class="truncate text-xs text-slate-500 dark:text-slate-400">
                         {{ account.userId }}
                       </span>
@@ -65,6 +67,7 @@
                       type="button"
                       (click)="deauthorizeAccount(account.platform)"
                       class="rounded-md bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-500/20 dark:hover:bg-red-500/30 dark:text-red-400"
+                      title="Remove this account"
                     >
                       Remove
                     </button>
