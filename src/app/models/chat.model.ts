@@ -132,7 +132,6 @@ export interface WidgetConfig {
   animationDirection?: OverlayDirection; // Animation entrance direction
   maxMessages?: number; // Maximum messages to display
   transparentBg?: boolean; // Enable transparent background
-  opacity?: number; // Background opacity (0.0 - 1.0)
 }
 
 export interface DashboardStats {
@@ -169,6 +168,13 @@ export interface ChatChannel {
   addedAt: string;
 }
 
+export interface ChannelConnectionError {
+  code: string;
+  message: string;
+  occurredAt: string;
+  isRecoverable: boolean;
+}
+
 export interface ChannelConnection {
   channelId: string;
   platform: PlatformType;
@@ -176,6 +182,7 @@ export interface ChannelConnection {
   latencyMs: number;
   viewers: number;
   capabilities: PlatformCapabilities;
+  error?: ChannelConnectionError;
 }
 
 export interface AuthorizationState {

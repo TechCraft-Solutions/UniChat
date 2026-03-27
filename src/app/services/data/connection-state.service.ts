@@ -4,6 +4,7 @@ import {
   PlatformCapabilities,
   PlatformStatus,
   PlatformType,
+  ChannelConnectionError,
 } from "@models/chat.model";
 import { getProviderCapabilities } from "@helpers/chat.helper";
 import { ChatListService } from "@services/data/chat-list.service";
@@ -13,7 +14,7 @@ import { AuthorizationService } from "@services/features/authorization.service";
  * Connection State Service - Channel Connection Status
  *
  * Responsibility: Manages connection status (disconnected/connecting/connected) per channel.
- * Tracks latency, viewer count, and platform capabilities for each connection.
+ * Tracks latency, viewer count, platform capabilities, and errors for each connection.
  *
  * Source of Truth Hierarchy:
  * 1. ChatStorageService - Primary message storage (owns the data)
@@ -51,11 +52,49 @@ export class ConnectionStateService {
             canReply: false,
             canDelete: false,
           } as PlatformCapabilities),
+        error: conn?.error,
       };
     });
   });
 
   readonly connectionMap = this.connectionsSignal.asReadonly();
+
+  /**
+   * Get error for a specific channel
+   */
+  getChannelError(channelId: string): ChannelConnectionError | undefined {
+    return this.connectionsSignal()[channelId]?.error;
+  }
+
+  /**
+   * Check if channel has an error
+   */
+  hasError(channelId: string): boolean {
+    return !!this.connectionsSignal()[channelId]?.error;
+  }
+
+  /**
+   * Clear error for a channel (called when connection recovers)
+   */
+  clearError(channelId: string): void {
+    this.updateConnection(channelId, { error: undefined });
+  }
+
+  /**
+   * Report an error for a channel connection
+   */
+  reportError(channelId: string, error: Partial<ChannelConnectionError>): void {
+    const existingError = this.connectionsSignal()[channelId]?.error;
+    this.updateConnection(channelId, {
+      error: {
+        code: error.code ?? "unknown",
+        message: error.message ?? "An unknown error occurred",
+        occurredAt: error.occurredAt ?? new Date().toISOString(),
+        isRecoverable: error.isRecoverable ?? true,
+        ...(existingError ?? {}),
+      },
+    });
+  }
 
   connectChannel(channelId: string): void {
     const channel = this.findChannel(channelId);
@@ -69,6 +108,7 @@ export class ConnectionStateService {
 
     this.updateConnection(channelId, {
       status: "connecting",
+      error: undefined, // Clear error on reconnect attempt
     });
 
     setTimeout(() => {
@@ -77,6 +117,7 @@ export class ConnectionStateService {
         latencyMs: Math.floor(Math.random() * 100) + 200,
         viewers: Math.floor(Math.random() * 5000) + 100,
         capabilities,
+        error: undefined, // Clear error on successful connection
       });
     }, 500);
   }
@@ -90,6 +131,7 @@ export class ConnectionStateService {
   reconnectChannel(channelId: string): void {
     this.updateConnection(channelId, {
       status: "reconnecting",
+      error: undefined, // Clear error on reconnect attempt
     });
 
     setTimeout(() => {
@@ -107,6 +149,7 @@ export class ConnectionStateService {
         latencyMs: Math.floor(Math.random() * 100) + 200,
         viewers: Math.floor(Math.random() * 5000) + 100,
         capabilities,
+        error: undefined, // Clear error on successful reconnect
       });
     }, 800);
   }
@@ -136,7 +179,7 @@ export class ConnectionStateService {
   setChannelStatus(
     channelId: string,
     status: PlatformStatus,
-    patch?: Partial<Pick<ChannelConnection, "latencyMs" | "viewers" | "capabilities">>
+    patch?: Partial<Pick<ChannelConnection, "latencyMs" | "viewers" | "capabilities" | "error">>
   ): void {
     this.updateConnection(channelId, {
       status,
