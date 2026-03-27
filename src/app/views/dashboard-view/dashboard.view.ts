@@ -15,6 +15,8 @@ import { ChatSearchComponent } from "@components/chat-search/chat-search.compone
 import { ChatStateService } from "@services/data/chat-state.service";
 import { PinnedMessagesPanelComponent } from "@components/pinned-messages-panel/pinned-messages-panel.component";
 import { PinnedMessagesService } from "@services/ui/pinned-messages.service";
+import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.service";
+import { KeyboardShortcutsHelpComponent } from "@components/keyboard-shortcuts-help/keyboard-shortcuts-help.component";
 
 @Component({
   selector: "app-dashboard-view",
@@ -25,6 +27,7 @@ import { PinnedMessagesService } from "@services/ui/pinned-messages.service";
     MatIconModule,
     ChatSearchComponent,
     PinnedMessagesPanelComponent,
+    KeyboardShortcutsHelpComponent,
   ],
   templateUrl: "./dashboard.view.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,6 +42,7 @@ export class DashboardView {
   private readonly chatStateManager = inject(ChatStateManagerService);
   private readonly chatStateService = inject(ChatStateService);
   private readonly pinnedMessagesService = inject(PinnedMessagesService);
+  private readonly keyboardShortcutsService = inject(KeyboardShortcutsService);
 
   // Reference to split feed component for resetting sizes
   readonly splitFeed = viewChild<DashboardSplitFeedComponent>(DashboardSplitFeedComponent);
@@ -46,6 +50,7 @@ export class DashboardView {
   readonly feedModes: FeedMode[] = ["mixed", "split"];
   readonly showSearch = signal(false);
   readonly showPinned = signal(false);
+  readonly showShortcuts = signal(false);
   readonly pinnedCount = this.pinnedMessagesService.pinnedCount;
 
   constructor() {
@@ -66,6 +71,30 @@ export class DashboardView {
         }
       }
     });
+
+    // Register keyboard shortcuts
+    this.keyboardShortcutsService.register("Ctrl+K", () => this.toggleSearch());
+    this.keyboardShortcutsService.register("Ctrl+P", () => this.togglePinned());
+    this.keyboardShortcutsService.register("Ctrl+M", () => this.toggleFeedMode());
+    this.keyboardShortcutsService.register("Ctrl+?", () => this.toggleShortcuts());
+    this.keyboardShortcutsService.register("F1", () => this.toggleShortcuts());
+    this.keyboardShortcutsService.register("Escape", () => this.closeAllModals());
+  }
+
+  toggleFeedMode(): void {
+    const current = this.getFeedMode();
+    const next: FeedMode = current === "mixed" ? "split" : "mixed";
+    this.setFeedMode(next);
+  }
+
+  closeAllModals(): void {
+    if (this.showSearch()) {
+      this.showSearch.set(false);
+    } else if (this.showPinned()) {
+      this.showPinned.set(false);
+    } else if (this.showShortcuts()) {
+      this.showShortcuts.set(false);
+    }
   }
 
   setFeedMode(feedMode: FeedMode): void {
@@ -86,6 +115,10 @@ export class DashboardView {
 
   togglePinned(): void {
     this.showPinned.update(show => !show);
+  }
+
+  toggleShortcuts(): void {
+    this.showShortcuts.update(show => !show);
   }
 
   onMessageSelected(message: ChatMessage): void {

@@ -108,5 +108,18 @@
     </div>
   }
 
+  <!-- Keyboard Shortcuts Help Modal -->
+  @if (showShortcuts()) {
+    <div
+      class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      (click)="toggleShortcuts()"
+    >
+      <app-keyboard-shortcuts-help
+        (click)="$event.stopPropagation()"
+        (closed)="toggleShortcuts()"
+      />
+    </div>
+  }
+
   <app-user-profile-popover />
 </div>
