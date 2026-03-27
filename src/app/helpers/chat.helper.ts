@@ -20,25 +20,6 @@ import {
   STATUS_LABELS,
 } from "@config/platform.styles";
 
-/**
- * @deprecated Use PLATFORM_BADGE_CLASSES from @config/platform.styles
- */
-const platformBadgeClasses: Record<PlatformType, string> = PLATFORM_BADGE_CLASSES;
-
-/** @deprecated Use PLATFORM_BADGE_CLASSES_MIXED_DISABLED from @config/platform.styles */
-const platformBadgeClassesMixedDisabled: Record<PlatformType, string> =
-  PLATFORM_BADGE_CLASSES_MIXED_DISABLED;
-
-/** @deprecated Use PLATFORM_BADGE_CLASSES_MIXED_ENABLED from @config/platform.styles */
-const platformBadgeClassesMixedEnabled: Record<PlatformType, string> =
-  PLATFORM_BADGE_CLASSES_MIXED_ENABLED;
-
-/** @deprecated Use STATUS_CLASSES from @config/platform.styles */
-const statusClasses: Record<PlatformStatus | WidgetStatus, string> = STATUS_CLASSES;
-
-/** @deprecated Use STATUS_LABELS from @config/platform.styles */
-const statusLabels: Record<PlatformStatus | WidgetStatus, string> = STATUS_LABELS;
-
 export function sortMessagesByRecency(messages: ChatMessage[]): ChatMessage[] {
   return [...messages].sort(
     (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
@@ -102,7 +83,7 @@ export function getPlatformLabel(platform: PlatformType): string {
 }
 
 export function getPlatformBadgeClasses(platform: PlatformType): string {
-  return platformBadgeClasses[platform];
+  return PLATFORM_BADGE_CLASSES[platform];
 }
 
 export function getPlatformBadgeClassesMixedFilter(
@@ -110,16 +91,16 @@ export function getPlatformBadgeClassesMixedFilter(
   channelEnabled: boolean
 ): string {
   return channelEnabled
-    ? platformBadgeClassesMixedEnabled[platform]
-    : platformBadgeClassesMixedDisabled[platform];
+    ? PLATFORM_BADGE_CLASSES_MIXED_ENABLED[platform]
+    : PLATFORM_BADGE_CLASSES_MIXED_DISABLED[platform];
 }
 
 export function getStatusClasses(status: PlatformStatus | WidgetStatus): string {
-  return statusClasses[status];
+  return STATUS_CLASSES[status];
 }
 
 export function getStatusLabel(status: PlatformStatus | WidgetStatus): string {
-  return statusLabels[status];
+  return STATUS_LABELS[status];
 }
 
 export function getWidgetSummary(widget: WidgetConfig, messages: ChatMessage[]): string {
