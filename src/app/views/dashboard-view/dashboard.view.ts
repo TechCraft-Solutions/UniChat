@@ -1,9 +1,9 @@
-import { ChangeDetectionStrategy, Component, effect, inject, viewChild } from "@angular/core";
+import { ChangeDetectionStrategy, Component, effect, inject, signal, viewChild } from "@angular/core";
 import { MatIconModule } from "@angular/material/icon";
 import { DashboardMixedFeedComponent } from "@components/dashboard-mixed-feed/dashboard-mixed-feed.component";
 import { DashboardSplitFeedComponent } from "@components/dashboard-split-feed/dashboard-split-feed.component";
 import { UserProfilePopoverComponent } from "@components/user-profile-popover/user-profile-popover";
-import { FeedMode, PlatformType } from "@models/chat.model";
+import { FeedMode, PlatformType, ChatMessage } from "@models/chat.model";
 import { ChatListService } from "@services/data/chat-list.service";
 import { DashboardStateService } from "@services/features/dashboard-state.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
@@ -11,6 +11,8 @@ import { ChatProviderCoordinatorService } from "@services/providers/chat-provide
 import { OverlaySourceBridgeService } from "@services/ui/overlay-source-bridge.service";
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
 import { ChatStateManagerService } from "@services/data/chat-state-manager.service";
+import { ChatSearchComponent } from "@components/chat-search/chat-search.component";
+import { ChatStateService } from "@services/data/chat-state.service";
 
 @Component({
   selector: "app-dashboard-view",
@@ -19,6 +21,7 @@ import { ChatStateManagerService } from "@services/data/chat-state-manager.servi
     DashboardMixedFeedComponent,
     UserProfilePopoverComponent,
     MatIconModule,
+    ChatSearchComponent,
   ],
   templateUrl: "./dashboard.view.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,11 +34,13 @@ export class DashboardView {
   readonly overlaySourceBridge = inject(OverlaySourceBridgeService);
   private readonly feedData = inject(DashboardFeedDataService);
   private readonly chatStateManager = inject(ChatStateManagerService);
+  private readonly chatStateService = inject(ChatStateService);
 
   // Reference to split feed component for resetting sizes
   readonly splitFeed = viewChild<DashboardSplitFeedComponent>(DashboardSplitFeedComponent);
 
   readonly feedModes: FeedMode[] = ["mixed", "split"];
+  readonly showSearch = signal(false);
 
   constructor() {
     const featured = this.dashboardStateService.featuredWidget();
@@ -67,5 +72,15 @@ export class DashboardView {
 
   resetSplitSizes(): void {
     this.splitFeed()?.resetBlockSizes();
+  }
+
+  toggleSearch(): void {
+    this.showSearch.update(show => !show);
+  }
+
+  onMessageSelected(message: ChatMessage): void {
+    // Highlight the selected message
+    this.chatStateService.highlightMessage(message.id);
+    this.showSearch.set(false);
   }
 }

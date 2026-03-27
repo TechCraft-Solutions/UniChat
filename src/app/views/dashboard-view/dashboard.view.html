@@ -16,6 +16,17 @@
     </div>
 
     <div class="flex items-center gap-2">
+      <!-- Search Button -->
+      <button
+        type="button"
+        (click)="toggleSearch()"
+        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 dark:border-white/20 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+        title="Search messages (Ctrl+K)"
+      >
+        <mat-icon class="!h-4 !w-4">search</mat-icon>
+        <span>Search</span>
+      </button>
+
       @if (getFeedMode() === "split") {
         <button
           type="button"
@@ -53,6 +64,20 @@
       <app-dashboard-mixed-feed class="flex h-full w-full flex-col overflow-y-auto" />
     }
   </main>
+
+  <!-- Search Modal Overlay -->
+  @if (showSearch()) {
+    <div
+      class="absolute inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-20"
+      (click)="toggleSearch()"
+    >
+      <app-chat-search
+        (click)="$event.stopPropagation()"
+        (messageSelected)="onMessageSelected($event)"
+        (closeSearch)="toggleSearch()"
+      />
+    </div>
+  }
 
   <app-user-profile-popover />
 </div>

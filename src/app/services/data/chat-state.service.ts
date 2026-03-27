@@ -44,6 +44,10 @@ export class ChatStateService {
   private readonly chatStorageService = inject(ChatStorageService);
   private readonly providerCoordinator = inject(ChatProviderCoordinatorService);
 
+  // Track highlighted message (from search results)
+  private readonly highlightedMessageIdSignal = signal<string | null>(null);
+  readonly highlightedMessageId = this.highlightedMessageIdSignal.asReadonly();
+
   readonly messages = computed(() => this.chatStorageService.allMessages());
 
   readonly splitFeed = computed(() => buildSplitFeed(this.messages()));
@@ -255,5 +259,19 @@ export class ChatStateService {
         },
       },
     });
+  }
+
+  /**
+   * Highlight a message (e.g., from search results)
+   */
+  highlightMessage(messageId: string | null): void {
+    this.highlightedMessageIdSignal.set(messageId);
+  }
+
+  /**
+   * Check if a message is currently highlighted
+   */
+  isMessageHighlighted(messageId: string): boolean {
+    return this.highlightedMessageIdSignal() === messageId;
   }
 }
