@@ -21,6 +21,7 @@ import { ChatStorageService } from "@services/data/chat-storage.service";
 import { AvatarCacheService } from "@services/core/avatar-cache.service";
 import { ConnectionErrorBannerComponent } from "@components/connection-error-banner/connection-error-banner.component";
 import { ConnectionStateService } from "@services/data/connection-state.service";
+import { LocalStorageService } from "@services/core/local-storage.service";
 
 @Component({
   selector: "app-dashboard-mixed-feed",
@@ -47,6 +48,7 @@ export class DashboardMixedFeedComponent {
   private readonly twitchChat = inject(TwitchChatService);
   private readonly chatStorage = inject(ChatStorageService);
   private readonly avatarCache = inject(AvatarCacheService);
+  private readonly localStorageService = inject(LocalStorageService);
 
   // Reference to the history header component
   readonly historyHeader = viewChild<
@@ -100,22 +102,17 @@ export class DashboardMixedFeedComponent {
   }
 
   private hydrateMixedOrder(): string[] {
-    const stored = localStorage.getItem(this.mixedChannelOrderStorageKey);
-    if (!stored) {
+    const stored = this.localStorageService.get<string[]>(this.mixedChannelOrderStorageKey, []);
+    if (stored.length === 0) {
       return [];
     }
 
-    try {
-      const parsed = JSON.parse(stored) as string[];
-      const visibleIds = new Set(this.chatListService.getVisibleChannels().map((c) => c.id));
-      return parsed.filter((id) => visibleIds.has(id));
-    } catch {
-      return [];
-    }
+    const visibleIds = new Set(this.chatListService.getVisibleChannels().map((c) => c.id));
+    return stored.filter((id) => visibleIds.has(id));
   }
 
   private persistMixedOrder(ids: string[]): void {
-    localStorage.setItem(this.mixedChannelOrderStorageKey, JSON.stringify(ids));
+    this.localStorageService.set(this.mixedChannelOrderStorageKey, JSON.stringify(ids));
   }
 
   private orderVisibleChannels(): ChatChannel[] {

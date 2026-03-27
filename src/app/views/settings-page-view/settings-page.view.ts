@@ -17,6 +17,7 @@ import {
 } from "@helpers/chat.helper";
 import { BlockedWordsSettingsComponent } from "@components/blocked-words-settings/blocked-words-settings.component";
 import { HighlightRulesSettingsComponent } from "@components/highlight-rules-settings/highlight-rules-settings.component";
+import { LocalStorageService } from "@services/core/local-storage.service";
 
 @Component({
   selector: "app-settings-page-view",
@@ -29,6 +30,7 @@ export class SettingsPageView {
   readonly authorizationService = inject(AuthorizationService);
   readonly chatListService = inject(ChatListService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  private readonly localStorageService = inject(LocalStorageService);
 
   readonly platforms: PlatformType[] = ["twitch", "kick", "youtube"];
   readonly getPlatformBadgeClasses = getPlatformBadgeClasses;
@@ -44,7 +46,7 @@ export class SettingsPageView {
 
   constructor() {
     effect(() => {
-      this.youtubeApiKey = localStorage.getItem(YOUTUBE_DATA_API_KEY_STORAGE_KEY) ?? "";
+      this.youtubeApiKey = this.localStorageService.get(YOUTUBE_DATA_API_KEY_STORAGE_KEY, "");
       this.changeDetectorRef.markForCheck();
     });
   }
@@ -52,9 +54,9 @@ export class SettingsPageView {
   saveYoutubeApiKey(): void {
     const trimmed = this.youtubeApiKey.trim();
     if (trimmed) {
-      localStorage.setItem(YOUTUBE_DATA_API_KEY_STORAGE_KEY, trimmed);
+      this.localStorageService.set(YOUTUBE_DATA_API_KEY_STORAGE_KEY, trimmed);
     } else {
-      localStorage.removeItem(YOUTUBE_DATA_API_KEY_STORAGE_KEY);
+      this.localStorageService.remove(YOUTUBE_DATA_API_KEY_STORAGE_KEY);
     }
   }
 
