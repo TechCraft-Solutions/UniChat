@@ -15,11 +15,13 @@ import {
   getPlatformLabel,
   YOUTUBE_DATA_API_KEY_STORAGE_KEY,
 } from "@helpers/chat.helper";
+import { BlockedWordsSettingsComponent } from "@components/blocked-words-settings/blocked-words-settings.component";
+import { HighlightRulesSettingsComponent } from "@components/highlight-rules-settings/highlight-rules-settings.component";
 
 @Component({
   selector: "app-settings-page-view",
   standalone: true,
-  imports: [FormsModule, MatIconModule],
+  imports: [FormsModule, MatIconModule, BlockedWordsSettingsComponent, HighlightRulesSettingsComponent],
   templateUrl: "./settings-page.view.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

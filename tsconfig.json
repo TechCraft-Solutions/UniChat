@@ -34,5 +34,6 @@
     "typeCheckHostBindings": true,
     "strictTemplates": true
   },
-  "references": [{ "path": "./tsconfig.app.json" }]
+  "references": [{ "path": "./tsconfig.app.json" }],
+  "exclude": ["out-tsc", "dist", "node_modules"]
 }
