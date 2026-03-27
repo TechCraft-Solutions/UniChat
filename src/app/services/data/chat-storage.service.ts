@@ -4,8 +4,8 @@ import { sortMessagesByRecency } from "@helpers/chat.helper";
 import { OverlaySourceBridgeService } from "@services/ui/overlay-source-bridge.service";
 import { MessageTypeDetectorService } from "@services/ui/message-type-detector.service";
 import { invoke } from "@tauri-apps/api/core";
+import { APP_CONFIG } from "@config/app.constants";
 
-const maxMessagesPerChannel = 4000;
 const channelMessagesStorageKey = "unichat.channelMessages.v1";
 
 @Injectable({
@@ -119,8 +119,8 @@ export class ChatStorageService {
       return;
     }
 
-    // Use hardcoded widget-main ID (same as overlay view uses)
-    const widgetId = "widget-main";
+    // Use default widget ID (same as overlay view uses)
+    const widgetId = APP_CONFIG.DEFAULT_WIDGET_ID;
 
     try {
       await invoke("sendOverlayMessage", {
@@ -319,9 +319,9 @@ export class ChatStorageService {
   }
 
   private limitMessages(messages: ChatMessage[]): ChatMessage[] {
-    if (messages.length <= maxMessagesPerChannel) {
+    if (messages.length <= APP_CONFIG.MAX_MESSAGES_PER_CHANNEL) {
       return messages;
     }
-    return messages.slice(0, maxMessagesPerChannel);
+    return messages.slice(0, APP_CONFIG.MAX_MESSAGES_PER_CHANNEL);
   }
 }

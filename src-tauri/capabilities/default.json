@@ -5,6 +5,11 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-create",
+    "core:event:default",
+    "core:event:allow-emit",
+    "opener:default",
+    "deep-link:default"
   ]
 }

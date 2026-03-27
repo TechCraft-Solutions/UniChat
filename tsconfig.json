@@ -18,11 +18,13 @@
     "paths": {
       "@app/*": ["src/app/*"],
       "@components/*": ["src/app/components/*"],
+      "@config/*": ["src/app/config/*"],
       "@directives/*": ["src/app/directives/*"],
       "@helpers/*": ["src/app/helpers/*"],
       "@models/*": ["src/app/models/*"],
       "@services/*": ["src/app/services/*"],
-      "@views/*": ["src/app/views/*"]
+      "@views/*": ["src/app/views/*"],
+      "@resolvers/*": ["src/app/resolvers/*"]
     }
   },
   "angularCompilerOptions": {
