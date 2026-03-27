@@ -355,3 +355,100 @@ Adjust tiers based on your actual users and release goals.
 - Search modal with highlighted results
 - Click to highlight selected message
 - Keyboard shortcut hint (Ctrl+K)
+
+---
+
+## Completed Tasks Summary (2026-03-27 Sprint)
+
+### ✅ Phase 1: Foundation & Stability
+
+**Error Boundaries**
+- Connection error state model with `ChannelConnectionError` interface
+- `ConnectionErrorService` for centralized error reporting
+- Error banner component with retry/dismiss actions
+- Error handling integrated into Twitch, Kick, and YouTube providers
+- Error banners displayed in dashboard (split and mixed feeds)
+
+**State Management Consolidation**
+- Simplified `ChatStateManagerService` (removed duplicate delegate methods)
+- Clear separation of concerns between storage, state, and connection services
+
+### ✅ Phase 2: Safety & Moderation
+
+**Blocked Words & Regex Filtering**
+- `BlockedWordsService` with string and regex pattern support
+- Global and channel-specific rules
+- Custom replacement text (***, •••, [removed], empty)
+- Settings UI with live test functionality
+- Integrated into message pipeline (filters before display)
+
+**Highlight Rules**
+- `HighlightRulesService` for keyword/regex highlighting
+- Custom colors per rule with preset palette
+- Highlights messages by text content or author name
+- Settings UI with color picker and test functionality
+- Visual styling: colored left border + subtle background tint
+
+### ✅ Phase 3: User Experience
+
+**Search & Jump**
+- `ChatSearchService` for full-text search across session buffer
+- Filter by platform, channel, and author
+- Regex and case-sensitive search support
+- Search modal with highlighted results
+- Click to highlight selected message
+- Keyboard shortcut hint (Ctrl+K)
+
+**Bookmarks/Pins**
+- `PinnedMessagesService` with localStorage persistence
+- Pin/unpin messages from any channel
+- Optional notes per pinned message
+- Pinned messages panel with filters
+- Export/import pinned messages as JSON
+- Dashboard button with count badge
+
+**Room State Indicators**
+- `RoomState` interface for slow mode, followers-only, etc.
+- Twitch roomstate event integration
+- Visual indicators in chat history header
+- Support for: slow mode, followers-only, subscribers-only, emotes-only, R9K
+
+### ✅ Phase 4: Platform & Documentation
+
+**YouTube History Documentation**
+- Comprehensive limitations document (`docs/YOUTUBE_HISTORY_LIMITATIONS.md`)
+- API quota limits and costs documented
+- Authentication requirements clarified
+- Error handling documented
+- Production recommendations provided
+
+**Multi-Account Support**
+- Multiple accounts per platform supported
+- UI enhancements showing account count
+- "Primary" account badge
+- "Connect Another" button for additional accounts
+- Account selection when adding channels
+
+---
+
+## Updated Priority Queue
+
+### Remaining Tasks
+
+| Priority | Task | Notes |
+|----------|------|-------|
+| Medium | TwitchChatService Refactor | Split into focused modules |
+| Medium | PlatformResolverService | Centralize platform logic |
+| Medium | Storage Consistency | Move all localStorage to preferences |
+| Low | Chat Replay | Timeline scrubber for VOD correlation |
+| Low | Session Export | JSON/CSV export functionality |
+
+---
+
+## Build Status
+
+✅ All builds pass successfully
+- 17 total commits in this sprint
+- ~4,500+ lines added
+- ~500 lines removed/refactored
+- Bundle size: 1.18 MB (within acceptable range for feature set)
