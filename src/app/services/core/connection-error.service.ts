@@ -1,8 +1,12 @@
+/* sys lib */
 import { Injectable, inject } from "@angular/core";
-import { PlatformType, ChannelConnectionError } from "@models/chat.model";
-import { ConnectionStateService } from "@services/data/connection-state.service";
-import { ChatListService } from "@services/data/chat-list.service";
 
+/* models */
+import { PlatformType, ChannelConnectionError } from "@models/chat.model";
+
+/* services */
+import { ChatListService } from "@services/data/chat-list.service";
+import { ConnectionStateService } from "@services/data/connection-state.service";
 /**
  * Error codes for connection errors
  */
@@ -57,10 +61,7 @@ export class ConnectionErrorService {
   /**
    * Report a connection error for a channel
    */
-  reportError(
-    channelId: string,
-    error: Omit<ChannelConnectionError, "occurredAt">
-  ): void {
+  reportError(channelId: string, error: Omit<ChannelConnectionError, "occurredAt">): void {
     this.connectionStateService.reportError(channelId, {
       ...error,
       occurredAt: new Date().toISOString(),

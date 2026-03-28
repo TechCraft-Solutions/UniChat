@@ -1,5 +1,5 @@
+/* sys lib */
 import { Injectable } from "@angular/core";
-
 /**
  * Centralized avatar cache service
  * Consolidates caches from multiple components to prevent memory duplication

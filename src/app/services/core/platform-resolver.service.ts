@@ -1,6 +1,14 @@
+/* sys lib */
 import { Injectable } from "@angular/core";
-import { PlatformType, PlatformCapabilities, PlatformStatus, ConnectionMode, WidgetStatus } from "@models/chat.model";
 
+/* models */
+import {
+  PlatformType,
+  PlatformCapabilities,
+  PlatformStatus,
+  ConnectionMode,
+  WidgetStatus,
+} from "@models/chat.model";
 /**
  * Platform metadata and configuration
  */
@@ -200,7 +208,9 @@ export class PlatformResolverService {
    */
   getMixedFilterBadgeClasses(platform: PlatformType, isEnabled: boolean): string {
     const baseClasses = this.getBadgeClasses(platform);
-    return isEnabled ? baseClasses : "bg-slate-300 text-slate-600 dark:bg-slate-700 dark:text-slate-400";
+    return isEnabled
+      ? baseClasses
+      : "bg-slate-300 text-slate-600 dark:bg-slate-700 dark:text-slate-400";
   }
 
   /**

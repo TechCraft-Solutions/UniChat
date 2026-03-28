@@ -1,7 +1,9 @@
+/* sys lib */
 import { DOCUMENT } from "@angular/common";
 import { Injectable, inject, signal } from "@angular/core";
-import { ThemeMode } from "@models/chat.model";
 
+/* models */
+import { ThemeMode } from "@models/chat.model";
 const storageKey = "unichat-theme";
 
 @Injectable({

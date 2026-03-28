@@ -1,5 +1,5 @@
+/* sys lib */
 import { Injectable } from "@angular/core";
-
 export type StorageValidator<T> = (value: unknown) => value is T;
 
 @Injectable({
