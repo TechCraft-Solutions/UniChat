@@ -129,16 +129,16 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 - ✅ Dark mode flicker fix
 - ✅ Emote cache with 24h TTL
 - ✅ User-friendly error messages
+- ✅ Memory management with auto-pruning
+- ✅ Message gap detection on reconnect
+- ✅ OAuth token race condition fix
+- ✅ YouTube rate limiting with exponential backoff
 
 **In Progress:**
-- [ ] Improved error handling and recovery
-- [ ] Performance optimizations (frontend + backend)
+- [ ] Performance optimizations (OnPush, trackBy)
 - [ ] Enhanced logging and debugging
-- [ ] Bug fixes from user feedback
-- [ ] Memory leak fixes
-- [ ] Reconnection logic improvements
-- [ ] OAuth token race condition fix
-- [ ] YouTube rate limiting handling
+- [ ] Virtual scrolling for chat history
+- [ ] Bundle size optimization
 
 **Planned:**
 - [ ] Advanced moderation dashboard
@@ -157,11 +157,13 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 ## 🔧 Technical Debt
 
 ### Known Issues
-1. **Memory usage** - Grows with extended sessions (>4 hours) - *In Progress*
-2. **Reconnection logic** - Can lose messages during network blips - *In Progress*
+1. ~~**Memory usage** - Grows with extended sessions (>4 hours)~~ - ✅ **Fixed** (auto-pruning every 60s)
+2. ~~**Reconnection logic** - Can lose messages during network blips~~ - ✅ **Fixed** (gap detection + UI indicators)
 3. ~~**Emote caching** - No TTL, can become stale~~ - ✅ **Fixed** (24h TTL)
 4. **TypeScript strictness** - Some `any` types remain - *Already strict mode enabled*
 5. ~~**Error messages** - Not user-friendly in all cases~~ - ✅ **Fixed** (user-friendly messages)
+6. ~~**OAuth race condition** - Concurrent token refresh~~ - ✅ **Fixed** (thread-safe cache)
+7. ~~**YouTube rate limiting** - API quota exhaustion~~ - ✅ **Fixed** (exponential backoff)
 
 ### Refactoring Candidates
 1. **Provider abstraction** - Consolidate duplicate logic across platforms
@@ -169,6 +171,8 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 3. **Component structure** - Break down large components (>500 lines)
 4. **Service dependencies** - Reduce circular dependencies
 5. **Rust error handling** - Consistent error types across modules
+6. **Dead code removal** - Remove unused imports, variables, functions
+7. **Code deduplication** - Extract reusable utilities
 
 ---
 
