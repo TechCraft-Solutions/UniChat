@@ -1,9 +1,13 @@
+/* sys lib */
 import { Injectable, computed, inject } from "@angular/core";
-import { mockWidgets } from "@views/dashboard-view/dashboard.mock";
+
+/* services */
 import { ChatStateService } from "@services/data/chat-state.service";
 import { ConnectionStateService } from "@services/data/connection-state.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
 
+/* views */
+import { mockWidgets } from "@views/dashboard-view/dashboard.mock";
 @Injectable({
   providedIn: "root",
 })

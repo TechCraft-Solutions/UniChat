@@ -1,10 +1,15 @@
+/* sys lib */
 import { Injectable, inject, signal } from "@angular/core";
-import { AuthStatus, ChatAccount, PlatformType } from "@models/chat.model";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ChatListService } from "@services/data/chat-list.service";
 
+/* models */
+import { AuthStatus, ChatAccount, PlatformType } from "@models/chat.model";
+
+/* services */
+import { ChatListService } from "@services/data/chat-list.service";
 interface AuthAccountPayload {
+  id: string;
   platform: PlatformType;
   username: string;
   userId: string;
@@ -20,6 +25,7 @@ interface AuthCommandResultPayload {
   message: string;
   authUrl?: string;
   account?: AuthAccountPayload;
+  accounts?: AuthAccountPayload[];
 }
 
 @Injectable({
@@ -36,12 +42,23 @@ export class AuthorizationService {
   }
 
   getAuthStatus(platform: PlatformType): AuthStatus {
-    const account = this.accountsSignal().find((acc) => acc.platform === platform);
+    const account = this.getPrimaryAccount(platform);
     return account?.authStatus ?? "unauthorized";
   }
 
   getAccount(platform: PlatformType): ChatAccount | undefined {
+    return this.getPrimaryAccount(platform);
+  }
+
+  getPrimaryAccount(platform: PlatformType): ChatAccount | undefined {
     return this.accountsSignal().find((acc) => acc.platform === platform);
+  }
+
+  getAccountById(accountId: string | undefined): ChatAccount | undefined {
+    if (!accountId) {
+      return undefined;
+    }
+    return this.accountsSignal().find((acc) => acc.id === accountId);
   }
 
   isAuthorized(platform: PlatformType): boolean {
@@ -72,8 +89,21 @@ export class AuthorizationService {
   }
 
   async deauthorize(platform: PlatformType): Promise<void> {
-    await invoke<AuthCommandResultPayload>("authDisconnect", { platform });
-    this.accountsSignal.update((accounts) => accounts.filter((acc) => acc.platform !== platform));
+    const primary = this.getPrimaryAccount(platform);
+    if (!primary) {
+      return;
+    }
+    await this.deauthorizeAccount(primary.id, platform);
+  }
+
+  async deauthorizeAccount(accountId: string, platform: PlatformType): Promise<void> {
+    await invoke<AuthCommandResultPayload>("authDisconnect", { platform, accountId });
+    this.accountsSignal.update((accounts) => accounts.filter((acc) => acc.id !== accountId));
+    for (const channel of this.chatListService.getChannels(platform)) {
+      if (channel.accountId === accountId) {
+        this.chatListService.updateChannelAccount(channel.id, undefined);
+      }
+    }
   }
 
   private async refreshStatuses(): Promise<void> {
@@ -83,9 +113,11 @@ export class AuthorizationService {
     for (const platform of platforms) {
       try {
         const result = await invoke<AuthCommandResultPayload>("authStatus", { platform });
-        if (result.account) {
-          loaded.push(this.toChatAccount(result.account));
-          this.ensureChannelForAuthorizedAccount(result.account);
+        if (result.accounts?.length) {
+          for (const account of result.accounts) {
+            loaded.push(this.toChatAccount(account));
+            this.ensureChannelForAuthorizedAccount(account);
+          }
         }
       } catch {
         // Ignore initialization errors to keep settings UI responsive.
@@ -105,7 +137,7 @@ export class AuthorizationService {
 
   private toChatAccount(account: AuthAccountPayload): ChatAccount {
     return {
-      id: `acc-${account.platform}-${account.userId}`,
+      id: account.id,
       platform: account.platform,
       username: account.username,
       userId: account.userId,
@@ -131,7 +163,8 @@ export class AuthorizationService {
         "twitch",
         account.username,
         account.username,
-        `acc-twitch-${account.userId}`
+        account.id,
+        account.username
       );
     }
   }
