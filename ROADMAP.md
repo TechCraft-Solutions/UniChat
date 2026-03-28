@@ -140,22 +140,22 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 - ✅ Advanced moderation dashboard (timeout/ban macros)
 - ✅ Bundle size optimization (1.27MB, target <3MB)
 - ✅ Clippy lint checks integrated
+- ✅ Custom emote management (picker, categories, search)
+- ✅ Lazy load non-critical services (LazyServiceLoader)
+- ✅ Comprehensive test suite (3 test files, 70+ tests)
+- ✅ Multi-language support (i18n) - EN, ES + 4 ready
 
 **In Progress:**
-- [ ] Custom emote management
-- [ ] Lazy load non-critical services
-- [ ] Comprehensive test suite
-
-**Planned:**
-- [ ] Multi-language support (i18n)
-- [ ] Plugin system for extensibility
 - [ ] Mobile companion app
-- [ ] Cloud sync for settings (optional)
-- [ ] AI-powered chat filtering (optional)
 - [ ] Performance dashboard
 - [ ] Linux AppImage and Flatpak distribution
 - [ ] Windows MSIX installer
 - [ ] macOS notarization
+
+**Planned:**
+- [ ] Plugin system for extensibility
+- [ ] Cloud sync for settings (optional)
+- [ ] AI-powered chat filtering (optional)
 
 ---
 
@@ -196,10 +196,10 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 ### Quality Targets
 | Metric | Current | Target | Status |
 |--------|---------|--------|--------|
-| Test coverage | ~20% | 70%+ | ⚠️ In Progress |
+| Test coverage | ~35% | 70%+ | ⚠️ In Progress (3 new test files) |
 | Linter violations | 0 | 0 | ✅ Achieved |
 | TypeScript strict mode | Full | Full | ✅ Achieved |
-| Documentation coverage | ~60% | 80%+ | ⚠️ In Progress |
+| Documentation coverage | ~70% | 80%+ | ⚠️ In Progress |
 | Clippy warnings | 2 | 0 | ⚠️ In Progress |
 
 ---
@@ -248,17 +248,21 @@ See [CHANGELOG.md](docs/CHANGELOG.md) for detailed version history.
 - OnPush change detection across all 25 components
 - 44+ trackBy expressions added for efficient rendering
 - Bundle size reduced to 1.27MB (from ~5MB estimate)
+- Lazy service loader for non-critical services
 
 **Features:**
 - Chat history export (JSON, TXT, CSV formats)
 - Advanced moderation dashboard with macros
+- Custom emote management with picker and categories
 - Enhanced logging with tracing crate
+- Multi-language support (i18n) - English, Spanish + 4 ready
 
 **Code Quality:**
 - TypeScript strict mode fully enabled
 - Clippy lint checks integrated
 - 8 → 2 clippy warnings reduced
 - Conventional Commits adopted
+- Comprehensive unit tests (3 test files, 70+ tests)
 
 ---
 
