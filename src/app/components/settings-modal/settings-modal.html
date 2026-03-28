@@ -48,10 +48,16 @@
                   <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                       <span
-                        class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-inset"
                         [class]="getPlatformBadgeClasses(platform)"
+                        [title]="getPlatformLbl(platform)"
+                        [attr.aria-label]="getPlatformLbl(platform)"
                       >
-                        {{ getPlatformLbl(platform) }}
+                        <img
+                          [src]="presentation.platformIconUrl(platform)"
+                          [alt]="getPlatformLbl(platform)"
+                          class="h-6 w-6 shrink-0 rounded-full bg-white/90 p-1 object-contain shadow-sm dark:bg-slate-950/80"
+                        />
                       </span>
                       @if (authorizationService.isAuthorized(platform)) {
                         <span class="text-sm text-emerald-600 dark:text-emerald-400">
@@ -100,7 +106,7 @@
                           </div>
                           <button
                             type="button"
-                            (click)="deauthorizeAccount(account.platform)"
+                            (click)="removeAuthorizedAccount(account)"
                             class="rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-500/20 dark:text-red-400"
                           >
                             Remove
@@ -121,8 +127,8 @@
               YouTube live chat
             </h3>
             <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Chat reading works without authentication using InnerTube API. To send messages or
-              delete messages, authorize your YouTube account below.
+              Add YouTube live streams by explicit video ID. Watch/live URLs are normalized to the
+              video ID automatically. Sending requires a linked authorized YouTube account.
             </p>
           </section>
 
@@ -148,9 +154,15 @@
                 <div class="mt-2 flex flex-wrap gap-2">
                   @for (account of getChannelManagementAccounts(); track account.id) {
                     <span
-                      class="inline-flex items-center rounded-full border border-slate-900/10 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"
+                      class="inline-flex items-center gap-2 rounded-full border border-slate-900/10 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"
                     >
-                      {{ getPlatformLbl(account.platform) }}: {{ account.username }}
+                      <img
+                        [src]="presentation.platformIconUrl(account.platform)"
+                        [alt]="getPlatformLbl(account.platform)"
+                        [title]="getPlatformLbl(account.platform)"
+                        class="h-5 w-5 shrink-0 rounded-full bg-white/90 p-1 object-contain shadow-sm dark:bg-slate-950/80"
+                      />
+                      {{ account.username }}
                     </span>
                   }
                 </div>
@@ -158,6 +170,18 @@
             }
 
             <div class="mt-4 flex gap-2">
+              <span
+                class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset"
+                [class]="getPlatformBadgeClasses(selectedPlatform)"
+                [title]="getPlatformLbl(selectedPlatform)"
+                [attr.aria-label]="getPlatformLbl(selectedPlatform)"
+              >
+                <img
+                  [src]="presentation.platformIconUrl(selectedPlatform)"
+                  [alt]="getPlatformLbl(selectedPlatform)"
+                  class="h-6 w-6 shrink-0 rounded-full bg-white/90 p-1 object-contain shadow-sm dark:bg-slate-950/80"
+                />
+              </span>
               <select
                 [(ngModel)]="selectedPlatform"
                 class="rounded-xl border border-slate-900/10 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-white/10 dark:bg-slate-950/60 dark:text-white"
@@ -229,10 +253,16 @@
                     <!-- View Mode -->
                     <div class="flex items-center gap-3">
                       <span
-                        class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em]"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-full ring-1 ring-inset"
                         [class]="getPlatformBadgeClasses(channel.platform)"
+                        [title]="getPlatformLbl(channel.platform)"
+                        [attr.aria-label]="getPlatformLbl(channel.platform)"
                       >
-                        {{ getPlatformLbl(channel.platform) }}
+                        <img
+                          [src]="presentation.platformIconUrl(channel.platform)"
+                          [alt]="getPlatformLbl(channel.platform)"
+                          class="h-5 w-5 shrink-0 rounded-full bg-white/90 p-1 object-contain shadow-sm dark:bg-slate-950/80"
+                        />
                       </span>
                       <span class="text-sm font-medium text-slate-900 dark:text-white">
                         {{ channel.channelName }}
@@ -251,6 +281,19 @@
                       }
                     </div>
                     <div class="flex items-center gap-2">
+                      <select
+                        [ngModel]="channel.accountId ?? ''"
+                        (ngModelChange)="updateChannelAccount(channel.id, $event)"
+                        class="rounded-lg border border-slate-900/10 bg-white px-2 py-1.5 text-xs text-slate-900 outline-none transition focus:border-slate-400 dark:border-white/10 dark:bg-slate-950/60 dark:text-white"
+                      >
+                        <option value="">Watch-only</option>
+                        @for (
+                          account of getAuthorizedAccounts(channel.platform);
+                          track account.id
+                        ) {
+                          <option [value]="account.id">{{ account.username }}</option>
+                        }
+                      </select>
                       @if (!channel.isAuthorized) {
                         <button
                           type="button"

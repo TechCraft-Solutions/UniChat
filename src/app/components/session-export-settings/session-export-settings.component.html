@@ -125,16 +125,20 @@
     </div>
 
     <!-- Preview -->
-    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20">
+    <div
+      class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"
+    >
       <p class="text-sm font-medium text-slate-700 dark:text-slate-300">Export Preview</p>
       <div class="mt-2 flex items-center gap-4 text-sm">
         <span class="text-slate-600 dark:text-slate-400">
-          <span class="font-semibold text-slate-900 dark:text-white">{{ preview().count }}</span> messages
+          <span class="font-semibold text-slate-900 dark:text-white">{{ preview().count }}</span>
+          messages
         </span>
         @for (count of preview().platforms | keyvalue; track count.key) {
           @if (count.value > 0) {
             <span class="text-slate-600 dark:text-slate-400">
-              <span class="font-semibold text-slate-900 dark:text-white">{{ count.value }}</span> {{ count.key }}
+              <span class="font-semibold text-slate-900 dark:text-white">{{ count.value }}</span>
+              {{ count.key }}
             </span>
           }
         }

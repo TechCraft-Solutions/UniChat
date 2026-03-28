@@ -1,23 +1,22 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  signal,
-  computed,
-} from "@angular/core";
+/* sys lib */
+import { UpperCasePipe, KeyValuePipe } from "@angular/common";
+import { ChangeDetectionStrategy, Component, inject, signal, computed } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { MatIconModule } from "@angular/material/icon";
 import { MatButtonModule } from "@angular/material/button";
+import { MatCheckboxModule } from "@angular/material/checkbox";
+import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatSelectModule } from "@angular/material/select";
-import { MatCheckboxModule } from "@angular/material/checkbox";
-import { UpperCasePipe, KeyValuePipe } from "@angular/common";
-import { SessionExportService } from "@services/ui/session-export.service";
-import { ChatListService } from "@services/data/chat-list.service";
+
+/* models */
 import { ChatMessage } from "@models/chat.model";
 
+/* services */
+import { ChatListService } from "@services/data/chat-list.service";
+import { SessionExportService } from "@services/ui/session-export.service";
 @Component({
   selector: "app-session-export-settings",
+  standalone: true,
   imports: [
     FormsModule,
     MatIconModule,
@@ -59,7 +58,7 @@ export class SessionExportSettingsComponent {
   toggleChannel(channelId: string): void {
     const current = this.selectedChannels();
     if (current.includes(channelId)) {
-      this.selectedChannels.set(current.filter(id => id !== channelId));
+      this.selectedChannels.set(current.filter((id) => id !== channelId));
     } else {
       this.selectedChannels.set([...current, channelId]);
     }
@@ -68,14 +67,14 @@ export class SessionExportSettingsComponent {
   togglePlatform(platform: ChatMessage["platform"]): void {
     const current = this.selectedPlatforms();
     if (current.includes(platform)) {
-      this.selectedPlatforms.set(current.filter(p => p !== platform));
+      this.selectedPlatforms.set(current.filter((p) => p !== platform));
     } else {
       this.selectedPlatforms.set([...current, platform]);
     }
   }
 
   selectAllChannels(): void {
-    this.selectedChannels.set(this.channels().map(c => c.channelId));
+    this.selectedChannels.set(this.channels().map((c) => c.channelId));
   }
 
   clearChannels(): void {

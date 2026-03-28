@@ -1,27 +1,18 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  signal,
-  computed,
-} from "@angular/core";
+/* sys lib */
+import { ChangeDetectionStrategy, Component, inject, signal, computed } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { MatIconModule } from "@angular/material/icon";
 import { MatButtonModule } from "@angular/material/button";
-import { MatInputModule } from "@angular/material/input";
 import { MatCheckboxModule } from "@angular/material/checkbox";
-import { HighlightRulesService, HighlightRule } from "@services/ui/highlight-rules.service";
-import { ChatListService } from "@services/data/chat-list.service";
+import { MatIconModule } from "@angular/material/icon";
+import { MatInputModule } from "@angular/material/input";
 
+/* services */
+import { ChatListService } from "@services/data/chat-list.service";
+import { HighlightRulesService, HighlightRule } from "@services/ui/highlight-rules.service";
 @Component({
   selector: "app-highlight-rules-settings",
-  imports: [
-    FormsModule,
-    MatIconModule,
-    MatButtonModule,
-    MatInputModule,
-    MatCheckboxModule,
-  ],
+  standalone: true,
+  imports: [FormsModule, MatIconModule, MatButtonModule, MatInputModule, MatCheckboxModule],
   templateUrl: "./highlight-rules-settings.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -30,7 +21,7 @@ export class HighlightRulesSettingsComponent {
   private readonly chatListService = inject(ChatListService);
 
   readonly rules = this.highlightRulesService.rules;
-  
+
   // Form state
   readonly newPattern = signal("");
   readonly newIsRegex = signal(false);
@@ -128,7 +119,7 @@ export class HighlightRulesSettingsComponent {
       // Editing mode
       const current = this.editingChannelIds();
       if (current.includes(channelId)) {
-        this.editingChannelIds.set(current.filter(id => id !== channelId));
+        this.editingChannelIds.set(current.filter((id) => id !== channelId));
       } else {
         this.editingChannelIds.set([...current, channelId]);
       }
@@ -136,7 +127,7 @@ export class HighlightRulesSettingsComponent {
       // Add mode
       const current = this.newChannelIds();
       if (current.includes(channelId)) {
-        this.newChannelIds.set(current.filter(id => id !== channelId));
+        this.newChannelIds.set(current.filter((id) => id !== channelId));
       } else {
         this.newChannelIds.set([...current, channelId]);
       }

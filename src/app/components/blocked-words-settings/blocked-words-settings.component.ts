@@ -1,27 +1,18 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  signal,
-  computed,
-} from "@angular/core";
+/* sys lib */
+import { ChangeDetectionStrategy, Component, inject, signal, computed } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { MatIconModule } from "@angular/material/icon";
 import { MatButtonModule } from "@angular/material/button";
-import { MatInputModule } from "@angular/material/input";
 import { MatCheckboxModule } from "@angular/material/checkbox";
-import { BlockedWordsService, BlockedWordRule } from "@services/ui/blocked-words.service";
-import { ChatListService } from "@services/data/chat-list.service";
+import { MatIconModule } from "@angular/material/icon";
+import { MatInputModule } from "@angular/material/input";
 
+/* services */
+import { ChatListService } from "@services/data/chat-list.service";
+import { BlockedWordsService, BlockedWordRule } from "@services/ui/blocked-words.service";
 @Component({
   selector: "app-blocked-words-settings",
-  imports: [
-    FormsModule,
-    MatIconModule,
-    MatButtonModule,
-    MatInputModule,
-    MatCheckboxModule,
-  ],
+  standalone: true,
+  imports: [FormsModule, MatIconModule, MatButtonModule, MatInputModule, MatCheckboxModule],
   templateUrl: "./blocked-words-settings.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -30,7 +21,7 @@ export class BlockedWordsSettingsComponent {
   private readonly chatListService = inject(ChatListService);
 
   readonly rules = this.blockedWordsService.rules;
-  
+
   // Form state
   readonly newPattern = signal("");
   readonly newIsRegex = signal(false);
@@ -115,7 +106,7 @@ export class BlockedWordsSettingsComponent {
       // Editing mode
       const current = this.editingChannelIds();
       if (current.includes(channelId)) {
-        this.editingChannelIds.set(current.filter(id => id !== channelId));
+        this.editingChannelIds.set(current.filter((id) => id !== channelId));
       } else {
         this.editingChannelIds.set([...current, channelId]);
       }
@@ -123,7 +114,7 @@ export class BlockedWordsSettingsComponent {
       // Add mode
       const current = this.newChannelIds();
       if (current.includes(channelId)) {
-        this.newChannelIds.set(current.filter(id => id !== channelId));
+        this.newChannelIds.set(current.filter((id) => id !== channelId));
       } else {
         this.newChannelIds.set([...current, channelId]);
       }
