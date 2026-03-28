@@ -1,18 +1,24 @@
+/* sys lib */
 import { Injectable, inject } from "@angular/core";
+import tmi from "tmi.js";
+
+/* models */
 import {
   ChatBadgeIcon,
+  ChatHistoryLoadState,
   ChatMessage,
   ChatMessageEmote,
-  ChatHistoryLoadState,
 } from "@models/chat.model";
-import { createMessageActionState } from "@helpers/chat.helper";
-import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
-import tmi from "tmi.js";
-import { IconsCatalogService } from "@services/ui/icons-catalog.service";
-import { EmoteUrlService } from "@services/ui/emote-url.service";
-import { ConnectionErrorService, ConnectionErrorCode } from "@services/core/connection-error.service";
-import { ConnectionStateService } from "@services/data/connection-state.service";
 
+/* services */
+import { ConnectionErrorService } from "@services/core/connection-error.service";
+import { ConnectionStateService } from "@services/data/connection-state.service";
+import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
+import { EmoteUrlService } from "@services/ui/emote-url.service";
+import { IconsCatalogService } from "@services/ui/icons-catalog.service";
+
+/* helpers */
+import { createMessageActionState } from "@helpers/chat.helper";
 export interface TwitchUserInfo {
   id: string;
   login: string;
@@ -140,7 +146,7 @@ export class TwitchChatService extends BaseChatProviderService {
     }
     this.emitStatus(normalizedChannel, "connecting");
 
-    const account = this.authorizationService.getAccount("twitch");
+    const account = this.resolveAccountForChannel(normalizedChannel);
     const client = new tmi.Client({
       options: {
         skipUpdatingEmotesets: true,
@@ -188,13 +194,15 @@ export class TwitchChatService extends BaseChatProviderService {
       // Handle Twitch room state changes (slow mode, followers-only, etc.)
       // Note: tmi.js uses string "0" or "-1" for slow mode, parse accordingly
       const slowValue = state.slow;
-      const slowModeWaitTime = typeof slowValue === "string" ? parseInt(slowValue, 10) : (slowValue ? 0 : undefined);
-      
+      const slowModeWaitTime =
+        typeof slowValue === "string" ? parseInt(slowValue, 10) : slowValue ? 0 : undefined;
+
       const followersValue = state["followers-only"];
       const isFollowersOnly = followersValue === true || followersValue === "0";
-      const followersOnlyMinutes = isFollowersOnly && typeof followersValue === "string" && followersValue !== "0" 
-        ? parseInt(followersValue, 10) 
-        : undefined;
+      const followersOnlyMinutes =
+        isFollowersOnly && typeof followersValue === "string" && followersValue !== "0"
+          ? parseInt(followersValue, 10)
+          : undefined;
 
       this.connectionStateService.updateRoomState(normalizedChannel, {
         isSlowMode: slowValue === true || (typeof slowValue === "string" && slowValue !== "0"),
@@ -246,7 +254,7 @@ export class TwitchChatService extends BaseChatProviderService {
       return false;
     }
 
-    const account = this.authorizationService.getAccount("twitch");
+    const account = this.resolveAccountForChannel(normalizedChannel);
     const hasAuthIdentity =
       account?.authStatus === "authorized" &&
       !!account.username?.trim() &&
@@ -298,6 +306,52 @@ export class TwitchChatService extends BaseChatProviderService {
       }
 
       this.errorService.reportNetworkError(normalizedChannel, `Send failed: ${message}`);
+      return false;
+    }
+  }
+
+  async sendReplyAsync(channelId: string, sourceMessageId: string, text: string): Promise<boolean> {
+    const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
+    const trimmed = text.trim();
+    if (!trimmed || !sourceMessageId) {
+      return false;
+    }
+
+    const account = this.resolveAccountForChannel(normalizedChannel);
+    const hasAuthIdentity =
+      account?.authStatus === "authorized" &&
+      !!account.username?.trim() &&
+      !!account.accessToken?.trim();
+    if (!hasAuthIdentity) {
+      this.errorService.reportAuthFailed(normalizedChannel);
+      return false;
+    }
+
+    if (!this.clientsByChannel.has(normalizedChannel)) {
+      this.connect(normalizedChannel);
+      await this.delay(700);
+    }
+
+    const client = this.clientsByChannel.get(normalizedChannel);
+    if (!client) {
+      return false;
+    }
+
+    try {
+      const replyCapable = client as tmi.Client & {
+        reply?: (channel: string, message: string, parentId: string) => Promise<unknown>;
+      };
+      if (typeof replyCapable.reply === "function") {
+        await replyCapable.reply(normalizedChannel, trimmed, sourceMessageId);
+      } else {
+        await client.say(normalizedChannel, trimmed);
+      }
+      return true;
+    } catch (error) {
+      this.errorService.reportNetworkError(
+        normalizedChannel,
+        `Reply failed: ${String(error ?? "unknown error")}`
+      );
       return false;
     }
   }
@@ -393,14 +447,10 @@ export class TwitchChatService extends BaseChatProviderService {
    */
   async fetchUserProfileImage(username: string): Promise<string | null> {
     try {
-      // Twitch profile images follow a predictable URL pattern
-      // This works without any API call
-      const cleanUsername = username.toLowerCase().trim();
-      if (!cleanUsername) {
-        return null;
-      }
-      // Return the Twitch CDN URL directly
-      return `https://static-cdn.jtvnw.net/jtv_user_pictures/${encodeURIComponent(cleanUsername)}-profile_image-300x300.png`;
+      const info =
+        (await this.fetchTwitchViewerCard(username, username)) ??
+        (await this.fetchUserInfo(username));
+      return info?.profile_image_url?.trim() ? info.profile_image_url : null;
     } catch {
       return null;
     }
@@ -412,14 +462,17 @@ export class TwitchChatService extends BaseChatProviderService {
    * @returns Basic user info with generated profile URL
    */
   async fetchUserInfo(username: string): Promise<TwitchUserInfo | null> {
-    // Don't make API call - just return basic info
-    // The profile image URL will be generated by fetchUserProfileImage
+    const viewerCard = await this.fetchTwitchViewerCard(username, username);
+    if (viewerCard) {
+      return viewerCard;
+    }
+
     return {
       id: "",
       login: username.toLowerCase(),
       display_name: username,
       description: "",
-      profile_image_url: `https://static-cdn.jtvnw.net/jtv_user_pictures/${encodeURIComponent(username.toLowerCase())}-profile_image-300x300.png`,
+      profile_image_url: "",
       offline_image_url: "",
       banner: null,
       created_at: "",
@@ -673,8 +726,8 @@ export class TwitchChatService extends BaseChatProviderService {
    * Fetch channel profile image from Twitch CDN (no auth required)
    */
   async fetchChannelProfileImage(channelLogin: string): Promise<string | null> {
-    // Use public CDN - no auth required
-    return `https://static-cdn.jtvnw.net/jtv_user_pictures/${encodeURIComponent(channelLogin.toLowerCase())}-profile_image-300x300.png`;
+    const info = await this.fetchUserInfo(channelLogin);
+    return info?.profile_image_url?.trim() ? info.profile_image_url : null;
   }
 
   // Unused for Twitch because action states are computed per message and role.
@@ -691,7 +744,10 @@ export class TwitchChatService extends BaseChatProviderService {
     message: string,
     self: boolean
   ): ChatMessage | null {
-    const account = this.authorizationService.getAccount("twitch");
+    const channel = this.chatListService
+      .getChannels("twitch")
+      .find((entry) => entry.channelId.toLowerCase() === channelName.toLowerCase());
+    const account = this.authorizationService.getAccountById(channel?.accountId);
     const badges = Object.keys(tags.badges ?? {});
     const author = tags["display-name"] || tags.username || "Anonymous";
     const sourceUserId = tags["user-id"] || tags.username || "unknown";
@@ -708,7 +764,7 @@ export class TwitchChatService extends BaseChatProviderService {
     const emotes = this.extractEmotes(normalizedText, tags, roomId);
     const badgeIcons = this.extractBadgeIcons(tags, roomId);
 
-    const canDelete = this.computeDeletePermission(account?.username, channelName, badges);
+    const canDelete = channel?.accountCapabilities?.canDelete === true;
 
     const tsRaw = tags["tmi-sent-ts"];
     let timestamp = new Date().toISOString();
@@ -720,9 +776,7 @@ export class TwitchChatService extends BaseChatProviderService {
     }
 
     // Build author avatar URL from Twitch CDN
-    const authorAvatarUrl = tags["user-id"]
-      ? `https://static-cdn.jtvnw.net/jtv_user_pictures/${encodeURIComponent(author.toLowerCase())}-profile_image-300x300.png`
-      : undefined;
+    const authorAvatarUrl = undefined;
 
     return {
       id: `msg-${sourceMessageId}`,
@@ -742,8 +796,10 @@ export class TwitchChatService extends BaseChatProviderService {
       actions: {
         reply: createMessageActionState(
           "reply",
-          account ? "available" : "disabled",
-          account ? undefined : "Need Twitch account authorized to reply."
+          account?.authStatus === "authorized" ? "available" : "disabled",
+          account?.authStatus === "authorized"
+            ? undefined
+            : "Need linked Twitch account authorized to reply."
         ),
         delete: createMessageActionState(
           "delete",
@@ -994,6 +1050,18 @@ export class TwitchChatService extends BaseChatProviderService {
     const isBroadcaster = authUsername.toLowerCase() === channelName.toLowerCase();
     const isModerator = badges.includes("broadcaster") || badges.includes("moderator");
     return isBroadcaster || isModerator;
+  }
+
+  private resolveAccountForChannel(channelName: string) {
+    const normalizedChannel = channelName.replace(/^#/, "").toLowerCase();
+    const channel = this.chatListService
+      .getChannels("twitch")
+      .find(
+        (entry) =>
+          entry.channelId.toLowerCase() === normalizedChannel ||
+          entry.channelName.toLowerCase() === normalizedChannel
+      );
+    return this.authorizationService.getAccountById(channel?.accountId);
   }
 
   private extractEmotes(

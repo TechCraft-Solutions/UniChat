@@ -1,9 +1,22 @@
+/* sys lib */
 import { Injectable, inject } from "@angular/core";
-import { createMessageActionState } from "@helpers/chat.helper";
-import { ChatMessageEmote } from "@models/chat.model";
-import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
 import { invoke } from "@tauri-apps/api/core";
-import { ConnectionErrorService, ConnectionErrorCode } from "@services/core/connection-error.service";
+
+/* models */
+import { ChatMessageEmote } from "@models/chat.model";
+
+/* services */
+import { ConnectionErrorService } from "@services/core/connection-error.service";
+import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
+
+/* helpers */
+import { createMessageActionState } from "@helpers/chat.helper";
+export interface KickUserInfo {
+  id: string;
+  username: string;
+  bio: string;
+  profile_pic_url: string;
+}
 
 @Injectable({
   providedIn: "root",
@@ -48,13 +61,11 @@ export class KickChatService extends BaseChatProviderService {
   }
 
   protected override getActionStates() {
-    const account = this.authorizationService.getAccount("kick");
-    const canReply = account?.authStatus === "authorized";
     return {
       reply: createMessageActionState(
         "reply",
-        canReply ? "available" : "disabled",
-        canReply ? undefined : "Need Kick account authorized to reply."
+        "disabled",
+        "Reply is available only through linked account actions."
       ),
       delete: createMessageActionState(
         "delete",
@@ -126,6 +137,35 @@ export class KickChatService extends BaseChatProviderService {
   }
 
   private async fetchChatroomId(channelSlug: string): Promise<number> {
+    // Try fetching from the browser context first (has fewer restrictions than server-side)
+    try {
+      const response = await fetch(`https://kick.com/api/v1/channels/${channelSlug}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          Referer: "https://kick.com/",
+        },
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as { id?: number; chatroom?: { id?: number } };
+        const chatroomId = data.chatroom?.id ?? data.id;
+        if (chatroomId) {
+          return chatroomId;
+        }
+      } else if (response.status === 404) {
+        this.errorService.reportChannelNotFound(channelSlug, "kick");
+        throw new Error(`Channel '${channelSlug}' not found on Kick`);
+      } else if (response.status === 401 || response.status === 403) {
+        // Fall back to Tauri backend command
+        console.warn(`[KickChat] Browser fetch failed with ${response.status}, trying backend...`);
+      }
+    } catch (browserError) {
+      console.warn(`[KickChat] Browser fetch failed:`, browserError);
+      // Continue to backend fallback
+    }
+
+    // Fallback: Try the Tauri backend command
     try {
       const chatroomId = await invoke<number>("kickFetchChatroomId", { channelSlug });
       if (!chatroomId) {
@@ -137,6 +177,22 @@ export class KickChatService extends BaseChatProviderService {
       const message = String(error ?? "");
       if (message.includes("404") || message.includes("not found")) {
         this.errorService.reportChannelNotFound(channelSlug, "kick");
+      } else if (
+        message.includes("401") ||
+        message.includes("403") ||
+        message.includes("authentication")
+      ) {
+        // For auth errors, provide a more helpful message
+        console.warn(
+          `[KickChat] API auth error for ${channelSlug}. Kick may require authentication.`
+        );
+        this.errorService.reportNetworkError(
+          channelSlug,
+          "Kick API requires authentication. Some features may be limited.",
+          false
+        );
+        // Still throw to allow WebSocket connection attempt with fallback
+        throw new Error(`Kick API unavailable: ${message}`);
       } else {
         this.errorService.reportNetworkError(channelSlug, "Failed to fetch channel info");
       }
@@ -239,9 +295,19 @@ export class KickChatService extends BaseChatProviderService {
     channelSlug: string,
     chatroomId: number
   ): Promise<void> {
-    // Kick history endpoints are blocked without auth/cookies.
-    // No-auth mode intentionally relies on live socket tracking + locally persisted history.
-    void chatroomId;
+    try {
+      const payloadRaw = await invoke<string>("kickFetchRecentMessages", {
+        channelSlug,
+        chatroomId,
+      });
+      const payload = JSON.parse(payloadRaw);
+      const messages = this.extractHistoryMessages(payload);
+      for (const message of messages.reverse()) {
+        this.ingestKickChatEventPayload(channelSlug, message);
+      }
+    } catch {
+      // History is optional; live websocket still continues.
+    }
   }
 
   private extractKickBracketEmotes(content: string): ChatMessageEmote[] {
@@ -361,8 +427,8 @@ export class KickChatService extends BaseChatProviderService {
     this.reconnectTimerByChannel.set(channelSlug, timerId);
   }
 
-  sendMessage(channelId: string, text: string): boolean {
-    const account = this.authorizationService.getAccount("kick");
+  sendMessage(channelId: string, text: string, accountId?: string): boolean {
+    const account = this.authorizationService.getAccountById(accountId);
     if (account?.authStatus !== "authorized" || !account.accessToken) {
       return false;
     }
@@ -407,5 +473,67 @@ export class KickChatService extends BaseChatProviderService {
       console.error("[KickChat] Error sending message:", message);
       return false;
     }
+  }
+
+  /**
+   * Fetch Kick user info (no authentication required)
+   * @param username - Kick username
+   * @returns User info with profile picture, bio, etc.
+   */
+  async fetchUserInfo(username: string): Promise<KickUserInfo | null> {
+    try {
+      // Try browser fetch first
+      const response = await fetch(`https://kick.com/api/v1/channels/${username}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          Referer: "https://kick.com/",
+        },
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as {
+          user?: { id?: number; username?: string; bio?: string; profile_pic?: string };
+        };
+        if (data.user) {
+          return {
+            id: String(data.user.id ?? ""),
+            username: data.user.username ?? username,
+            bio: data.user.bio ?? "",
+            profile_pic_url: data.user.profile_pic ?? "",
+          };
+        }
+      }
+
+      // Fallback to Tauri command
+      const userInfo = await invoke<KickUserInfo>("kickFetchUserInfo", { username });
+      return userInfo;
+    } catch (error) {
+      console.warn(`[KickChat] Failed to fetch user info for ${username}:`, error);
+      return null;
+    }
+  }
+
+  private extractHistoryMessages(payload: unknown): Record<string, unknown>[] {
+    if (Array.isArray(payload)) {
+      return payload.filter(
+        (item): item is Record<string, unknown> => !!item && typeof item === "object"
+      );
+    }
+
+    if (!payload || typeof payload !== "object") {
+      return [];
+    }
+
+    const rows =
+      (payload as Record<string, unknown>)["data"] ??
+      (payload as Record<string, unknown>)["messages"];
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+
+    return rows.filter(
+      (item): item is Record<string, unknown> => !!item && typeof item === "object"
+    );
   }
 }

@@ -1,13 +1,16 @@
+/* sys lib */
 import { Injectable, inject } from "@angular/core";
-import { PlatformType } from "@models/chat.model";
-import { TwitchChatService } from "@services/providers/twitch-chat.service";
-import { KickChatService } from "@services/providers/kick-chat.service";
-import { YouTubeChatService } from "@services/providers/youtube-chat.service";
-import { ChatListService } from "@services/data/chat-list.service";
-import { ChatChannel } from "@models/chat.model";
-import { ConnectionStateService } from "@services/data/connection-state.service";
-import { ChatStateManagerService } from "@services/data/chat-state-manager.service";
 
+/* models */
+import { ChatChannel, PlatformType } from "@models/chat.model";
+
+/* services */
+import { ChatListService } from "@services/data/chat-list.service";
+import { ChatStateManagerService } from "@services/data/chat-state-manager.service";
+import { ConnectionStateService } from "@services/data/connection-state.service";
+import { KickChatService } from "@services/providers/kick-chat.service";
+import { TwitchChatService } from "@services/providers/twitch-chat.service";
+import { YouTubeChatService } from "@services/providers/youtube-chat.service";
 @Injectable({
   providedIn: "root",
 })
@@ -115,12 +118,52 @@ export class ChatProviderCoordinatorService {
       }
       case "kick": {
         const channel = this.resolveChannel(channelId, platform);
-        return this.kickService.sendMessage(channel?.channelId ?? channelId, text);
+        return this.kickService.sendMessage(
+          channel?.channelId ?? channelId,
+          text,
+          channel?.accountId
+        );
       }
       case "youtube": {
         const channel = this.resolveChannel(channelId, platform);
-        return this.youtubeService.sendMessage(channel?.channelId ?? channelId, text);
+        return this.youtubeService.sendMessage(
+          channel?.channelId ?? channelId,
+          text,
+          channel?.accountId
+        );
       }
+      default:
+        return false;
+    }
+  }
+
+  async sendReply(
+    channelId: string,
+    platform: PlatformType,
+    sourceMessageId: string,
+    text: string
+  ): Promise<boolean> {
+    const channel = this.resolveChannel(channelId, platform);
+
+    switch (platform) {
+      case "twitch":
+        return this.twitchService.sendReplyAsync(
+          channel?.channelName ?? channelId,
+          sourceMessageId,
+          text
+        );
+      case "kick":
+        return this.kickService.sendMessage(
+          channel?.channelId ?? channelId,
+          text,
+          channel?.accountId
+        );
+      case "youtube":
+        return this.youtubeService.sendMessage(
+          channel?.channelId ?? channelId,
+          text,
+          channel?.accountId
+        );
       default:
         return false;
     }
@@ -134,7 +177,11 @@ export class ChatProviderCoordinatorService {
     switch (platform) {
       case "youtube": {
         const channel = this.resolveChannel(channelId, platform);
-        return this.youtubeService.deleteMessage(channel?.channelId ?? channelId, messageId);
+        return this.youtubeService.deleteMessage(
+          channel?.channelId ?? channelId,
+          messageId,
+          channel?.accountId
+        );
       }
       default:
         return false;

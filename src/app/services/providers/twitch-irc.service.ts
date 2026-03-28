@@ -1,9 +1,13 @@
+/* sys lib */
 import { Injectable, inject } from "@angular/core";
-import { ChatMessage } from "@models/chat.model";
-import { AuthorizationService } from "@services/features/authorization.service";
-import { ChatStorageService } from "@services/data/chat-storage.service";
 import tmi from "tmi.js";
 
+/* models */
+import { ChatMessage } from "@models/chat.model";
+
+/* services */
+import { ChatStorageService } from "@services/data/chat-storage.service";
+import { AuthorizationService } from "@services/features/authorization.service";
 export type TwitchConnectionStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
 
 /**
@@ -28,16 +32,17 @@ export class TwitchIrcService {
   private readonly statusListeners = new Set<
     (channelId: string, status: TwitchConnectionStatus) => void
   >();
-  private readonly messageListeners = new Set<
-    (channelId: string, message: ChatMessage) => void
-  >();
+  private readonly messageListeners = new Set<(channelId: string, message: ChatMessage) => void>();
 
   /**
    * Connect to a Twitch channel's IRC chat
    */
-  connect(channelId: string, buildMessage: (tags: tmi.ChatUserstate, message: string, self: boolean) => ChatMessage | null): void {
+  connect(
+    channelId: string,
+    buildMessage: (tags: tmi.ChatUserstate, message: string, self: boolean) => ChatMessage | null
+  ): void {
     const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
-    
+
     if (!normalizedChannel || this.clientsByChannel.has(normalizedChannel)) {
       return;
     }
@@ -61,27 +66,30 @@ export class TwitchIrcService {
     });
 
     // Message handler
-    client.on("message", (_channel: string, tags: tmi.ChatUserstate, message: string, self: boolean) => {
-      const messageModel = buildMessage(tags, message, self);
-      if (messageModel) {
-        this.chatStorageService.addMessage(normalizedChannel, messageModel);
-        
-        // Notify message listeners
-        for (const listener of this.messageListeners) {
-          listener(normalizedChannel, messageModel);
+    client.on(
+      "message",
+      (_channel: string, tags: tmi.ChatUserstate, message: string, self: boolean) => {
+        const messageModel = buildMessage(tags, message, self);
+        if (messageModel) {
+          this.chatStorageService.addMessage(normalizedChannel, messageModel);
+
+          // Notify message listeners
+          for (const listener of this.messageListeners) {
+            listener(normalizedChannel, messageModel);
+          }
         }
       }
-    });
+    );
 
     // Connection status handlers
     client.on("connected", () => {
       this.emitStatus(normalizedChannel, "connected");
     });
-    
+
     client.on("disconnected", () => {
       this.emitStatus(normalizedChannel, "disconnected");
     });
-    
+
     client.on("reconnect", () => {
       this.emitStatus(normalizedChannel, "reconnecting");
     });
@@ -96,12 +104,12 @@ export class TwitchIrcService {
   disconnect(channelId: string): void {
     const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
     const client = this.clientsByChannel.get(normalizedChannel);
-    
+
     if (client) {
       void client.disconnect();
       this.clientsByChannel.delete(normalizedChannel);
     }
-    
+
     this.emitStatus(normalizedChannel, "disconnected");
   }
 
@@ -119,7 +127,7 @@ export class TwitchIrcService {
   async sendMessage(channelId: string, text: string): Promise<boolean> {
     const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
     const trimmed = text.trim();
-    
+
     if (!trimmed) {
       return false;
     }
@@ -129,7 +137,7 @@ export class TwitchIrcService {
       account?.authStatus === "authorized" &&
       !!account.username?.trim() &&
       !!account.accessToken?.trim();
-    
+
     if (!hasAuthIdentity) {
       return false;
     }
@@ -150,7 +158,7 @@ export class TwitchIrcService {
       return true;
     } catch (error) {
       const message = String(error ?? "");
-      
+
       // Handle "not connected" errors with reconnect
       if (
         message.toLowerCase().includes("anonymous") ||
@@ -159,7 +167,7 @@ export class TwitchIrcService {
         this.disconnect(normalizedChannel);
         this.connect(normalizedChannel, () => null);
         await this.delay(900);
-        
+
         client = this.clientsByChannel.get(normalizedChannel);
         if (!client) {
           return false;
@@ -181,7 +189,9 @@ export class TwitchIrcService {
    * Register a status change listener
    * Returns cleanup function
    */
-  onStatusChange(listener: (channelId: string, status: TwitchConnectionStatus) => void): () => void {
+  onStatusChange(
+    listener: (channelId: string, status: TwitchConnectionStatus) => void
+  ): () => void {
     this.statusListeners.add(listener);
     return () => {
       this.statusListeners.delete(listener);
@@ -214,6 +224,6 @@ export class TwitchIrcService {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

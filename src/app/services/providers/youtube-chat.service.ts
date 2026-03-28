@@ -1,12 +1,16 @@
+/* sys lib */
 import { Injectable, inject } from "@angular/core";
-import { ChatMessage, ChatMessageEmote, MessageAction } from "@models/chat.model";
-import { createMessageActionState } from "@helpers/chat.helper";
-import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
 import { invoke } from "@tauri-apps/api/core";
-import { ConnectionErrorService, ConnectionErrorCode } from "@services/core/connection-error.service";
 
-type YoutubeTarget = { kind: "channel"; channelId: string } | { kind: "video"; videoId: string };
+/* models */
+import { ChatMessage } from "@models/chat.model";
 
+/* services */
+import { ConnectionErrorService } from "@services/core/connection-error.service";
+import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
+
+/* helpers */
+import { createMessageActionState } from "@helpers/chat.helper";
 interface YouTubeChatApiResponse {
   items?: Array<{
     id: string;
@@ -56,18 +60,16 @@ export class YouTubeChatService extends BaseChatProviderService {
   }
 
   protected override getActionStates() {
-    const account = this.authorizationService.getAccount("youtube");
-    const canReply = account?.authStatus === "authorized";
     return {
       reply: createMessageActionState(
         "reply",
-        canReply ? "available" : "disabled",
-        canReply ? undefined : "Need YouTube account authorized to reply."
+        "disabled",
+        "Reply is available only through linked account actions."
       ),
       delete: createMessageActionState(
         "delete",
-        canReply ? "available" : "disabled",
-        canReply ? undefined : "Need YouTube account authorized to delete messages."
+        "disabled",
+        "Delete requires verified moderation for this channel."
       ),
     };
   }
@@ -77,30 +79,11 @@ export class YouTubeChatService extends BaseChatProviderService {
     this.pollAbortByChannel.set(storageKey, abortController);
 
     try {
-      const target = await this.resolveYoutubeTarget(storageKey);
-      if (!target) {
+      const videoId = this.normalizeVideoId(storageKey);
+      if (!videoId) {
         console.warn(`[YouTubeChat] Could not resolve target for ${storageKey}`);
+        this.errorService.reportChannelNotFound(storageKey, "youtube");
         return;
-      }
-
-      let videoId: string;
-      if (target.kind === "video") {
-        videoId = target.videoId;
-      } else {
-        try {
-          videoId = await invoke<string>("youtubeGetLiveVideoId", {
-            channelHandle: target.channelId,
-          });
-        } catch (error) {
-          console.warn(`[YouTubeChat] No live video found for channel ${target.channelId}`);
-          this.errorService.reportNetworkError(storageKey, "No live stream found");
-          return;
-        }
-        if (!videoId) {
-          console.warn(`[YouTubeChat] No live video found for channel ${target.channelId}`);
-          this.errorService.reportChannelNotFound(storageKey, "youtube");
-          return;
-        }
       }
 
       await this.drainLiveChat(videoId, storageKey, abortController.signal);
@@ -112,24 +95,9 @@ export class YouTubeChatService extends BaseChatProviderService {
     }
   }
 
-  private async resolveYoutubeTarget(canonicalKey: string): Promise<YoutubeTarget | null> {
-    if (canonicalKey.startsWith("v:")) {
-      return { kind: "video", videoId: canonicalKey.slice(2) };
-    }
-
-    if (/^UC[\w-]{22}$/i.test(canonicalKey)) {
-      return { kind: "channel", channelId: canonicalKey };
-    }
-
-    if (/^[a-zA-Z0-9_-]{11}$/.test(canonicalKey)) {
-      return { kind: "video", videoId: canonicalKey };
-    }
-
-    if (canonicalKey.startsWith("@")) {
-      return { kind: "channel", channelId: canonicalKey };
-    }
-
-    return { kind: "channel", channelId: canonicalKey };
+  private normalizeVideoId(raw: string): string {
+    const trimmed = raw.trim().replace(/^v:/i, "");
+    return /^[a-zA-Z0-9_-]{11}$/.test(trimmed) ? trimmed : "";
   }
 
   private async drainLiveChat(
@@ -201,7 +169,7 @@ export class YouTubeChatService extends BaseChatProviderService {
       } catch (error) {
         console.error("[YouTubeChat] Error fetching messages:", error);
         consecutiveErrors++;
-        
+
         // Report error after consecutive failures
         if (consecutiveErrors >= 2) {
           this.errorService.reportNetworkError(
@@ -210,7 +178,7 @@ export class YouTubeChatService extends BaseChatProviderService {
             true
           );
         }
-        
+
         this.nextPageTokenByChannel.delete(storageKey);
         await this.delay(5000, signal).catch(() => undefined);
       }
@@ -228,8 +196,8 @@ export class YouTubeChatService extends BaseChatProviderService {
     });
   }
 
-  sendMessage(channelId: string, text: string): boolean {
-    const account = this.authorizationService.getAccount("youtube");
+  sendMessage(channelId: string, text: string, accountId?: string): boolean {
+    const account = this.authorizationService.getAccountById(accountId);
     if (account?.authStatus !== "authorized" || !account.accessToken) {
       return false;
     }
@@ -237,8 +205,8 @@ export class YouTubeChatService extends BaseChatProviderService {
     return true;
   }
 
-  async deleteMessage(channelId: string, messageId: string): Promise<boolean> {
-    const account = this.authorizationService.getAccount("youtube");
+  async deleteMessage(channelId: string, messageId: string, accountId?: string): Promise<boolean> {
+    const account = this.authorizationService.getAccountById(accountId);
     if (account?.authStatus !== "authorized" || !account.accessToken) {
       return false;
     }
@@ -256,25 +224,9 @@ export class YouTubeChatService extends BaseChatProviderService {
     }
 
     try {
-      const target = await this.resolveYoutubeTarget(channelId);
-      if (!target) {
+      const videoId = this.normalizeVideoId(channelId);
+      if (!videoId) {
         return false;
-      }
-
-      let videoId: string;
-      if (target.kind === "video") {
-        videoId = target.videoId;
-      } else {
-        try {
-          videoId = await invoke<string>("youtubeGetLiveVideoId", {
-            channelHandle: target.channelId,
-          });
-        } catch {
-          return false;
-        }
-        if (!videoId) {
-          return false;
-        }
       }
 
       const liveChatId = await invoke<string>("youtubeFetchLiveChatId", {
@@ -305,25 +257,9 @@ export class YouTubeChatService extends BaseChatProviderService {
     accessToken: string
   ): Promise<boolean> {
     try {
-      const target = await this.resolveYoutubeTarget(channelId);
-      if (!target) {
+      const videoId = this.normalizeVideoId(channelId);
+      if (!videoId) {
         return false;
-      }
-
-      let videoId: string;
-      if (target.kind === "video") {
-        videoId = target.videoId;
-      } else {
-        try {
-          videoId = await invoke<string>("youtubeGetLiveVideoId", {
-            channelHandle: target.channelId,
-          });
-        } catch {
-          return false;
-        }
-        if (!videoId) {
-          return false;
-        }
       }
 
       const liveChatId = await invoke<string>("youtubeFetchLiveChatId", {
@@ -335,7 +271,7 @@ export class YouTubeChatService extends BaseChatProviderService {
       }
 
       await invoke<string>("youtubeDeleteMessage", {
-        messageId: `${liveChatId}/${messageId}`,
+        messageId,
         accessToken,
       });
 

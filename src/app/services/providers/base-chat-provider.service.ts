@@ -1,10 +1,17 @@
+/* sys lib */
 import { inject, Injectable } from "@angular/core";
-import { ChatMessage, MessageType, PlatformType } from "@models/chat.model";
-import { createMessageActionState } from "@helpers/chat.helper";
+
+/* models */
+import { ChatMessage, PlatformType } from "@models/chat.model";
+
+/* services */
+import { ChatListService } from "@services/data/chat-list.service";
 import { ChatStorageService } from "@services/data/chat-storage.service";
 import { AuthorizationService } from "@services/features/authorization.service";
 import { MessageTypeDetectorService } from "@services/ui/message-type-detector.service";
 
+/* helpers */
+import { createMessageActionState, getChannelAccountCapabilities } from "@helpers/chat.helper";
 export interface PlatformChatConfig {
   server?: string;
   port?: number;
@@ -16,6 +23,7 @@ export interface PlatformChatConfig {
 })
 export abstract class BaseChatProviderService {
   protected readonly chatStorageService = inject(ChatStorageService);
+  protected readonly chatListService = inject(ChatListService);
   protected readonly authorizationService = inject(AuthorizationService);
   protected readonly messageTypeDetector = inject(MessageTypeDetectorService);
 
@@ -49,6 +57,11 @@ export abstract class BaseChatProviderService {
     const sourceMessageId = data.sourceMessageId ?? `${this.platform}-${channelId}-${Date.now()}`;
     const messageId = data.id ?? sourceMessageId;
     const actionStates = this.getActionStates();
+    const channel = this.chatListService
+      .getChannels(this.platform)
+      .find((entry) => entry.channelId === channelId);
+    const account = this.authorizationService.getAccountById(channel?.accountId);
+    const capabilities = channel ? getChannelAccountCapabilities(channel, account) : undefined;
 
     const baseMessage: ChatMessage = {
       id: messageId,
@@ -66,8 +79,20 @@ export abstract class BaseChatProviderService {
       canRenderInOverlay: data.canRenderInOverlay ?? true,
       replyToMessageId: data.replyToMessageId,
       actions: {
-        reply: data.actions?.reply ?? actionStates.reply,
-        delete: data.actions?.delete ?? actionStates.delete,
+        reply:
+          data.actions?.reply ??
+          createMessageActionState(
+            "reply",
+            capabilities?.canReply ? "available" : actionStates.reply.status,
+            capabilities?.canReply ? undefined : actionStates.reply.reason
+          ),
+        delete:
+          data.actions?.delete ??
+          createMessageActionState(
+            "delete",
+            capabilities?.canDelete ? "available" : actionStates.delete.status,
+            capabilities?.canDelete ? undefined : actionStates.delete.reason
+          ),
       },
       rawPayload: data.rawPayload ?? {
         providerEvent: this.getProviderEventName(),

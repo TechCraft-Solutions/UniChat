@@ -1,7 +1,11 @@
+/* sys lib */
 import { Injectable, inject } from "@angular/core";
-import { ChatMessageEmote } from "@models/chat.model";
-import { EmoteUrlService } from "@services/ui/emote-url.service";
 
+/* models */
+import { ChatMessageEmote } from "@models/chat.model";
+
+/* services */
+import { EmoteUrlService } from "@services/ui/emote-url.service";
 /**
  * Twitch Emotes Service - Emote Parsing and Resolution
  *
@@ -146,7 +150,7 @@ export class TwitchEmotesService {
    * Calculate emote display range for message rendering
    */
   getEmoteRanges(emotes: ChatMessageEmote[]): Array<{ start: number; end: number; url: string }> {
-    return emotes.map(emote => ({
+    return emotes.map((emote) => ({
       start: emote.start,
       end: emote.end,
       url: emote.url,

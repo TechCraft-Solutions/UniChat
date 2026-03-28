@@ -1,8 +1,12 @@
+/* sys lib */
 import { Injectable, inject } from "@angular/core";
-import { ChatMessage } from "@models/chat.model";
-import { ChatStorageService } from "@services/data/chat-storage.service";
-import { ConnectionErrorService } from "@services/core/connection-error.service";
 
+/* models */
+import { ChatMessage } from "@models/chat.model";
+
+/* services */
+import { ConnectionErrorService } from "@services/core/connection-error.service";
+import { ChatStorageService } from "@services/data/chat-storage.service";
 /**
  * Twitch History Service - Chat History Loading
  *
@@ -29,22 +33,24 @@ export class TwitchHistoryService {
    */
   async loadHistory(channelName: string, count: number = 100): Promise<ChatMessage[]> {
     const normalized = channelName.replace(/^#/, "").toLowerCase();
-    const allMessages = await this.fetchRobottyHistoryForChannel(normalized, Math.ceil(count / 800) + 1);
+    const allMessages = await this.fetchRobottyHistoryForChannel(
+      normalized,
+      Math.ceil(count / 800) + 1
+    );
 
     // Get existing messages to avoid duplicates
     const existingMessages = this.chatStorageService.getMessagesByChannel(normalized);
-    const existingIds = new Set(existingMessages.map(m => m.id));
-    const newMessages = allMessages.filter(m => !existingIds.has(m.id));
+    const existingIds = new Set(existingMessages.map((m) => m.id));
+    const newMessages = allMessages.filter((m) => !existingIds.has(m.id));
 
     // Update history load state
     const hasMore = allMessages.length >= count;
     this.chatStorageService.setHistoryLoadState(normalized, {
       loaded: true,
       hasMore,
-      oldestMessageTimestamp: newMessages.length > 0 
-        ? newMessages[newMessages.length - 1]?.timestamp 
-        : undefined,
-      });
+      oldestMessageTimestamp:
+        newMessages.length > 0 ? newMessages[newMessages.length - 1]?.timestamp : undefined,
+    });
 
     return newMessages;
   }
@@ -61,7 +67,7 @@ export class TwitchHistoryService {
    */
   async fetchUserMessages(channelLogin: string, twitchUserId: string): Promise<ChatMessage[]> {
     const all = await this.fetchRobottyHistoryForChannel(channelLogin);
-    return all.filter(m => m.sourceUserId === twitchUserId);
+    return all.filter((m) => m.sourceUserId === twitchUserId);
   }
 
   /**
@@ -90,7 +96,7 @@ export class TwitchHistoryService {
         const res = await fetch(url.toString());
         if (!res.ok) {
           console.warn(`[TwitchHistory] Failed to fetch from Robotty: ${res.status}`);
-          
+
           if (res.status === 404) {
             this.errorService.reportChannelNotFound(channelLogin, "twitch");
           } else if (res.status >= 500) {
@@ -105,7 +111,7 @@ export class TwitchHistoryService {
 
         const data = (await res.json()) as { messages?: string[] };
         const lines = data.messages;
-        
+
         if (!Array.isArray(lines) || lines.length === 0) {
           break;
         }
