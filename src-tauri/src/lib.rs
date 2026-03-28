@@ -10,6 +10,7 @@ pub mod services;
 
 use std::sync::Arc;
 use tauri::Manager;
+use tracing::{error, info};
 
 use crate::routes::auth_provider_route::{
   authAwaitCallback, authComplete, authDisconnect, authStart, authStatus,
@@ -44,20 +45,27 @@ pub struct AppState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  info!("🏗️  Initializing Tauri application...");
+
   tauri::Builder::default()
     .plugin(tauri_plugin_opener::init())
     .plugin(tauri_plugin_deep_link::init())
     .setup(|app| {
+      info!("⚙️  Setting up application state...");
+
       let frontend_dist_dir = resolve_frontend_dist_dir();
 
       // Initialize overlay server
       let overlay_server = Arc::new(OverlayServerService::new(frontend_dist_dir));
+      info!("📡 Overlay server initialized");
 
       // Initialize message filter service
       let message_filter = Arc::new(MessageFilterService::new());
+      info!("🔧 Message filter service initialized");
 
       // Initialize message router service (will be wired to overlay server after start)
       let message_router = Arc::new(MessageRouterService::new(1000, None));
+      info!("📨 Message router service initialized");
 
       app.manage(AppState {
         oauthProviderService: Arc::new(OAuthProviderService::new()),
@@ -65,7 +73,20 @@ pub fn run() {
         messageRouterService: message_router,
         messageFilterService: message_filter,
       });
+      info!("✅ Application state managed");
+
       Ok(())
+    })
+    .on_window_event(|window, event| match event {
+      tauri::WindowEvent::CloseRequested { .. } => {
+        info!("🚪 Window close requested");
+      }
+      tauri::WindowEvent::Focused(focused) => {
+        if *focused {
+          info!("👁️  Window focused");
+        }
+      }
+      _ => {}
     })
     .invoke_handler(tauri::generate_handler![
       connectPlatform,
