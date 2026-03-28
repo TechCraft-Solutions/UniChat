@@ -98,13 +98,12 @@ impl OAuthProviderService {
     let token = self
       .exchangeCode(&platform, code, &session.code_verifier, &config)
       .await?;
-    self.tokenVaultService.saveToken(&platform, &token)?;
-
     let (username, userId) = self.fetchIdentity(&platform, &token, &config).await?;
     let expiresAt = token
       .expires_in_seconds
       .map(|seconds| (Utc::now() + Duration::seconds(seconds)).to_rfc3339());
     let account = AuthAccountModel {
+      id: format!("acc-{}-{}", platform.asKey(), userId),
       platform: platform.clone(),
       username,
       user_id: userId,
@@ -114,28 +113,40 @@ impl OAuthProviderService {
       token_expires_at: expiresAt,
       authorized_at: Utc::now().to_rfc3339(),
     };
+    self.tokenVaultService.upsertAccount(&account)?;
+    self.tokenVaultService.saveToken(&account, &token)?;
 
     let mut guard = self
       .accountStore
       .lock()
       .map_err(|_| "account store lock poisoned".to_string())?;
-    guard.insert(platform.asKey().to_string(), account.clone());
+    guard.insert(account.id.clone(), account.clone());
     Ok(account)
   }
 
   pub fn getAuthStatus(
     &self,
     platform: PlatformTypeModel,
-  ) -> Result<Option<AuthAccountModel>, String> {
-    let guard = self
+  ) -> Result<Vec<AuthAccountModel>, String> {
+    let saved = self.tokenVaultService.readAccounts(&platform)?;
+    let mut guard = self
       .accountStore
       .lock()
       .map_err(|_| "account store lock poisoned".to_string())?;
-    Ok(guard.get(platform.asKey()).cloned())
+
+    for account in &saved {
+      guard.insert(account.id.clone(), account.clone());
+    }
+
+    Ok(saved)
   }
 
-  pub async fn disconnect(&self, platform: PlatformTypeModel) -> Result<(), String> {
-    let token = self.tokenVaultService.readToken(&platform)?;
+  pub async fn disconnect(
+    &self,
+    platform: PlatformTypeModel,
+    account_id: String,
+  ) -> Result<(), String> {
+    let token = self.tokenVaultService.readToken(&platform, &account_id)?;
     if let Some(savedToken) = token {
       let config = getOAuthProviderConfig(&platform)?;
       if let Some(revokeUrl) = config.revoke_url {
@@ -146,21 +157,19 @@ impl OAuthProviderService {
         if let Some(ref secret) = config.client_secret {
           form.push(("client_secret", secret));
         }
-        let _ = self
-          .http
-          .post(revokeUrl)
-          .form(&form)
-          .send()
-          .await;
+        let _ = self.http.post(revokeUrl).form(&form).send().await;
       }
     }
 
-    self.tokenVaultService.deleteToken(&platform)?;
+    self.tokenVaultService.deleteToken(&platform, &account_id)?;
+    self
+      .tokenVaultService
+      .removeAccount(&platform, &account_id)?;
     let mut guard = self
       .accountStore
       .lock()
       .map_err(|_| "account store lock poisoned".to_string())?;
-    guard.remove(platform.asKey());
+    guard.remove(&account_id);
     Ok(())
   }
 

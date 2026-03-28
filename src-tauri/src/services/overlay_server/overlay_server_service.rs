@@ -328,6 +328,7 @@ async fn handle_overlay_source(ws: WebSocket, state: OverlayServerState) {
                 is_supporter: message.is_supporter,
                 source_channel_id: message.source_channel_id,
                 author_avatar_url: message.author_avatar_url,
+                channel_image_url: None, // Will be fetched by frontend
                 emotes: message.emotes,
               };
               state.broadcast_overlay_message(overlay_message).await;
