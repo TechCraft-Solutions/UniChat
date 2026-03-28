@@ -1,8 +1,25 @@
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
+use tracing::{debug, info, warn};
 
 use crate::models::chat_message_model::ChatMessageModel;
 use crate::models::overlay_message_model::OverlayMessageModel;
+use crate::models::provider_contract_model::PlatformTypeModel;
+
+// Import PlatformKey trait for asKey() method
+trait PlatformKey {
+  fn asKey(&self) -> &'static str;
+}
+
+impl PlatformKey for PlatformTypeModel {
+  fn asKey(&self) -> &'static str {
+    match self {
+      PlatformTypeModel::Twitch => "twitch",
+      PlatformTypeModel::Kick => "kick",
+      PlatformTypeModel::Youtube => "youtube",
+    }
+  }
+}
 
 /// Overlay server handle trait for message router
 #[axum::async_trait]
@@ -79,11 +96,20 @@ impl MessageRouterService {
     let message_arc = Arc::new(message.clone());
 
     // 1. Broadcast to app feed (Angular consumers)
-    let _ = self.app_feed_tx.send(message_arc);
+    let feed_count = self.app_feed_tx.receiver_count();
+    if feed_count > 0 {
+      let _ = self.app_feed_tx.send(message_arc.clone());
+      debug!("📨 Routed message to {} app feed subscriber(s)", feed_count);
+    }
 
     // 2. Broadcast to overlay server (OBS browser sources)
     if let Some(ref overlay) = self.overlay_server {
       let widget_id = self.get_widget_id().await;
+      
+      // Capture values for logging before move
+      let platform_key = message.platform.asKey();
+      let author_ref = message.author.clone();
+      let text_preview = message.text.chars().take(50).collect::<String>();
 
       // Convert to overlay format
       let overlay_message = OverlayMessageModel {
@@ -96,7 +122,7 @@ impl MessageRouterService {
           }
         },
         author: message.author,
-        text: message.text,
+        text: message.text.clone(),
         timestamp: message.timestamp,
         is_supporter: message.is_supporter,
         source_channel_id: message.source_channel_id,
@@ -107,8 +133,11 @@ impl MessageRouterService {
 
       // Broadcast to overlay subscribers
       overlay
-        .broadcast_overlay_message(widget_id, overlay_message)
+        .broadcast_overlay_message(widget_id.clone(), overlay_message)
         .await;
+      
+      debug!("📺 Routed message to overlay widget: {}", widget_id);
+      info!("✅ Message routed: {} from {} on {}", text_preview, author_ref, platform_key);
     }
 
     Ok(())

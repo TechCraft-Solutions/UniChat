@@ -3,6 +3,7 @@ use crate::models::provider_contract_model::{
   ProviderCommandResultModel,
 };
 use crate::services::provider_capability_service::getProviderCapabilities;
+use tracing::{debug, info};
 
 fn disconnectedCapabilities() -> ProviderCapabilitiesModel {
   ProviderCapabilitiesModel {
@@ -19,13 +20,17 @@ pub fn connectPlatform(
   credentials_or_channel: Option<String>,
 ) -> ProviderCommandResultModel {
   let capabilities = getProviderCapabilities(&platform, &connection_mode);
+  let target = credentials_or_channel.unwrap_or_else(|| "default target".to_string());
+  
+  info!("📡 Connecting to {} platform with mode: {:?}", platform.asKey(), connection_mode);
+  debug!("📝 Connection target: {}", target);
 
   ProviderCommandResultModel {
     platform,
     connection_mode: Some(connection_mode),
     summary: format!(
       "Prepared provider session for {}.",
-      credentials_or_channel.unwrap_or_else(|| "default target".to_string())
+      target
     ),
     capabilities,
   }
@@ -33,6 +38,8 @@ pub fn connectPlatform(
 
 #[tauri::command]
 pub fn disconnectPlatform(platform: PlatformTypeModel) -> ProviderCommandResultModel {
+  info!("📴 Disconnecting from {} platform", platform.asKey());
+  
   ProviderCommandResultModel {
     platform,
     connection_mode: None,
@@ -47,6 +54,7 @@ pub fn listenPlatformMessages(
   connection_mode: ConnectionModeModel,
 ) -> ProviderCommandResultModel {
   let capabilities = getProviderCapabilities(&platform, &connection_mode);
+  debug!("📻 Listening for messages on {} platform", platform.asKey());
 
   ProviderCommandResultModel {
     platform,
