@@ -13,11 +13,13 @@ pub struct OAuthProviderConfig {
   pub redirect_uri: String,
 }
 
-pub fn getOAuthProviderConfig(platform: &PlatformTypeModel) -> Result<OAuthProviderConfig, String> {
+pub fn get_oauth_provider_config(
+  platform: &PlatformTypeModel,
+) -> Result<OAuthProviderConfig, String> {
   match platform {
     PlatformTypeModel::Twitch => Ok(OAuthProviderConfig {
-      client_id: readRequired("TWITCH_CLIENT_ID")?,
-      client_secret: readValue("TWITCH_CLIENT_SECRET"),
+      client_id: read_required("TWITCH_CLIENT_ID")?,
+      client_secret: read_value("TWITCH_CLIENT_SECRET"),
       authorize_url: "https://id.twitch.tv/oauth2/authorize".to_string(),
       token_url: "https://id.twitch.tv/oauth2/token".to_string(),
       userinfo_url: "https://api.twitch.tv/helix/users".to_string(),
@@ -27,42 +29,42 @@ pub fn getOAuthProviderConfig(platform: &PlatformTypeModel) -> Result<OAuthProvi
         "chat:edit".to_string(),
         "moderator:manage:banned_users".to_string(),
       ],
-      redirect_uri: readOrDefault(
+      redirect_uri: read_or_default(
         "UNICHAT_OAUTH_REDIRECT_URI",
         "http://localhost:3456/callback".to_string(),
       ),
     }),
     PlatformTypeModel::Kick => Ok(OAuthProviderConfig {
-      client_id: readRequired("KICK_CLIENT_ID")?,
-      client_secret: readValue("KICK_CLIENT_SECRET"),
-      authorize_url: readOrDefault(
+      client_id: read_required("KICK_CLIENT_ID")?,
+      client_secret: read_value("KICK_CLIENT_SECRET"),
+      authorize_url: read_or_default(
         "KICK_AUTHORIZE_URL",
         "https://id.kick.com/oauth/authorize".to_string(),
       ),
-      token_url: readOrDefault(
+      token_url: read_or_default(
         "KICK_TOKEN_URL",
         "https://id.kick.com/oauth/token".to_string(),
       ),
-      userinfo_url: readOrDefault(
+      userinfo_url: read_or_default(
         "KICK_USERINFO_URL",
         "https://api.kick.com/public/v1/users".to_string(),
       ),
-      revoke_url: Some(readOrDefault(
+      revoke_url: Some(read_or_default(
         "KICK_REVOKE_URL",
         "https://id.kick.com/oauth/revoke".to_string(),
       )),
-      scopes: vec![readOrDefault(
+      scopes: vec![read_or_default(
         "KICK_SCOPES",
         "chat:read chat:write".to_string(),
       )],
-      redirect_uri: readOrDefault(
+      redirect_uri: read_or_default(
         "UNICHAT_OAUTH_REDIRECT_URI",
         "http://localhost:3456/callback".to_string(),
       ),
     }),
     PlatformTypeModel::Youtube => Ok(OAuthProviderConfig {
-      client_id: readRequired("YOUTUBE_CLIENT_ID")?,
-      client_secret: readValue("YOUTUBE_CLIENT_SECRET"),
+      client_id: read_required("YOUTUBE_CLIENT_ID")?,
+      client_secret: read_value("YOUTUBE_CLIENT_SECRET"),
       authorize_url: "https://accounts.google.com/o/oauth2/v2/auth".to_string(),
       token_url: "https://oauth2.googleapis.com/token".to_string(),
       userinfo_url: "https://www.googleapis.com/oauth2/v2/userinfo".to_string(),
@@ -71,7 +73,7 @@ pub fn getOAuthProviderConfig(platform: &PlatformTypeModel) -> Result<OAuthProvi
         "https://www.googleapis.com/auth/youtube.readonly".to_string(),
         "https://www.googleapis.com/auth/youtube.force-ssl".to_string(),
       ],
-      redirect_uri: readOrDefault(
+      redirect_uri: read_or_default(
         "UNICHAT_OAUTH_REDIRECT_URI",
         "http://localhost:3456/callback".to_string(),
       ),
@@ -79,26 +81,26 @@ pub fn getOAuthProviderConfig(platform: &PlatformTypeModel) -> Result<OAuthProvi
   }
 }
 
-fn readRequired(key: &str) -> Result<String, String> {
-  readValue(key).ok_or_else(|| format!("{key} not set"))
+fn read_required(key: &str) -> Result<String, String> {
+  read_value(key).ok_or_else(|| format!("{key} not set"))
 }
 
-fn readOrDefault(key: &str, defaultValue: String) -> String {
-  readValue(key).unwrap_or(defaultValue)
+fn read_or_default(key: &str, default_value: String) -> String {
+  read_value(key).unwrap_or(default_value)
 }
 
-fn readValue(key: &str) -> Option<String> {
+fn read_value(key: &str) -> Option<String> {
   if let Ok(value) = std::env::var(key) {
     return Some(value);
   }
 
-  let dotenvPath = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".env");
-  let dotenvContent = std::fs::read_to_string(dotenvPath).ok()?;
-  parseDotenv(&dotenvContent).get(key).cloned()
+  let dotenv_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".env");
+  let dotenv_content = std::fs::read_to_string(dotenv_path).ok()?;
+  parse_dotenv(&dotenv_content).get(key).cloned()
 }
 
-fn parseDotenv(dotenvContent: &str) -> HashMap<String, String> {
-  dotenvContent
+fn parse_dotenv(dotenv_content: &str) -> HashMap<String, String> {
+  dotenv_content
     .lines()
     .filter_map(|line| {
       let trimmed = line.trim();

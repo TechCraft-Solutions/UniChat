@@ -1,5 +1,6 @@
-use crate::helpers::oauth_config_helper::getOAuthProviderConfig;
-use crate::models::provider_contract_model::PlatformTypeModel;
+use crate::helpers::twitch_auth_helper::{
+  normalize_twitch_cdn_url, twitch_app_access_token, twitch_client_credentials,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -37,11 +38,6 @@ struct SevenTvEmoteSet {
 }
 
 // ---------- Twitch badges Helix ----------
-#[derive(Debug, Deserialize)]
-struct TwitchTokenBody {
-  access_token: String,
-}
-
 #[derive(Debug, Deserialize)]
 struct HelixBadgeVersionRow {
   id: String,
@@ -81,57 +77,6 @@ pub struct TwitchBadgeIcon {
 pub struct IconsFetchResponseModel {
   pub emotes: HashMap<String, SevenTvEmoteIcon>, // key: emote name/code
   pub badges: HashMap<String, TwitchBadgeIcon>,  // key: `${badgeKey}/${badgeVersion}`
-}
-
-// ---------- Auth helpers ----------
-fn twitch_client_credentials() -> Result<(String, Option<String>), String> {
-  let cfg = getOAuthProviderConfig(&PlatformTypeModel::Twitch)?;
-  Ok((cfg.client_id, cfg.client_secret))
-}
-
-async fn twitch_app_access_token(
-  client_id: &str,
-  client_secret: Option<&str>,
-) -> Result<String, String> {
-  let client = reqwest::Client::new();
-
-  let form = if let Some(secret) = client_secret {
-    vec![
-      ("client_id", client_id),
-      ("client_secret", secret),
-      ("grant_type", "client_credentials"),
-    ]
-  } else {
-    return Err("client_secret required for Twitch app access token".to_string());
-  };
-
-  let response = client
-    .post("https://id.twitch.tv/oauth2/token")
-    .form(&form)
-    .send()
-    .await
-    .map_err(|e| e.to_string())?;
-
-  if !response.status().is_success() {
-    return Err(format!("Twitch token HTTP {}", response.status()));
-  }
-
-  let body: TwitchTokenBody = response.json().await.map_err(|e| e.to_string())?;
-  Ok(body.access_token)
-}
-
-fn normalize_twitch_cdn_url(url: &Option<String>) -> Option<String> {
-  let u = url.as_deref()?.trim();
-  if u.is_empty() {
-    return None;
-  }
-  if u.starts_with("//") {
-    return Some(format!("https:{u}"));
-  }
-  if u.starts_with("https://") || u.starts_with("http://") {
-    return Some(u.to_string());
-  }
-  None
 }
 
 fn build_seven_tv_emote_file_url(host_url: &Option<String>) -> Option<String> {

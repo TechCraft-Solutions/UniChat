@@ -8,3 +8,6 @@ pub mod message_sanitizer_helper;
 
 #[path = "message_formatter_helper.rs"]
 pub mod message_formatter_helper;
+
+#[path = "twitch_auth.helper.rs"]
+pub mod twitch_auth_helper;
