@@ -2,7 +2,7 @@
 import { ChangeDetectionStrategy, Component, inject, input } from "@angular/core";
 import { MatIconModule } from "@angular/material/icon";
 import { MatTooltipModule } from "@angular/material/tooltip";
-import { NgClass } from "@angular/common";
+import { NgClass, TitleCasePipe, DecimalPipe } from "@angular/common";
 
 /* models */
 import { ChatMessage, PlatformType } from "@models/chat.model";
@@ -18,7 +18,7 @@ import { ModerationService, ModerationMacro, DEFAULT_MODERATION_MACROS } from "@
 @Component({
   selector: "app-moderation-dashboard",
   standalone: true,
-  imports: [NgClass, MatIconModule, MatTooltipModule],
+  imports: [NgClass, MatIconModule, MatTooltipModule, TitleCasePipe, DecimalPipe],
   templateUrl: "./moderation-dashboard.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -43,7 +43,8 @@ export class ModerationDashboardComponent {
       emerald: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50",
       blue: "bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50",
     };
-    return colorMap[macro.color ?? "slate"] ?? colorMap.slate;
+    const color = macro.color ?? "slate";
+    return colorMap[color] ?? colorMap["slate"];
   }
 
   /**
