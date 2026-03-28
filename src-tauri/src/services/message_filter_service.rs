@@ -3,12 +3,17 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::helpers::message_sanitizer_helper::{cap_string, escape_html, strip_urls};
 use crate::models::chat_message_model::ChatMessageModel;
 
-// Lazy regex compilation
-static URL_REGEX: once_cell::sync::Lazy<Regex> =
-  once_cell::sync::Lazy::new(|| Regex::new(r"(https?://[^\s]+)|(www\.[^\s]+)").unwrap());
+/// Filter configuration snapshot for atomic config access
+struct FilterConfig {
+  blocked_words: HashSet<String>,
+  strip_urls_enabled: bool,
+  max_length: usize,
+}
 
+// Lazy regex compilation for word boundary matching
 static WORD_REGEX: once_cell::sync::Lazy<Regex> =
   once_cell::sync::Lazy::new(|| Regex::new(r"(?i)\b\w+\b").unwrap());
 
@@ -23,32 +28,40 @@ static WORD_REGEX: once_cell::sync::Lazy<Regex> =
 /// All platform connectors should pass messages through this service
 /// before routing to ensure consistent safety across all sources.
 pub struct MessageFilterService {
-  /// Set of blocked words (case-insensitive)
-  blocked_words: Arc<RwLock<HashSet<String>>>,
-
-  /// Whether to strip URLs from messages
-  strip_urls_enabled: Arc<RwLock<bool>>,
-
-  /// Maximum message length (0 = unlimited)
-  max_length: Arc<RwLock<usize>>,
+  /// Filter configuration (atomic snapshot for reduced lock contention)
+  config: Arc<RwLock<FilterConfig>>,
 }
 
 impl MessageFilterService {
   /// Create a new MessageFilterService with default settings
   pub fn new() -> Self {
     Self {
-      blocked_words: Arc::new(RwLock::new(HashSet::new())),
-      strip_urls_enabled: Arc::new(RwLock::new(true)),
-      max_length: Arc::new(RwLock::new(260)),
+      config: Arc::new(RwLock::new(FilterConfig {
+        blocked_words: HashSet::new(),
+        strip_urls_enabled: true,
+        max_length: 260,
+      })),
     }
   }
 
   /// Create with custom settings
   pub fn with_config(blocked_words: HashSet<String>, strip_urls: bool, max_len: usize) -> Self {
     Self {
-      blocked_words: Arc::new(RwLock::new(blocked_words)),
-      strip_urls_enabled: Arc::new(RwLock::new(strip_urls)),
-      max_length: Arc::new(RwLock::new(max_len)),
+      config: Arc::new(RwLock::new(FilterConfig {
+        blocked_words,
+        strip_urls_enabled: strip_urls,
+        max_length: max_len,
+      })),
+    }
+  }
+
+  /// Get a snapshot of current filter configuration (reduces lock contention)
+  async fn get_config_snapshot(&self) -> FilterConfig {
+    let config = self.config.read().await;
+    FilterConfig {
+      blocked_words: config.blocked_words.clone(),
+      strip_urls_enabled: config.strip_urls_enabled,
+      max_length: config.max_length,
     }
   }
 
@@ -62,14 +75,16 @@ impl MessageFilterService {
   /// # Returns
   /// Filtered and sanitized text safe for overlay display
   pub async fn sanitize_message(&self, text: &str) -> String {
+    // Get config snapshot in single lock acquisition (reduces lock contention)
+    let config = self.get_config_snapshot().await;
+
     let mut result = text.to_string();
 
     // 1. Apply blocked words
-    result = self.apply_blocked_words(&result).await;
+    result = Self::apply_blocked_words_with_config(&config.blocked_words, &result);
 
     // 2. Strip URLs if enabled
-    let should_strip_urls = *self.strip_urls_enabled.read().await;
-    if should_strip_urls {
+    if config.strip_urls_enabled {
       result = strip_urls(&result);
     }
 
@@ -77,9 +92,19 @@ impl MessageFilterService {
     result = escape_html(&result);
 
     // 4. Cap length
-    let max_len = *self.max_length.read().await;
-    result = cap_string(&result, max_len);
+    result = cap_string(&result, config.max_length);
 
+    result
+  }
+
+  /// Apply blocked words filter to text (static helper for use with config snapshot)
+  fn apply_blocked_words_with_config(blocked: &HashSet<String>, text: &str) -> String {
+    let mut result = text.to_string();
+    for word in blocked.iter() {
+      if contains_word(&result, word) {
+        result = replace_word(&result, word, "*");
+      }
+    }
     result
   }
 
@@ -91,16 +116,8 @@ impl MessageFilterService {
   /// # Returns
   /// Text with blocked words replaced with asterisks
   pub async fn apply_blocked_words(&self, text: &str) -> String {
-    let blocked = self.blocked_words.read().await;
-    let mut result = text.to_string();
-
-    for word in blocked.iter() {
-      if contains_word(&result, word) {
-        result = replace_word(&result, word, "*");
-      }
-    }
-
-    result
+    let config = self.get_config_snapshot().await;
+    Self::apply_blocked_words_with_config(&config.blocked_words, text)
   }
 
   /// Strip URLs from text
@@ -116,61 +133,64 @@ impl MessageFilterService {
 
   /// Check if a message contains blocked words
   pub async fn contains_blocked_words(&self, text: &str) -> bool {
-    let blocked = self.blocked_words.read().await;
-    blocked.iter().any(|word| contains_word(text, word))
+    let config = self.get_config_snapshot().await;
+    config
+      .blocked_words
+      .iter()
+      .any(|word| contains_word(text, word))
   }
 
   /// Add a word to the blocked list
   pub async fn add_blocked_word(&self, word: String) {
-    let mut blocked = self.blocked_words.write().await;
-    blocked.insert(word.to_lowercase());
+    let mut config = self.config.write().await;
+    config.blocked_words.insert(word.to_lowercase());
   }
 
   /// Add multiple words to the blocked list
   pub async fn add_blocked_words(&self, words: Vec<String>) {
-    let mut blocked = self.blocked_words.write().await;
+    let mut config = self.config.write().await;
     for word in words {
-      blocked.insert(word.to_lowercase());
+      config.blocked_words.insert(word.to_lowercase());
     }
   }
 
   /// Remove a word from the blocked list
   pub async fn remove_blocked_word(&self, word: &str) {
-    let mut blocked = self.blocked_words.write().await;
-    blocked.remove(&word.to_lowercase());
+    let mut config = self.config.write().await;
+    config.blocked_words.remove(&word.to_lowercase());
   }
 
   /// Clear all blocked words
   pub async fn clear_blocked_words(&self) {
-    let mut blocked = self.blocked_words.write().await;
-    blocked.clear();
+    let mut config = self.config.write().await;
+    config.blocked_words.clear();
   }
 
   /// Get all blocked words
   pub async fn get_blocked_words(&self) -> HashSet<String> {
-    self.blocked_words.read().await.clone()
+    self.config.read().await.blocked_words.clone()
   }
 
   /// Enable or disable URL stripping
   pub async fn set_strip_urls_enabled(&self, enabled: bool) {
-    let mut strip = self.strip_urls_enabled.write().await;
-    *strip = enabled;
+    let mut config = self.config.write().await;
+    config.strip_urls_enabled = enabled;
   }
 
   /// Check if URL stripping is enabled
   pub async fn is_strip_urls_enabled(&self) -> bool {
-    *self.strip_urls_enabled.read().await
+    self.config.read().await.strip_urls_enabled
   }
 
   /// Set maximum message length
   pub async fn set_max_length(&self, length: usize) {
-    let mut max = self.max_length.write().await;
-    *max = length;
+    let mut config = self.config.write().await;
+    config.max_length = length;
   }
 
   /// Get current maximum message length
   pub async fn get_max_length(&self) -> usize {
-    *self.max_length.read().await
+    self.config.read().await.max_length
   }
 
   /// Sanitize a ChatMessageModel in place
@@ -193,34 +213,8 @@ impl Default for MessageFilterService {
   }
 }
 
-// --- Helper Functions (from message_sanitizer_helper.rs) ---
-
-fn escape_html(input: &str) -> String {
-  let mut out = String::with_capacity(input.len());
-  for ch in input.chars() {
-    match ch {
-      '&' => out.push_str("&amp;"),
-      '<' => out.push_str("&lt;"),
-      '>' => out.push_str("&gt;"),
-      '"' => out.push_str("&quot;"),
-      '\'' => out.push_str("&#x27;"),
-      _ => out.push(ch),
-    }
-  }
-  out
-}
-
-fn strip_urls(text: &str) -> String {
-  URL_REGEX.replace_all(text, "").to_string()
-}
-
-fn cap_string(s: &str, max_len: usize) -> String {
-  if s.len() <= max_len {
-    s.to_string()
-  } else {
-    s.chars().take(max_len).collect()
-  }
-}
+// --- Helper Functions ---
+// Note: escape_html, strip_urls, cap_string are now imported from message_sanitizer_helper
 
 /// Check if text contains a word (case-insensitive, word boundary aware)
 fn contains_word(text: &str, word: &str) -> bool {

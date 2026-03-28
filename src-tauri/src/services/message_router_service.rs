@@ -4,22 +4,7 @@ use tracing::{debug, info};
 
 use crate::models::chat_message_model::ChatMessageModel;
 use crate::models::overlay_message_model::OverlayMessageModel;
-use crate::models::provider_contract_model::PlatformTypeModel;
-
-// Import PlatformKey trait for asKey() method
-trait PlatformKey {
-  fn asKey(&self) -> &'static str;
-}
-
-impl PlatformKey for PlatformTypeModel {
-  fn asKey(&self) -> &'static str {
-    match self {
-      PlatformTypeModel::Twitch => "twitch",
-      PlatformTypeModel::Kick => "kick",
-      PlatformTypeModel::Youtube => "youtube",
-    }
-  }
-}
+use crate::models::provider_contract_model::PlatformKey;
 
 /// Overlay server handle trait for message router
 #[axum::async_trait]
@@ -189,12 +174,5 @@ impl MessageRouterService {
   /// Get the number of active app feed subscribers
   pub fn app_feed_subscriber_count(&self) -> usize {
     self.app_feed_tx.receiver_count()
-  }
-
-  /// Clear the app feed broadcast channel (useful on app reset)
-  pub fn clear_app_feed(&self) {
-    // Note: broadcast channel doesn't have a clear method,
-    // so we just drop all pending messages by creating a new channel
-    // The old sender is replaced, effectively clearing the queue
   }
 }
