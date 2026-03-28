@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::models::chat_message_model::ChatMessageModel;
 use crate::models::overlay_message_model::OverlayMessageModel;

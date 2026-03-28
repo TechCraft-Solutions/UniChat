@@ -9,6 +9,12 @@ pub struct OAuthLoopbackService {
   pendingCallbacks: Mutex<HashMap<String, Receiver<String>>>,
 }
 
+impl Default for OAuthLoopbackService {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl OAuthLoopbackService {
   pub fn new() -> Self {
     Self {

@@ -24,6 +24,12 @@ pub struct OAuthProviderService {
   accountStore: Mutex<HashMap<String, AuthAccountModel>>,
 }
 
+impl Default for OAuthProviderService {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl OAuthProviderService {
   pub fn new() -> Self {
     Self {

@@ -65,8 +65,8 @@ pub async fn kickFetchChatroomId(channelSlug: String) -> Result<i64, String> {
   let chatroom_id = data
     .chatroom
     .and_then(|c| c.id)
-    .or_else(|| data.id)
-    .ok_or_else(|| "Chatroom ID not found in response".to_string())?;
+    .or(data.id)
+    .ok_or("Chatroom ID not found in response".to_string())?;
 
   Ok(chatroom_id)
 }

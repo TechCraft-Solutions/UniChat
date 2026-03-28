@@ -11,6 +11,12 @@ pub struct OAuthStateService {
   sessions: Mutex<HashMap<String, OAuthPendingSessionModel>>,
 }
 
+impl Default for OAuthStateService {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl OAuthStateService {
   pub fn new() -> Self {
     Self {

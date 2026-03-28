@@ -21,6 +21,12 @@ pub struct TokenVaultService {
   token_cache: Arc<RwLock<Vec<AccountVaultRecord>>>,
 }
 
+impl Default for TokenVaultService {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl TokenVaultService {
   pub fn new() -> Self {
     let service = Self {
