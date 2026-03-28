@@ -1,25 +1,39 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal, viewChild } from "@angular/core";
+/* sys lib */
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from "@angular/core";
 import { MatIconModule } from "@angular/material/icon";
+
+/* models */
+import { FeedMode, PlatformType, ChatMessage } from "@models/chat.model";
+
+/* services */
+import { ChatListService } from "@services/data/chat-list.service";
+import { ChatStateManagerService } from "@services/data/chat-state-manager.service";
+import { ChatStateService } from "@services/data/chat-state.service";
+import { DashboardStateService } from "@services/features/dashboard-state.service";
+import { ChatProviderCoordinatorService } from "@services/providers/chat-provider-coordinator.service";
+import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
+import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
+import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.service";
+import { OverlaySourceBridgeService } from "@services/ui/overlay-source-bridge.service";
+import { PinnedMessagesService } from "@services/ui/pinned-messages.service";
+
+/* components */
+import { ChatSearchComponent } from "@components/chat-search/chat-search.component";
 import { DashboardMixedFeedComponent } from "@components/dashboard-mixed-feed/dashboard-mixed-feed.component";
 import { DashboardSplitFeedComponent } from "@components/dashboard-split-feed/dashboard-split-feed.component";
-import { UserProfilePopoverComponent } from "@components/user-profile-popover/user-profile-popover";
-import { FeedMode, PlatformType, ChatMessage } from "@models/chat.model";
-import { ChatListService } from "@services/data/chat-list.service";
-import { DashboardStateService } from "@services/features/dashboard-state.service";
-import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
-import { ChatProviderCoordinatorService } from "@services/providers/chat-provider-coordinator.service";
-import { OverlaySourceBridgeService } from "@services/ui/overlay-source-bridge.service";
-import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
-import { ChatStateManagerService } from "@services/data/chat-state-manager.service";
-import { ChatSearchComponent } from "@components/chat-search/chat-search.component";
-import { ChatStateService } from "@services/data/chat-state.service";
-import { PinnedMessagesPanelComponent } from "@components/pinned-messages-panel/pinned-messages-panel.component";
-import { PinnedMessagesService } from "@services/ui/pinned-messages.service";
-import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.service";
 import { KeyboardShortcutsHelpComponent } from "@components/keyboard-shortcuts-help/keyboard-shortcuts-help.component";
-
+import { PinnedMessagesPanelComponent } from "@components/pinned-messages-panel/pinned-messages-panel.component";
+import { UserProfilePopoverComponent } from "@components/user-profile-popover/user-profile-popover";
 @Component({
   selector: "app-dashboard-view",
+  standalone: true,
   imports: [
     DashboardSplitFeedComponent,
     DashboardMixedFeedComponent,
@@ -110,15 +124,15 @@ export class DashboardView {
   }
 
   toggleSearch(): void {
-    this.showSearch.update(show => !show);
+    this.showSearch.update((show) => !show);
   }
 
   togglePinned(): void {
-    this.showPinned.update(show => !show);
+    this.showPinned.update((show) => !show);
   }
 
   toggleShortcuts(): void {
-    this.showShortcuts.update(show => !show);
+    this.showShortcuts.update((show) => !show);
   }
 
   onMessageSelected(message: ChatMessage): void {

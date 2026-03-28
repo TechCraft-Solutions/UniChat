@@ -61,7 +61,11 @@
           <span aria-hidden="true">Reset sizes</span>
         </button>
       }
-      <div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5" role="group" aria-label="Feed mode toggle">
+      <div
+        class="flex items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5"
+        role="group"
+        aria-label="Feed mode toggle"
+      >
         @for (feedMode of feedModes; track feedMode) {
           <button
             type="button"
@@ -82,7 +86,11 @@
     </div>
   </header>
 
-  <main class="flex min-h-0 flex-1 flex-col overflow-hidden" role="main" aria-label="Chat dashboard">
+  <main
+    class="flex min-h-0 flex-1 flex-col overflow-hidden"
+    role="main"
+    aria-label="Chat dashboard"
+  >
     @if (getFeedMode() === "split") {
       <app-dashboard-split-feed class="flex h-full w-full overflow-hidden" />
     } @else {
@@ -93,7 +101,7 @@
   <!-- Search Modal Overlay -->
   @if (showSearch()) {
     <div
-      class="absolute inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-20"
+      class="absolute inset-0 z-50 flex items-start justify-center overflow-hidden bg-black/50 p-4 pt-20"
       (click)="toggleSearch()"
     >
       <app-chat-search
@@ -110,10 +118,7 @@
       class="absolute inset-0 z-50 flex items-start justify-end bg-black/50 p-4"
       (click)="togglePinned()"
     >
-      <app-pinned-messages-panel
-        (click)="$event.stopPropagation()"
-        (closed)="togglePinned()"
-      />
+      <app-pinned-messages-panel (click)="$event.stopPropagation()" (closed)="togglePinned()" />
     </div>
   }
 

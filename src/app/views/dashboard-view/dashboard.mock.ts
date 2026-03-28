@@ -1,6 +1,8 @@
+/* models */
 import { ChatChannel, ChatMessage, WidgetConfig } from "@models/chat.model";
-import { createMessageActionState } from "@helpers/chat.helper";
 
+/* helpers */
+import { createMessageActionState } from "@helpers/chat.helper";
 export const mockChannels: ChatChannel[] = [
   {
     id: "ch-twitch-1",
