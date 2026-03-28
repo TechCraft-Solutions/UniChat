@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::helpers::message_sanitizer_helper::{cap_string, escape_html, strip_urls};
+use crate::helpers::sanitizer_helper::{cap_string, escape_html, strip_urls};
 use crate::models::chat_message_model::ChatMessageModel;
 
 /// Filter configuration snapshot for atomic config access
@@ -214,7 +214,7 @@ impl Default for MessageFilterService {
 }
 
 // --- Helper Functions ---
-// Note: escape_html, strip_urls, cap_string are now imported from message_sanitizer_helper
+// Note: escape_html, strip_urls, cap_string are now imported from sanitizer_helper
 
 /// Check if text contains a word (case-insensitive, word boundary aware)
 fn contains_word(text: &str, word: &str) -> bool {

@@ -1,4 +1,4 @@
-use crate::helpers::twitch_auth_helper::{
+use crate::helpers::auth_twitch_helper::{
   normalize_twitch_cdn_url, twitch_app_access_token, twitch_client_credentials,
 };
 use serde::{Deserialize, Serialize};

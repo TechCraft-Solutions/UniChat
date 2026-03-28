@@ -6,7 +6,7 @@ use futures_util::{SinkExt, StreamExt};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
-use crate::helpers::message_sanitizer_helper::sanitize_for_overlay;
+use crate::helpers::sanitizer_helper::sanitize_for_overlay;
 use crate::models::overlay_message_model::{
   OverlayMessageModel, OverlayWidgetFilterModel, OverlayWsIncomingModel, OverlayWsSubscribeModel,
 };

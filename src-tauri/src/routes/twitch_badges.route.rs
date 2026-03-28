@@ -1,4 +1,4 @@
-use crate::helpers::twitch_auth_helper::{twitch_app_access_token, twitch_client_credentials};
+use crate::helpers::auth_twitch_helper::{twitch_app_access_token, twitch_client_credentials};
 
 /// Global chat badges via Helix (`api.twitch.tv`). Replaces legacy `badges.twitch.tv` which may not
 /// resolve on some networks.
