@@ -40,10 +40,8 @@ impl TokenVaultService {
       PlatformTypeModel::Kick,
       PlatformTypeModel::Youtube,
     ] {
-      if let Ok(accounts) = self.read_accounts_internal(platform) {
-        for account in accounts {
-          // Cache is already populated by read_accounts_internal
-        }
+      if let Ok(_accounts) = self.read_accounts_internal(platform) {
+        // Cache is already populated by read_accounts_internal
       }
     }
   }
