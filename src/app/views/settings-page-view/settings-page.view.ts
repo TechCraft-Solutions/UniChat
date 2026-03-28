@@ -1,3 +1,4 @@
+/* sys lib */
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -7,29 +8,44 @@ import {
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MatIconModule } from "@angular/material/icon";
+
+/* models */
 import { ChatAccount, PlatformType } from "@models/chat.model";
-import { AuthorizationService } from "@services/features/authorization.service";
+
+/* services */
+import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
+import { AuthorizationService } from "@services/features/authorization.service";
+import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
+
+/* helpers */
 import {
   getPlatformBadgeClasses,
   getPlatformLabel,
   YOUTUBE_DATA_API_KEY_STORAGE_KEY,
 } from "@helpers/chat.helper";
+
+/* components */
 import { BlockedWordsSettingsComponent } from "@components/blocked-words-settings/blocked-words-settings.component";
 import { HighlightRulesSettingsComponent } from "@components/highlight-rules-settings/highlight-rules-settings.component";
-import { LocalStorageService } from "@services/core/local-storage.service";
 import { SessionExportSettingsComponent } from "@components/session-export-settings/session-export-settings.component";
-
 @Component({
   selector: "app-settings-page-view",
   standalone: true,
-  imports: [FormsModule, MatIconModule, BlockedWordsSettingsComponent, HighlightRulesSettingsComponent, SessionExportSettingsComponent],
+  imports: [
+    FormsModule,
+    MatIconModule,
+    BlockedWordsSettingsComponent,
+    HighlightRulesSettingsComponent,
+    SessionExportSettingsComponent,
+  ],
   templateUrl: "./settings-page.view.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsPageView {
   readonly authorizationService = inject(AuthorizationService);
   readonly chatListService = inject(ChatListService);
+  readonly presentation = inject(ChatMessagePresentationService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly localStorageService = inject(LocalStorageService);
 
@@ -70,7 +86,15 @@ export class SettingsPageView {
   }
 
   deauthorizeAccount(platform: PlatformType): void {
-    void this.authorizationService.deauthorize(platform);
+    const account = this.getAuthorizedAccounts(platform)[0];
+    if (!account) {
+      return;
+    }
+    void this.authorizationService.deauthorizeAccount(account.id, account.platform);
+  }
+
+  removeAuthorizedAccount(account: ChatAccount): void {
+    void this.authorizationService.deauthorizeAccount(account.id, account.platform);
   }
 
   addChannel(): void {
@@ -82,7 +106,8 @@ export class SettingsPageView {
       this.selectedPlatform,
       this.newChannelName.trim(),
       undefined,
-      this.selectedAccountId || undefined
+      this.selectedAccountId || undefined,
+      this.authorizationService.getAccountById(this.selectedAccountId)?.username
     );
     this.newChannelName = "";
   }
@@ -93,6 +118,14 @@ export class SettingsPageView {
 
   toggleChannelVisibility(channelId: string): void {
     this.chatListService.toggleChannelVisibility(channelId);
+  }
+
+  updateChannelAccount(channelId: string, accountId: string): void {
+    this.chatListService.updateChannelAccount(
+      channelId,
+      accountId || undefined,
+      this.authorizationService.getAccountById(accountId)?.username
+    );
   }
 
   /** Start editing a channel name */
@@ -142,7 +175,7 @@ export class SettingsPageView {
 
   getChannelNamePlaceholder(): string {
     return this.selectedPlatform === "youtube"
-      ? "@handle, channel URL, or Studio / watch link"
+      ? "YouTube live video ID or watch/live URL"
       : "Channel name...";
   }
 }
