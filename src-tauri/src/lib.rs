@@ -10,7 +10,7 @@ pub mod services;
 
 use std::sync::Arc;
 use tauri::Manager;
-use tracing::{error, info};
+use tracing::info;
 
 use crate::routes::auth_provider_route::{
   authAwaitCallback, authComplete, authDisconnect, authStart, authStatus,
@@ -77,7 +77,7 @@ pub fn run() {
 
       Ok(())
     })
-    .on_window_event(|window, event| match event {
+    .on_window_event(|_window, event| match event {
       tauri::WindowEvent::CloseRequested { .. } => {
         info!("🚪 Window close requested");
       }
