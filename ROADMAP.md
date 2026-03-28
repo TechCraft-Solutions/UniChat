@@ -4,12 +4,12 @@
 
 UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitch, Kick, YouTube, and more. Built with Angular (frontend) and Rust (backend).
 
-**Current Version:** 0.1.0  
+**Current Version:** 0.1.0
 **Last Updated:** March 28, 2026
 
 ---
 
-## 🎯 Strategic Goals (Q2-Q3 2026)
+## 🎯 Strategic Goals
 
 ### High Priority
 
@@ -57,21 +57,24 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 
 ### Frontend (Angular)
 
-#### Immediate (v0.2.0)
+#### Current Focus (0.1.0)
+- [x] Fix dark mode flicker on startup
+- [x] Add 24-hour TTL to emote cache
+- [x] Improve error messages with user-friendly text
 - [ ] Implement `OnPush` change detection strategy across all components
 - [ ] Add trackBy functions to all `*ngFor` directives
 - [ ] Lazy load non-critical services and components
 - [ ] Optimize bundle size with tree-shaking
 - [ ] Implement service worker for offline capabilities
 
-#### Short-term (v0.3.0)
+#### Next Steps (0.1.0)
 - [ ] Migrate to Angular Signals for reactive state management
 - [ ] Implement virtual scrolling for chat message lists
 - [ ] Add memoization for expensive computations (emote parsing, message formatting)
 - [ ] Optimize CSS with Tailwind purge configuration
 - [ ] Reduce change detection cycles with `async` pipe
 
-#### Medium-term (v0.4.0)
+#### Future (0.1.0)
 - [ ] Implement Web Workers for message parsing
 - [ ] Add IndexedDB for chat history caching
 - [ ] Optimize image loading with lazy loading and caching
@@ -79,19 +82,19 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 
 ### Backend (Rust/Tauri)
 
-#### Immediate (v0.2.0)
+#### Current Focus (0.1.0)
 - [ ] Optimize WebSocket connection pooling
 - [ ] Implement connection rate limiting
 - [ ] Add structured logging with tracing crate
 - [ ] Improve error propagation with `thiserror`
 
-#### Short-term (v0.3.0)
+#### Next Steps (0.1.0)
 - [ ] Implement message batching for high-throughput scenarios
 - [ ] Add Redis caching for shared state (optional)
 - [ ] Optimize JSON serialization with `simd-json`
 - [ ] Profile and reduce memory allocations
 
-#### Medium-term (v0.4.0)
+#### Future (0.1.0)
 - [ ] Implement plugin architecture for new platforms
 - [ ] Add gRPC support for inter-process communication
 - [ ] Optimize tokio runtime configuration
@@ -99,13 +102,13 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 
 ### Build & CI/CD
 
-#### Immediate
+#### Current Focus (0.1.0)
 - [ ] Set up GitHub Actions for automated testing
 - [ ] Add clippy and fmt checks for Rust code
 - [ ] Implement incremental builds for faster CI
 - [ ] Add code coverage reporting
 
-#### Short-term
+#### Next Steps (0.1.0)
 - [ ] Set up automated release pipeline
 - [ ] Implement semantic versioning
 - [ ] Add changelog generation
@@ -115,28 +118,34 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 
 ## 🗺️ Version Milestones
 
-### v0.1.0 (Current) - Foundation
+### v0.1.0 (Current) - Foundation & Stability
+
+**Completed:**
 - ✅ Core chat aggregation (Twitch, Kick, YouTube)
 - ✅ Mixed and split view modes
 - ✅ Basic moderation tools
 - ✅ Overlay support
 - ✅ Settings management
+- ✅ Dark mode flicker fix
+- ✅ Emote cache with 24h TTL
+- ✅ User-friendly error messages
 
-### v0.2.0 (Q2 2026) - Stability
+**In Progress:**
 - [ ] Improved error handling and recovery
 - [ ] Performance optimizations (frontend + backend)
 - [ ] Enhanced logging and debugging
 - [ ] Bug fixes from user feedback
-- [ ] Documentation improvements
+- [ ] Memory leak fixes
+- [ ] Reconnection logic improvements
+- [ ] OAuth token race condition fix
+- [ ] YouTube rate limiting handling
 
-### v0.3.0 (Q3 2026) - Features
+**Planned:**
 - [ ] Advanced moderation dashboard
 - [ ] Custom emote management
 - [ ] Chat history export (JSON, TXT)
 - [ ] Multi-language support (i18n)
 - [ ] Plugin system for extensibility
-
-### v0.4.0 (Q4 2026) - Polish
 - [ ] Mobile companion app
 - [ ] Cloud sync for settings (optional)
 - [ ] AI-powered chat filtering (optional)
@@ -148,11 +157,11 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 ## 🔧 Technical Debt
 
 ### Known Issues
-1. **Memory usage** - Grows with extended sessions (>4 hours)
-2. **Reconnection logic** - Can lose messages during network blips
-3. **Emote caching** - No TTL, can become stale
-4. **TypeScript strictness** - Some `any` types remain
-5. **Error messages** - Not user-friendly in all cases
+1. **Memory usage** - Grows with extended sessions (>4 hours) - *In Progress*
+2. **Reconnection logic** - Can lose messages during network blips - *In Progress*
+3. ~~**Emote caching** - No TTL, can become stale~~ - ✅ **Fixed** (24h TTL)
+4. **TypeScript strictness** - Some `any` types remain - *Already strict mode enabled*
+5. ~~**Error messages** - Not user-friendly in all cases~~ - ✅ **Fixed** (user-friendly messages)
 
 ### Refactoring Candidates
 1. **Provider abstraction** - Consolidate duplicate logic across platforms
