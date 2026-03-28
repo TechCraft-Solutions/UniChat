@@ -15,7 +15,7 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 
 1. **Performance Optimization**
    - Reduce memory footprint for high-traffic chat sessions (1000+ msg/min)
-   - Implement virtual scrolling for chat history
+   - ✅ Implement virtual scrolling for chat history
    - Optimize WebSocket reconnection logic
    - Profile and reduce Rust backend CPU usage
 
@@ -61,15 +61,15 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 - [x] Fix dark mode flicker on startup
 - [x] Add 24-hour TTL to emote cache
 - [x] Improve error messages with user-friendly text
-- [ ] Implement `OnPush` change detection strategy across all components
-- [ ] Add trackBy functions to all `*ngFor` directives
+- [x] Implement `OnPush` change detection strategy across all components
+- [x] Add trackBy functions to all `*ngFor` directives
 - [ ] Lazy load non-critical services and components
 - [ ] Optimize bundle size with tree-shaking
 - [ ] Implement service worker for offline capabilities
 
 #### Next Steps (0.1.0)
 - [ ] Migrate to Angular Signals for reactive state management
-- [ ] Implement virtual scrolling for chat message lists
+- [x] Implement virtual scrolling for chat message lists
 - [ ] Add memoization for expensive computations (emote parsing, message formatting)
 - [ ] Optimize CSS with Tailwind purge configuration
 - [ ] Reduce change detection cycles with `async` pipe
@@ -85,7 +85,7 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 #### Current Focus (0.1.0)
 - [ ] Optimize WebSocket connection pooling
 - [ ] Implement connection rate limiting
-- [ ] Add structured logging with tracing crate
+- [x] Add structured logging with tracing crate
 - [ ] Improve error propagation with `thiserror`
 
 #### Next Steps (0.1.0)
@@ -133,17 +133,17 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 - ✅ Message gap detection on reconnect
 - ✅ OAuth token race condition fix
 - ✅ YouTube rate limiting with exponential backoff
+- ✅ Performance optimizations (OnPush, trackBy) - 25 components, 44+ trackBy
+- ✅ Enhanced logging and debugging (Rust backend)
+- ✅ Virtual scrolling for chat history (CDK virtual scroll)
+- ✅ Chat history export (JSON, TXT, CSV formats)
 
 **In Progress:**
-- [ ] Performance optimizations (OnPush, trackBy)
-- [ ] Enhanced logging and debugging
-- [ ] Virtual scrolling for chat history
 - [ ] Bundle size optimization
-
-**Planned:**
 - [ ] Advanced moderation dashboard
 - [ ] Custom emote management
-- [ ] Chat history export (JSON, TXT)
+
+**Planned:**
 - [ ] Multi-language support (i18n)
 - [ ] Plugin system for extensibility
 - [ ] Mobile companion app
@@ -160,7 +160,7 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 1. ~~**Memory usage** - Grows with extended sessions (>4 hours)~~ - ✅ **Fixed** (auto-pruning every 60s)
 2. ~~**Reconnection logic** - Can lose messages during network blips~~ - ✅ **Fixed** (gap detection + UI indicators)
 3. ~~**Emote caching** - No TTL, can become stale~~ - ✅ **Fixed** (24h TTL)
-4. **TypeScript strictness** - Some `any` types remain - *Already strict mode enabled*
+4. ~~**TypeScript strictness** - Some `any` types remain~~ - ✅ **Fixed** (strict mode enabled, violations resolved)
 5. ~~**Error messages** - Not user-friendly in all cases~~ - ✅ **Fixed** (user-friendly messages)
 6. ~~**OAuth race condition** - Concurrent token refresh~~ - ✅ **Fixed** (thread-safe cache)
 7. ~~**YouTube rate limiting** - API quota exhaustion~~ - ✅ **Fixed** (exponential backoff)
@@ -186,14 +186,14 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 | Memory usage (load) | ~400MB | <250MB | 1000 msg/min |
 | Message latency | ~50ms | <20ms | Platform to render |
 | CPU usage (idle) | ~2% | <1% | Single core equivalent |
-| Bundle size | ~5MB | <3MB | Gzipped main bundle |
+| Bundle size | ~1.26MB | <3MB | Gzipped main bundle |
 
 ### Quality Targets
 | Metric | Current | Target |
 |--------|---------|--------|
 | Test coverage | ~20% | 70%+ |
-| Linter violations | Variable | 0 |
-| TypeScript strict mode | Partial | Full |
+| Linter violations | 0 | 0 |
+| TypeScript strict mode | ✅ Full | Full |
 | Documentation coverage | ~40% | 80%+ |
 
 ---
