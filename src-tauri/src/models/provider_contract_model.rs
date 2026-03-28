@@ -8,6 +8,22 @@ pub enum PlatformTypeModel {
   Youtube,
 }
 
+/// PlatformKey trait for converting PlatformTypeModel to string key
+/// Consolidated from multiple duplicate definitions (March 2026 refactoring)
+pub trait PlatformKey {
+  fn asKey(&self) -> &'static str;
+}
+
+impl PlatformKey for PlatformTypeModel {
+  fn asKey(&self) -> &'static str {
+    match self {
+      PlatformTypeModel::Twitch => "twitch",
+      PlatformTypeModel::Kick => "kick",
+      PlatformTypeModel::Youtube => "youtube",
+    }
+  }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ConnectionModeModel {

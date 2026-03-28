@@ -3,8 +3,6 @@
 pub mod errors;
 pub mod helpers;
 pub mod models;
-pub mod providers;
-pub mod repositories;
 pub mod routes;
 pub mod services;
 
