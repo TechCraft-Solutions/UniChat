@@ -105,6 +105,10 @@ export interface ChatMessage {
   authorAvatarUrl?: string;
   messageType?: MessageType;
   messageTypeReason?: string;
+  /** Sequence number for detecting message gaps during reconnection */
+  sequenceNumber?: number;
+  /** Timestamp when message was received (for gap detection) */
+  receivedAt?: number;
 }
 
 export interface SplitLayout {

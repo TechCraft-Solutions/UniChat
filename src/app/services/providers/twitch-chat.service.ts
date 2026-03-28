@@ -16,6 +16,7 @@ import { ConnectionStateService } from "@services/data/connection-state.service"
 import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
 import { EmoteUrlService } from "@services/ui/emote-url.service";
 import { IconsCatalogService } from "@services/ui/icons-catalog.service";
+import { ReconnectionService } from "@services/core/reconnection.service";
 
 /* helpers */
 import { createMessageActionState } from "@helpers/chat.helper";
@@ -137,6 +138,7 @@ export class TwitchChatService extends BaseChatProviderService {
   private readonly emoteUrl = inject(EmoteUrlService);
   private readonly errorService = inject(ConnectionErrorService);
   private readonly connectionStateService = inject(ConnectionStateService);
+  private readonly reconnectionService = inject(ReconnectionService);
 
   override connect(channelId: string): void {
     void this.iconsCatalog.ensureGlobalLoaded();
@@ -172,6 +174,12 @@ export class TwitchChatService extends BaseChatProviderService {
           self
         );
         if (messageModel) {
+          // Add received timestamp for gap detection
+          messageModel.receivedAt = Date.now();
+
+          // Track message for gap detection
+          this.reconnectionService.trackMessage(normalizedChannel, messageModel, "twitch");
+
           this.chatStorageService.addMessage(normalizedChannel, messageModel);
         }
       }
@@ -180,6 +188,8 @@ export class TwitchChatService extends BaseChatProviderService {
     client.on("connected", () => {
       this.emitStatus(normalizedChannel, "connected");
       this.errorService.clearError(normalizedChannel);
+      // Clear gap indicator on successful reconnect
+      this.reconnectionService.clearGap(normalizedChannel);
       // Don't load initial messages - only show new messages from current session
       // Old messages will be loaded only when user clicks "Load Previous Messages"
     });
