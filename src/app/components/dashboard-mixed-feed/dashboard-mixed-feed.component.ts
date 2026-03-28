@@ -1,3 +1,5 @@
+/* sys lib */
+import { CdkDragDrop, DragDropModule, moveItemInArray } from "@angular/cdk/drag-drop";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -6,25 +8,30 @@ import {
   signal,
   viewChild,
 } from "@angular/core";
-import { CdkDragDrop, DragDropModule, moveItemInArray } from "@angular/cdk/drag-drop";
+
+/* models */
+import { ChatChannel } from "@models/chat.model";
+
+/* services */
+import { AvatarCacheService } from "@services/core/avatar-cache.service";
+import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
+import { ChatStorageService } from "@services/data/chat-storage.service";
+import { ConnectionStateService } from "@services/data/connection-state.service";
+import { TwitchChatService } from "@services/providers/twitch-chat.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
 import { DashboardChatInteractionService } from "@services/ui/dashboard-chat-interaction.service";
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
-import { ChatScrollRegionComponent } from "@components/chat-scroll-region/chat-scroll-region.component";
-import { ChatMessageCardComponent } from "@components/chat-message-card/chat-message-card.component";
-import { ChatHistoryHeaderComponent } from "@components/chat-history-header/chat-history-header.component";
-import { ChatChannel } from "@models/chat.model";
-import { TwitchChatService } from "@services/providers/twitch-chat.service";
-import { ChatStorageService } from "@services/data/chat-storage.service";
-import { AvatarCacheService } from "@services/core/avatar-cache.service";
-import { ConnectionErrorBannerComponent } from "@components/connection-error-banner/connection-error-banner.component";
-import { ConnectionStateService } from "@services/data/connection-state.service";
-import { LocalStorageService } from "@services/core/local-storage.service";
 
+/* components */
+import { ChatHistoryHeaderComponent } from "@components/chat-history-header/chat-history-header.component";
+import { ChatMessageCardComponent } from "@components/chat-message-card/chat-message-card.component";
+import { ChatScrollRegionComponent } from "@components/chat-scroll-region/chat-scroll-region.component";
+import { ConnectionErrorBannerComponent } from "@components/connection-error-banner/connection-error-banner.component";
 @Component({
   selector: "app-dashboard-mixed-feed",
+  standalone: true,
   host: {
     class: "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
   },
@@ -103,7 +110,7 @@ export class DashboardMixedFeedComponent {
 
   private hydrateMixedOrder(): string[] {
     const stored = this.localStorageService.get<string[]>(this.mixedChannelOrderStorageKey, []);
-    if (stored.length === 0) {
+    if (!Array.isArray(stored) || stored.length === 0) {
       return [];
     }
 
@@ -112,7 +119,7 @@ export class DashboardMixedFeedComponent {
   }
 
   private persistMixedOrder(ids: string[]): void {
-    this.localStorageService.set(this.mixedChannelOrderStorageKey, JSON.stringify(ids));
+    this.localStorageService.set(this.mixedChannelOrderStorageKey, ids);
   }
 
   private orderVisibleChannels(): ChatChannel[] {

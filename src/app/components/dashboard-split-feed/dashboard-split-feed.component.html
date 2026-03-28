@@ -143,10 +143,7 @@
                 <!-- Connection Error Banner -->
                 @if (connectionStateService.hasError(cid)) {
                   <div class="shrink-0 px-2 pt-2">
-                    <app-connection-error-banner
-                      [channelId]="cid"
-                      [platform]="platform"
-                    />
+                    <app-connection-error-banner [channelId]="cid" [platform]="platform" />
                   </div>
                 }
                 <app-chat-history-header

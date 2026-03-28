@@ -1,3 +1,5 @@
+/* sys lib */
+import { CdkDragDrop, DragDropModule, moveItemInArray } from "@angular/cdk/drag-drop";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -6,29 +8,34 @@ import {
   signal,
   viewChild,
 } from "@angular/core";
-import { CdkDragDrop, DragDropModule, moveItemInArray } from "@angular/cdk/drag-drop";
 import { MatIconModule } from "@angular/material/icon";
+
+/* models */
 import { ChatChannel, PlatformType } from "@models/chat.model";
-import { ChatStateService } from "@services/data/chat-state.service";
+
+/* services */
+import { AvatarCacheService } from "@services/core/avatar-cache.service";
 import { ChatListService } from "@services/data/chat-list.service";
+import { ChatStateService } from "@services/data/chat-state.service";
+import { ChatStorageService } from "@services/data/chat-storage.service";
+import { ConnectionStateService } from "@services/data/connection-state.service";
+import { ChatProviderCoordinatorService } from "@services/providers/chat-provider-coordinator.service";
+import { TwitchChatService } from "@services/providers/twitch-chat.service";
+import { BlockResizeService } from "@services/ui/block-resize.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
 import { DashboardChatInteractionService } from "@services/ui/dashboard-chat-interaction.service";
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
 import { SplitFeedUiService } from "@services/ui/split-feed-ui.service";
-import { BlockResizeService } from "@services/ui/block-resize.service";
-import { ChatScrollRegionComponent } from "@components/chat-scroll-region/chat-scroll-region.component";
-import { ChatMessageCardComponent } from "@components/chat-message-card/chat-message-card.component";
-import { ChatHistoryHeaderComponent } from "@components/chat-history-header/chat-history-header.component";
-import { TwitchChatService } from "@services/providers/twitch-chat.service";
-import { ChatStorageService } from "@services/data/chat-storage.service";
-import { ChatProviderCoordinatorService } from "@services/providers/chat-provider-coordinator.service";
-import { AvatarCacheService } from "@services/core/avatar-cache.service";
-import { ConnectionErrorBannerComponent } from "@components/connection-error-banner/connection-error-banner.component";
-import { ConnectionStateService } from "@services/data/connection-state.service";
 
+/* components */
+import { ChatHistoryHeaderComponent } from "@components/chat-history-header/chat-history-header.component";
+import { ChatMessageCardComponent } from "@components/chat-message-card/chat-message-card.component";
+import { ChatScrollRegionComponent } from "@components/chat-scroll-region/chat-scroll-region.component";
+import { ConnectionErrorBannerComponent } from "@components/connection-error-banner/connection-error-banner.component";
 @Component({
   selector: "app-dashboard-split-feed",
+  standalone: true,
   host: {
     class: "flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden",
   },
