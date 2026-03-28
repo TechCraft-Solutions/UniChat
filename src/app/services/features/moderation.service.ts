@@ -12,7 +12,15 @@ import { AuthorizationService } from "@services/features/authorization.service";
 /**
  * Moderation action types
  */
-export type ModerationAction = "timeout" | "ban" | "unban" | "delete" | "vip" | "unvip" | "mod" | "unmod";
+export type ModerationAction =
+  | "timeout"
+  | "ban"
+  | "unban"
+  | "delete"
+  | "vip"
+  | "unvip"
+  | "mod"
+  | "unmod";
 
 /**
  * Moderation command result
@@ -45,16 +53,37 @@ export interface ModerationMacro {
  * Default moderation macros
  */
 export const DEFAULT_MODERATION_MACROS: ModerationMacro[] = [
-  { id: "timeout-1m", name: "Timeout 1m", action: "timeout", duration: 60, reason: "Spam", color: "amber" },
-  { id: "timeout-5m", name: "Timeout 5m", action: "timeout", duration: 300, reason: "Spam", color: "orange" },
-  { id: "timeout-10m", name: "Timeout 10m", action: "timeout", duration: 600, reason: "Harassment", color: "red" },
+  {
+    id: "timeout-1m",
+    name: "Timeout 1m",
+    action: "timeout",
+    duration: 60,
+    reason: "Spam",
+    color: "amber",
+  },
+  {
+    id: "timeout-5m",
+    name: "Timeout 5m",
+    action: "timeout",
+    duration: 300,
+    reason: "Spam",
+    color: "orange",
+  },
+  {
+    id: "timeout-10m",
+    name: "Timeout 10m",
+    action: "timeout",
+    duration: 600,
+    reason: "Harassment",
+    color: "red",
+  },
   { id: "permaban", name: "Permaban", action: "ban", reason: "Severe violation", color: "red" },
   { id: "delete-spam", name: "Delete", action: "delete", reason: "Spam", color: "slate" },
 ];
 
 /**
  * Advanced Moderation Service
- * 
+ *
  * Provides moderation actions for Twitch, Kick, and YouTube
  * - Timeout/Ban users
  * - Delete messages
@@ -79,9 +108,7 @@ export class ModerationService {
     options?: { duration?: number; reason?: string }
   ): Promise<ModerationResult> {
     try {
-      const channel = this.chatList
-        .getChannels(platform)
-        .find((ch) => ch.channelId === channelId);
+      const channel = this.chatList.getChannels(platform).find((ch) => ch.channelId === channelId);
 
       if (!channel) {
         return {
@@ -149,7 +176,7 @@ export class ModerationService {
     // For now, return success - actual implementation would use Twitch API
     // This is a placeholder for the real implementation
     console.log(`[Twitch Mod] ${action} ${targetUser} in ${channelId}`, options);
-    
+
     return {
       success: true,
       action,
@@ -171,7 +198,7 @@ export class ModerationService {
     options?: { duration?: number; reason?: string }
   ): Promise<ModerationResult> {
     console.log(`[Kick Mod] ${action} ${targetUser} in ${channelId}`, options);
-    
+
     return {
       success: true,
       action,
@@ -205,7 +232,7 @@ export class ModerationService {
     }
 
     console.log(`[YouTube Mod] ${action} ${targetUser} in ${channelId}`, options);
-    
+
     return {
       success: true,
       action,
@@ -258,7 +285,10 @@ export class ModerationService {
   /**
    * Get moderation capabilities for a channel
    */
-  getModerationCapabilities(platform: PlatformType, channelId: string): {
+  getModerationCapabilities(
+    platform: PlatformType,
+    channelId: string
+  ): {
     canTimeout: boolean;
     canBan: boolean;
     canDelete: boolean;

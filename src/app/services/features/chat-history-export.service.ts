@@ -55,9 +55,7 @@ export class ChatHistoryExportService {
     }
   ): Promise<void> {
     const messages = this.chatStorage.getMessagesByChannel(channelId);
-    const channel = this.chatList
-      .getChannels(platform)
-      .find((ch) => ch.channelId === channelId);
+    const channel = this.chatList.getChannels(platform).find((ch) => ch.channelId === channelId);
     const channelName = channel?.channelName ?? channelId;
 
     const content = this.formatMessages(messages, options);
@@ -121,10 +119,7 @@ export class ChatHistoryExportService {
       const exportData = {
         exportedAt: new Date().toISOString(),
         totalChannels: Object.keys(messagesByChannel).length,
-        totalMessages: Object.values(messagesByChannel).reduce(
-          (sum, msgs) => sum + msgs.length,
-          0
-        ),
+        totalMessages: Object.values(messagesByChannel).reduce((sum, msgs) => sum + msgs.length, 0),
         channels: messagesByChannel,
       };
       return JSON.stringify(exportData, null, 2);
@@ -234,7 +229,11 @@ export class ChatHistoryExportService {
       case "iso":
         return date.toISOString();
       case "time":
-        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        return date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
       case "custom":
         return date.toLocaleString();
       default:
@@ -245,7 +244,11 @@ export class ChatHistoryExportService {
   /**
    * Generate filename for export
    */
-  private generateFilename(channelName: string, platform: PlatformType, format: ExportFormat): string {
+  private generateFilename(
+    channelName: string,
+    platform: PlatformType,
+    format: ExportFormat
+  ): string {
     const timestamp = this.formatDate(new Date(), "iso").replace(/[:.]/g, "-");
     const safeChannelName = channelName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
     return `unichat-${platform}-${safeChannelName}-${timestamp}.${format}`;
@@ -295,7 +298,11 @@ export class ChatHistoryExportService {
   /**
    * Get export statistics
    */
-  getExportStats(): { totalChannels: number; totalMessages: number; byPlatform: Record<PlatformType, number> } {
+  getExportStats(): {
+    totalChannels: number;
+    totalMessages: number;
+    byPlatform: Record<PlatformType, number>;
+  } {
     const allChannels = this.chatList.getVisibleChannels();
     const byPlatform: Record<PlatformType, number> = {
       twitch: 0,

@@ -105,7 +105,7 @@ impl MessageRouterService {
     // 2. Broadcast to overlay server (OBS browser sources)
     if let Some(ref overlay) = self.overlay_server {
       let widget_id = self.get_widget_id().await;
-      
+
       // Capture values for logging before move
       let platform_key = message.platform.asKey();
       let author_ref = message.author.clone();
@@ -135,9 +135,12 @@ impl MessageRouterService {
       overlay
         .broadcast_overlay_message(widget_id.clone(), overlay_message)
         .await;
-      
+
       debug!("📺 Routed message to overlay widget: {}", widget_id);
-      info!("✅ Message routed: {} from {} on {}", text_preview, author_ref, platform_key);
+      info!(
+        "✅ Message routed: {} from {} on {}",
+        text_preview, author_ref, platform_key
+      );
     }
 
     Ok(())
