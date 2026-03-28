@@ -8,6 +8,7 @@ import {
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MatIconModule } from "@angular/material/icon";
+import { UpperCasePipe } from "@angular/common";
 
 /* models */
 import { ChatAccount, PlatformType } from "@models/chat.model";
@@ -17,6 +18,7 @@ import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { AuthorizationService } from "@services/features/authorization.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
+import { ChatHistoryExportService, ExportFormat } from "@services/features/chat-history-export.service";
 
 /* helpers */
 import {
@@ -35,6 +37,7 @@ import { SessionExportSettingsComponent } from "@components/session-export-setti
   imports: [
     FormsModule,
     MatIconModule,
+    UpperCasePipe,
     BlockedWordsSettingsComponent,
     HighlightRulesSettingsComponent,
     SessionExportSettingsComponent,
@@ -46,6 +49,7 @@ export class SettingsPageView {
   readonly authorizationService = inject(AuthorizationService);
   readonly chatListService = inject(ChatListService);
   readonly presentation = inject(ChatMessagePresentationService);
+  private readonly chatHistoryExport = inject(ChatHistoryExportService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly localStorageService = inject(LocalStorageService);
 
@@ -60,6 +64,16 @@ export class SettingsPageView {
   /** Edit mode state */
   editingChannelId: string | null = null;
   editingChannelName: string = "";
+
+  /** Export options */
+  exportFormat: ExportFormat = "txt";
+  exportIncludeTimestamps = true;
+  exportIncludePlatform = false;
+  exportIncludeBadges = false;
+  selectedExportChannelId = "";
+
+  /** Export statistics */
+  readonly exportStats = () => this.chatHistoryExport.getExportStats();
 
   constructor() {
     effect(() => {
@@ -177,5 +191,45 @@ export class SettingsPageView {
     return this.selectedPlatform === "youtube"
       ? "YouTube live video ID or watch/live URL"
       : "Channel name...";
+  }
+
+  /** Export all chat history */
+  async exportAllHistory(): Promise<void> {
+    try {
+      await this.chatHistoryExport.exportAllHistory({
+        format: this.exportFormat,
+        includeTimestamps: this.exportIncludeTimestamps,
+        includePlatform: this.exportIncludePlatform,
+        includeBadges: this.exportIncludeBadges,
+        dateFormat: "iso",
+      });
+    } catch (error) {
+      console.error("Failed to export all history:", error);
+    }
+  }
+
+  /** Export selected channel history */
+  async exportSelectedChannel(): Promise<void> {
+    const channelId = this.selectedExportChannelId;
+    if (!channelId) {
+      return;
+    }
+
+    const channel = this.chatListService.channels().find((ch) => ch.id === channelId);
+    if (!channel) {
+      return;
+    }
+
+    try {
+      await this.chatHistoryExport.exportChannelHistory(channel.channelId, channel.platform, {
+        format: this.exportFormat,
+        includeTimestamps: this.exportIncludeTimestamps,
+        includePlatform: this.exportIncludePlatform,
+        includeBadges: this.exportIncludeBadges,
+        dateFormat: "time",
+      });
+    } catch (error) {
+      console.error("Failed to export channel history:", error);
+    }
   }
 }

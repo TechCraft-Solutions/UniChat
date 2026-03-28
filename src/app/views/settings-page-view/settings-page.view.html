@@ -304,5 +304,104 @@
         }
       </div>
     </section>
+
+    <!-- Chat History Export Section -->
+    <section
+      class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
+    >
+      <h2 class="text-lg font-semibold">Export Chat History</h2>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        Export your chat history to JSON, TXT, or CSV format
+      </p>
+
+      <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20">
+        <!-- Export Statistics -->
+        <div class="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div class="rounded-lg bg-white p-3 text-center dark:bg-white/5">
+            <div class="text-2xl font-bold text-slate-900 dark:text-white">{{ exportStats().totalChannels }}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Channels</div>
+          </div>
+          <div class="rounded-lg bg-white p-3 text-center dark:bg-white/5">
+            <div class="text-2xl font-bold text-slate-900 dark:text-white">{{ exportStats().totalMessages }}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Messages</div>
+          </div>
+          <div class="rounded-lg bg-white p-3 text-center dark:bg-white/5">
+            <div class="text-2xl font-bold text-[#9146FF] dark:text-[#a970ff]">{{ exportStats().byPlatform.twitch }}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Twitch</div>
+          </div>
+          <div class="rounded-lg bg-white p-3 text-center dark:bg-white/5">
+            <div class="text-2xl font-bold text-[#53FC18] dark:text-[#6eff34]">{{ exportStats().byPlatform.kick }}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Kick</div>
+          </div>
+        </div>
+
+        <!-- Export Options -->
+        <div class="space-y-4">
+          <!-- Format Selection -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Format</label>
+            <select
+              [(ngModel)]="exportFormat"
+              class="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+            >
+              <option value="txt">Plain Text (TXT)</option>
+              <option value="json">JSON (Structured)</option>
+              <option value="csv">CSV (Spreadsheet)</option>
+            </select>
+          </div>
+
+          <!-- Options -->
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <input type="checkbox" [(ngModel)]="exportIncludeTimestamps" class="rounded border-slate-300" />
+              Include Timestamps
+            </label>
+            <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <input type="checkbox" [(ngModel)]="exportIncludePlatform" class="rounded border-slate-300" />
+              Include Platform
+            </label>
+            <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <input type="checkbox" [(ngModel)]="exportIncludeBadges" class="rounded border-slate-300" />
+              Include Badges
+            </label>
+          </div>
+
+          <!-- Export Actions -->
+          <div class="flex flex-wrap gap-3 pt-2">
+            <button
+              type="button"
+              (click)="exportAllHistory()"
+              class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+            >
+              Export All History
+            </button>
+            <button
+              type="button"
+              (click)="exportSelectedChannel()"
+              [disabled]="!selectedExportChannelId"
+              class="rounded-lg bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-300 disabled:opacity-50 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20"
+            >
+              Export Selected Channel
+            </button>
+          </div>
+
+          <!-- Channel Selection -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Select Channel (for single export)</label>
+            <select
+              [(ngModel)]="selectedExportChannelId"
+              class="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+            >
+              <option value="">-- Select a channel --</option>
+              @for (channel of chatListService.channels(); track channel.id) {
+                <option [value]="channel.id">
+                  {{ channel.platform | uppercase }} - {{ channel.channelName }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
