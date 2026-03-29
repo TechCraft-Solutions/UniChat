@@ -14,6 +14,7 @@ import { ChatMessage } from "@models/chat.model";
 /* services */
 import { ChatListService } from "@services/data/chat-list.service";
 import { SessionExportService } from "@services/ui/session-export.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 @Component({
   selector: "app-session-export-settings",
   standalone: true,
@@ -74,7 +75,7 @@ export class SessionExportSettingsComponent {
   }
 
   selectAllChannels(): void {
-    this.selectedChannels.set(this.channels().map((c) => c.channelId));
+    this.selectedChannels.set(this.channels().map((c) => buildChannelRef(c.platform, c.channelId)));
   }
 
   clearChannels(): void {
@@ -90,5 +91,9 @@ export class SessionExportSettingsComponent {
       startTime: this.startTime() || undefined,
       endTime: this.endTime() || undefined,
     });
+  }
+
+  channelRefFor(channel: ReturnType<ChatListService["getVisibleChannels"]>[number]): string {
+    return buildChannelRef(channel.platform, channel.channelId);
   }
 }

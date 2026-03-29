@@ -3,6 +3,8 @@ import { Injectable, signal, computed, inject } from "@angular/core";
 
 /* services */
 import { LocalStorageService } from "@services/core/local-storage.service";
+import { ChatListService } from "@services/data/chat-list.service";
+import { migrateLegacyChannelRefs } from "@utils/channel-ref.util";
 export interface BlockedWordRule {
   id: string;
   pattern: string;
@@ -28,6 +30,7 @@ const BLOCKED_WORDS_STORAGE_KEY = "unichat.blockedWords.v1";
 })
 export class BlockedWordsService {
   private readonly localStorageService = inject(LocalStorageService);
+  private readonly chatListService = inject(ChatListService);
 
   private readonly rulesSignal = signal<BlockedWordRule[]>([]);
 
@@ -43,7 +46,12 @@ export class BlockedWordsService {
 
   private loadRules(): void {
     const stored = this.localStorageService.get<BlockedWordRule[]>(BLOCKED_WORDS_STORAGE_KEY, []);
-    this.rulesSignal.set(stored);
+    const channels = this.chatListService.getChannels();
+    const migrated = stored.map((rule) => ({
+      ...rule,
+      channelIds: rule.isGlobal ? undefined : migrateLegacyChannelRefs(rule.channelIds, channels),
+    }));
+    this.rulesSignal.set(migrated);
   }
 
   private persistRules(): void {

@@ -23,6 +23,7 @@ import { ChatMessagePresentationService } from "@services/ui/chat-message-presen
 import { DashboardChatInteractionService } from "@services/ui/dashboard-chat-interaction.service";
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 
 /* components */
 import { ChatHistoryHeaderComponent } from "@components/chat-history-header/chat-history-header.component";
@@ -71,13 +72,14 @@ export class DashboardMixedFeedComponent {
   private suppressNextClick = false;
 
   readonly enabledVisibleChannels = computed(() =>
-    this.orderedVisibleChannels().filter((ch) => !this.disabledChannels().has(ch.id))
+    this.orderedVisibleChannels().filter(
+      (ch) => !this.disabledChannels().has(this.channelRefFor(ch))
+    )
   );
 
   private hydrateDisabledFromPreferences(): Set<string> {
     const saved = this.dashboardPreferences.preferences().mixedDisabledChannelIds;
-    // Use channel.id (unique with platform) instead of channelId
-    const visible = new Set(this.chatListService.getVisibleChannels().map((c) => c.id));
+    const visible = new Set(this.chatListService.getVisibleChannels().map((c) => this.channelRefFor(c)));
 
     // Only keep disabled IDs that still exist in visible channels
     // This ensures removed channels don't pollute the disabled state
@@ -92,8 +94,7 @@ export class DashboardMixedFeedComponent {
   }
 
   private persistMixedDisabled(): void {
-    // Use channel.id (unique with platform) instead of channelId
-    const visible = new Set(this.chatListService.getVisibleChannels().map((c) => c.id));
+    const visible = new Set(this.chatListService.getVisibleChannels().map((c) => this.channelRefFor(c)));
     const current = this.disabledChannels();
 
     // Prune any disabled IDs that no longer exist in visible channels
@@ -159,7 +160,7 @@ export class DashboardMixedFeedComponent {
       .filter((id) => typeof id === "string" && id.trim().length > 0);
   }
 
-  toggleChannelFilter(channelId: string): void {
+  toggleChannelFilter(channelRef: string): void {
     // CDK can emit a click after drag ends; prevent toggling filter in that case.
     if (this.isDragging || this.suppressNextClick) {
       this.suppressNextClick = false;
@@ -167,10 +168,10 @@ export class DashboardMixedFeedComponent {
     }
     this.disabledChannels.update((disabled) => {
       const next = new Set(disabled);
-      if (next.has(channelId)) {
-        next.delete(channelId);
+      if (next.has(channelRef)) {
+        next.delete(channelRef);
       } else {
-        next.add(channelId);
+        next.add(channelRef);
       }
       return next;
     });
@@ -196,8 +197,8 @@ export class DashboardMixedFeedComponent {
     this.persistMixedOrder(newOrder);
   }
 
-  isChannelDisabled(channelId: string): boolean {
-    return this.disabledChannels().has(channelId);
+  isChannelDisabled(channelRef: string): boolean {
+    return this.disabledChannels().has(channelRef);
   }
 
   enableAllChannels(): void {
@@ -207,9 +208,12 @@ export class DashboardMixedFeedComponent {
 
   disableAllChannels(): void {
     const channels = this.chatListService.getVisibleChannels();
-    // Use channel.id (unique with platform) instead of channelId
-    this.disabledChannels.set(new Set(channels.map((ch) => ch.id)));
+    this.disabledChannels.set(new Set(channels.map((ch) => this.channelRefFor(ch))));
     this.persistMixedDisabled();
+  }
+
+  channelRefFor(channel: ChatChannel): string {
+    return buildChannelRef(channel.platform, channel.channelId);
   }
 
   /** Get channel profile image URL (loads on demand for Twitch) */

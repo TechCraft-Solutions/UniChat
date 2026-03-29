@@ -37,6 +37,7 @@ export interface OverlayConnectOptions {
   widgetId: string;
   filter: WidgetFilter;
   channelIds?: string[];
+  preserveMessages?: boolean; // If true, keep existing messages on reconnect
 }
 
 @Injectable({
@@ -46,32 +47,52 @@ export class OverlayWsStateService {
   private socket: WebSocket | null = null;
   private currentKey: string | null = null;
   private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 5;
-  private readonly reconnectDelay = 1000; // 1 second base delay
+  private readonly maxReconnectAttempts = 10; // Increased from 5 for better reliability
+  private readonly reconnectDelay = 2000; // Increased from 1000ms for stability
   private pendingOptions: OverlayConnectOptions | null = null;
+  private connectionState: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
 
   private readonly messagesSignal = signal<OverlayChatMessage[]>([]);
   readonly messages = this.messagesSignal.asReadonly();
 
   connect(opts: OverlayConnectOptions): void {
+    console.log('[OverlayWsState] connect called with:', opts);
+    
+    // Don't reconnect if already connected with same params
     const key = `${opts.port}:${opts.widgetId}:${opts.filter}:${opts.channelIds?.join(",") ?? ""}`;
     if (this.currentKey === key && this.socket?.readyState === WebSocket.OPEN) {
+      console.log('[OverlayWsState] Already connected with same params');
       return;
     }
 
+    // Close existing connection
+    this.socket?.close();
+
     this.currentKey = key;
     this.pendingOptions = opts;
-    this.messagesSignal.set([]);
-    this.reconnectAttempts = 0;
 
-    this.socket?.close();
+    // Only clear messages on initial connect, not on automatic reconnection
+    // This prevents messages from disappearing during brief network issues
+    const shouldPreserveMessages = opts.preserveMessages ?? this.reconnectAttempts > 0;
+    if (!shouldPreserveMessages) {
+      console.log('[OverlayWsState] Clearing messages');
+      this.messagesSignal.set([]);
+    }
+
+    this.reconnectAttempts = 0;
+    this.connectionState = 'connecting';
+    console.log('[OverlayWsState] Connection state: connecting');
+
     const wsUrl = `ws://127.0.0.1:${opts.port}/ws/overlay?widgetId=${encodeURIComponent(
       opts.widgetId
     )}&role=overlay`;
+    console.log('[OverlayWsState] Connecting to:', wsUrl);
 
     this.socket = new WebSocket(wsUrl);
 
     this.socket.onopen = () => {
+      this.connectionState = 'connected';
+      console.log('[OverlayWsState] Connection opened, state: connected');
       const subscribe = {
         type: "subscribe",
         subscribe: {
@@ -80,6 +101,7 @@ export class OverlayWsStateService {
           channelIds: opts.channelIds,
         },
       };
+      console.log('[OverlayWsState] Sending subscribe:', subscribe);
       this.socket?.send(JSON.stringify(subscribe));
     };
 
@@ -98,8 +120,11 @@ export class OverlayWsStateService {
       }
 
       if (parsed.type !== "overlayMessage" || !parsed.message) {
+        console.warn('[OverlayWsState] Received invalid message type:', parsed.type);
         return;
       }
+
+      console.log('[OverlayWsState] Received message:', parsed.message.id, '| channel:', parsed.message.sourceChannelId, '| text:', parsed.message.text.substring(0, 50));
 
       const msg: OverlayChatMessage = {
         id: parsed.message.id,
@@ -115,14 +140,17 @@ export class OverlayWsStateService {
       };
 
       this.messagesSignal.update((current) => upsertAndSort(current, msg));
+      console.log('[OverlayWsState] Message added to signal, total messages:', this.messagesSignal().length, '| filtered by channels:', opts.channelIds);
     };
 
     this.socket.onerror = (event) => {
-      console.warn("[OverlayWsState] WebSocket error:", event);
+      console.error('[OverlayWsState] WebSocket error:', event);
+      this.connectionState = 'disconnected';
     };
 
     this.socket.onclose = (event) => {
-      console.warn("[OverlayWsState] WebSocket closed:", event.code, event.reason);
+      console.log('[OverlayWsState] WebSocket closed, code:', event.code, 'reason:', event.reason || 'none');
+      this.connectionState = 'disconnected';
       // Attempt to reconnect
       this.attemptReconnect(opts);
     };
@@ -135,9 +163,20 @@ export class OverlayWsStateService {
     this.messagesSignal.update((current) => upsertAndSort(current, message));
   }
 
+  /**
+   * Set messages directly (used when polling from backend)
+   */
+  setMessages(messages: OverlayChatMessage[]): void {
+    this.messagesSignal.set(messages);
+  }
+
   private async attemptReconnect(opts: OverlayConnectOptions): Promise<void> {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("[OverlayWsState] Max reconnection attempts reached");
+      return;
+    }
+
+    // Don't reconnect if connection state changed (user navigated away, etc)
+    if (this.pendingOptions !== opts) {
       return;
     }
 
@@ -146,7 +185,7 @@ export class OverlayWsStateService {
 
     await new Promise((resolve) => setTimeout(resolve, delay));
 
-    // Only reconnect if options haven't changed
+    // Check again after delay
     if (this.pendingOptions === opts) {
       this.connect(opts);
     }

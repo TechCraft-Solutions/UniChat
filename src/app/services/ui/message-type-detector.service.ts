@@ -3,6 +3,7 @@ import { Injectable } from "@angular/core";
 
 /* models */
 import { ChatMessage, MessageType } from "@models/chat.model";
+import { buildChannelRef } from "@utils/channel-ref.util";
 /**
  * Detects message types based on user activity patterns
  * - "returning": User hasn't sent a message in a while (5+ minutes)
@@ -24,7 +25,10 @@ export class MessageTypeDetectorService {
    * Should be called before adding message to storage
    */
   detectMessageType(message: ChatMessage): { type: MessageType; reason?: string } {
-    const cacheKey = this.getCacheKey(message.sourceUserId, message.sourceChannelId);
+    const cacheKey = this.getCacheKey(
+      message.sourceUserId,
+      buildChannelRef(message.platform, message.sourceChannelId)
+    );
     const now = new Date(message.timestamp).getTime();
 
     // Check if this is a highlighted/special message based on badges or events
@@ -53,7 +57,10 @@ export class MessageTypeDetectorService {
    * Should be called after message is added
    */
   updateLastMessageTime(message: ChatMessage): void {
-    const cacheKey = this.getCacheKey(message.sourceUserId, message.sourceChannelId);
+    const cacheKey = this.getCacheKey(
+      message.sourceUserId,
+      buildChannelRef(message.platform, message.sourceChannelId)
+    );
     this.userLastMessage.set(cacheKey, message.timestamp);
   }
 

@@ -17,6 +17,7 @@ import { BaseChatProviderService } from "@services/providers/base-chat-provider.
 import { EmoteUrlService } from "@services/ui/emote-url.service";
 import { IconsCatalogService } from "@services/ui/icons-catalog.service";
 import { ReconnectionService } from "@services/core/reconnection.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 
 /* helpers */
 import { createMessageActionState } from "@helpers/chat.helper";
@@ -392,6 +393,7 @@ export class TwitchChatService extends BaseChatProviderService {
    */
   async loadChannelHistory(channelName: string, count: number = 100): Promise<ChatMessage[]> {
     const normalized = channelName.replace(/^#/, "").toLowerCase();
+    const channelRef = buildChannelRef("twitch", normalized);
 
     try {
       const messages = await this.fetchRobottyHistoryForChannel(
@@ -400,13 +402,13 @@ export class TwitchChatService extends BaseChatProviderService {
       );
 
       // Get existing messages to avoid duplicates
-      const existingMessages = this.chatStorageService.getMessagesByChannel(normalized);
+      const existingMessages = this.chatStorageService.getMessagesByChannel(channelRef);
       const existingIds = new Set(existingMessages.map((m) => m.id));
       const newMessages = messages.filter((m) => !existingIds.has(m.id));
 
       // Update history load state
       const hasMore = messages.length >= count;
-      this.chatStorageService.setHistoryLoadState(normalized, {
+      this.chatStorageService.setHistoryLoadState(channelRef, {
         loaded: true,
         hasMore,
         oldestMessageTimestamp:
@@ -754,9 +756,10 @@ export class TwitchChatService extends BaseChatProviderService {
     message: string,
     self: boolean
   ): ChatMessage | null {
+    // Look up channel by name (channelName is the login name like "bratishkinoff")
     const channel = this.chatListService
       .getChannels("twitch")
-      .find((entry) => entry.channelId.toLowerCase() === channelName.toLowerCase());
+      .find((entry) => entry.channelName.toLowerCase() === channelName.toLowerCase());
     const account = this.authorizationService.getAccountById(channel?.accountId);
     const badges = Object.keys(tags.badges ?? {});
     const author = tags["display-name"] || tags.username || "Anonymous";
@@ -788,11 +791,15 @@ export class TwitchChatService extends BaseChatProviderService {
     // Build author avatar URL from Twitch CDN
     const authorAvatarUrl = undefined;
 
+    // Use provider channel ID for consistent channel filtering in overlay
+    const providerChannelId = channel?.channelId ?? channelName;
+    console.log('[TwitchChat] Building message - channelName:', channelName, 'found channel:', channel?.channelId, 'using providerChannelId:', providerChannelId);
+
     return {
       id: `msg-${sourceMessageId}`,
       platform: "twitch",
       sourceMessageId,
-      sourceChannelId: channelName,
+      sourceChannelId: providerChannelId,
       sourceUserId,
       author,
       text: normalizedText,

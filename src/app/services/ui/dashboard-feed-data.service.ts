@@ -16,6 +16,7 @@ import {
   groupChannelsByPlatform,
   sortMessagesChronological,
 } from "@helpers/chat.helper";
+import { buildChannelRef } from "@utils/channel-ref.util";
 @Injectable({
   providedIn: "root",
 })
@@ -49,7 +50,7 @@ export class DashboardFeedDataService {
     if (disabled.size === 0) {
       return visible;
     }
-    return visible.filter((ch) => !disabled.has(ch.id));
+    return visible.filter((ch) => !disabled.has(buildChannelRef(ch.platform, ch.channelId)));
   });
 
   readonly channelsByPlatform = computed(() => groupChannelsByPlatform(this.allVisibleChannels()));
@@ -62,7 +63,11 @@ export class DashboardFeedDataService {
 
     // Filter out disabled channels per platform
     const filterDisabled = (channels: ChatChannel[]) =>
-      new Set(channels.filter((c) => !disabled.has(c.id)).map((c) => c.channelId));
+      new Set(
+        channels
+          .filter((c) => !disabled.has(buildChannelRef(c.platform, c.channelId)))
+          .map((c) => c.channelId)
+      );
 
     return {
       twitch: filterDisabled(byPlatform.twitch),
@@ -130,7 +135,7 @@ export class DashboardFeedDataService {
   getMessagesForChannel(platform: PlatformType, channelId: string): ChatMessage[] {
     // For split feed, show all channels (no mixed filter)
     // Only return messages if channel is loaded (lazy loading)
-    if (!this.chatStorageService.isChannelLoaded(channelId)) {
+    if (!this.chatStorageService.isChannelLoaded(buildChannelRef(platform, channelId))) {
       return [];
     }
     const list = this.splitFeed()[platform].filter(
@@ -140,10 +145,11 @@ export class DashboardFeedDataService {
   }
 
   loadChannelMessages(platform: PlatformType, channelId: string): void {
-    if (this.chatStorageService.isChannelLoaded(channelId)) {
+    const channelRef = buildChannelRef(platform, channelId);
+    if (this.chatStorageService.isChannelLoaded(channelRef)) {
       return; // Already loaded
     }
-    this.chatStorageService.markChannelAsLoaded(channelId);
+    this.chatStorageService.markChannelAsLoaded(channelRef);
   }
 
   scrollTokenForChannel(platform: PlatformType, channelId: string): string {

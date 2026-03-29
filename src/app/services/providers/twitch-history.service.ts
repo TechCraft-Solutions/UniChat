@@ -7,6 +7,7 @@ import { ChatMessage } from "@models/chat.model";
 /* services */
 import { ConnectionErrorService } from "@services/core/connection-error.service";
 import { ChatStorageService } from "@services/data/chat-storage.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 /**
  * Twitch History Service - Chat History Loading
  *
@@ -33,19 +34,20 @@ export class TwitchHistoryService {
    */
   async loadHistory(channelName: string, count: number = 100): Promise<ChatMessage[]> {
     const normalized = channelName.replace(/^#/, "").toLowerCase();
+    const channelRef = buildChannelRef("twitch", normalized);
     const allMessages = await this.fetchRobottyHistoryForChannel(
       normalized,
       Math.ceil(count / 800) + 1
     );
 
     // Get existing messages to avoid duplicates
-    const existingMessages = this.chatStorageService.getMessagesByChannel(normalized);
+    const existingMessages = this.chatStorageService.getMessagesByChannel(channelRef);
     const existingIds = new Set(existingMessages.map((m) => m.id));
     const newMessages = allMessages.filter((m) => !existingIds.has(m.id));
 
     // Update history load state
     const hasMore = allMessages.length >= count;
-    this.chatStorageService.setHistoryLoadState(normalized, {
+    this.chatStorageService.setHistoryLoadState(channelRef, {
       loaded: true,
       hasMore,
       oldestMessageTimestamp:

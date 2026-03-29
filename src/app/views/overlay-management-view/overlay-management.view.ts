@@ -18,6 +18,11 @@ import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { DashboardStateService } from "@services/features/dashboard-state.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
+import {
+  findChannelByRef,
+  migrateLegacyChannelRefs,
+  toChannelRef,
+} from "@utils/channel-ref.util";
 function overlayFilterOverrideKey(widgetId: string): string {
   return `unichat-overlay-filter-override:${widgetId}`;
 }
@@ -87,7 +92,7 @@ export class OverlayManagementView {
 
   readonly filterModel = signal<WidgetFilter>("all");
   readonly customCssModel = signal<string>("");
-  readonly channelIdsModel = signal<string[]>([]);
+  readonly channelIdsModel = signal<string[] | undefined>(undefined);
   readonly maxMessagesModel = signal<number>(6);
   readonly textSizeModel = signal<number>(16);
   readonly animationTypeModel = signal<OverlayAnimationType>("fade");
@@ -107,9 +112,12 @@ export class OverlayManagementView {
 
     this.customCssModel.set(this.localStorageService.get(overlayCustomCssKey(w.id), ""));
 
-    // Load channel selection from localStorage or widget config
     const storedChannelIds = this.readOverlayChannelIds(w.id);
-    this.channelIdsModel.set(storedChannelIds ?? w.channelIds ?? []);
+    const channelIdsToUse = migrateLegacyChannelRefs(
+      storedChannelIds ?? w.channelIds,
+      this.availableChannels()
+    );
+    this.channelIdsModel.set(channelIdsToUse);
 
     // Load overlay appearance settings
     this.maxMessagesModel.set(this.readOverlayMaxMessages(w.id) ?? 6);
@@ -131,7 +139,7 @@ export class OverlayManagementView {
         widgetId,
         filter: this.filterModel(),
         customCss: this.customCssModel(),
-        channelIds: this.channelIdsModel(),
+        channelIds: this.channelIdsModel() ?? null,
         textSize: this.textSizeModel(),
         animationType: this.animationTypeModel(),
         animationDirection: this.animationDirectionModel(),
@@ -152,13 +160,9 @@ export class OverlayManagementView {
   }
 
   private readOverlayChannelIds(widgetId: string): string[] | null {
-    const raw = this.localStorageService.get<string>(overlayChannelIdsKey(widgetId), "");
-    if (raw) {
-      try {
-        return JSON.parse(raw) as string[];
-      } catch {
-        return null;
-      }
+    const stored = this.localStorageService.get<string[] | null>(overlayChannelIdsKey(widgetId), null);
+    if (Array.isArray(stored)) {
+      return stored;
     }
     return null;
   }
@@ -238,10 +242,11 @@ export class OverlayManagementView {
 
     this.localStorageService.set(overlayFilterOverrideKey(w.id), this.filterModel());
     this.localStorageService.set(overlayCustomCssKey(w.id), this.customCssModel());
-    this.localStorageService.set(
-      overlayChannelIdsKey(w.id),
-      JSON.stringify(this.channelIdsModel())
-    );
+    if (this.channelIdsModel() === undefined) {
+      this.localStorageService.remove(overlayChannelIdsKey(w.id));
+    } else {
+      this.localStorageService.set(overlayChannelIdsKey(w.id), this.channelIdsModel());
+    }
     this.localStorageService.set(overlayMaxMessagesKey(w.id), this.maxMessagesModel().toString());
     this.localStorageService.set(overlayTextSizeKey(w.id), this.textSizeModel().toString());
     this.localStorageService.set(overlayAnimationTypeKey(w.id), this.animationTypeModel());
@@ -263,7 +268,7 @@ export class OverlayManagementView {
       timestamp: Date.now(),
       filter: this.filterModel(),
       customCss: this.customCssModel(),
-      channelIds: this.channelIdsModel(),
+      channelIds: this.channelIdsModel() ?? null,
       textSize: this.textSizeModel(),
       animationType: this.animationTypeModel(),
       animationDirection: this.animationDirectionModel(),
@@ -295,11 +300,11 @@ export class OverlayManagementView {
   }
 
   get selectedChannelIds(): string[] {
-    return this.channelIdsModel();
+    return this.channelIdsModel() ?? [];
   }
 
   set selectedChannelIds(value: string[]) {
-    this.channelIdsModel.set(value);
+    this.channelIdsModel.set(value.length > 0 ? value : undefined);
   }
 
   get maxMessages(): number {
@@ -342,27 +347,25 @@ export class OverlayManagementView {
     this.transparentBgModel.set(value);
   }
 
-  toggleChannel(platform: string, channelName: string): void {
-    const compositeKey = `${platform}:${channelName}`;
-    const current = this.channelIdsModel();
-    const index = current.indexOf(compositeKey);
+  toggleChannel(channelId: string): void {
+    const current = this.channelIdsModel() ?? [];
+    const index = current.indexOf(channelId);
     if (index === -1) {
-      this.channelIdsModel.set([...current, compositeKey]);
+      this.channelIdsModel.set([...current, channelId]);
     } else {
-      this.channelIdsModel.set(current.filter((key) => key !== compositeKey));
+      const next = current.filter((id) => id !== channelId);
+      this.channelIdsModel.set(next.length > 0 ? next : undefined);
     }
     // Auto-save removed - user must click Save button
   }
 
-  isChannelSelected(platform: string, channelName: string): boolean {
-    const compositeKey = `${platform}:${channelName}`;
-    return this.channelIdsModel().includes(compositeKey);
+  isChannelSelected(channelId: string): boolean {
+    const current = this.channelIdsModel();
+    return current == null || current.includes(channelId);
   }
 
   selectAllChannels(): void {
-    this.channelIdsModel.set(
-      this.availableChannels().map((ch) => `${ch.platform}:${ch.channelName}`)
-    );
+    this.channelIdsModel.set(undefined);
     // Auto-save removed - user must click Save button
   }
 
@@ -372,7 +375,11 @@ export class OverlayManagementView {
   }
 
   getChannelDisplayName(channelId: string): string {
-    const channel = this.availableChannels().find((ch) => ch.id === channelId);
+    const channel = findChannelByRef(this.availableChannels(), channelId);
     return channel ? `${channel.channelName} (${channel.platform})` : channelId;
+  }
+
+  channelSelectionValue(channel: ReturnType<ChatListService["getVisibleChannels"]>[number]): string {
+    return toChannelRef(channel);
   }
 }

@@ -22,6 +22,7 @@ import {
   createMessageActionState,
   getChannelAccountCapabilities,
 } from "@helpers/chat.helper";
+import { buildChannelRef } from "@utils/channel-ref.util";
 /**
  * Chat State Service - Computed State Layer
  *
@@ -128,7 +129,7 @@ export class ChatStateService {
       },
     };
 
-    this.chatStorageService.addMessage(message.sourceChannelId, replyMessage);
+    this.chatStorageService.addMessage(buildChannelRef(message.platform, message.sourceChannelId), replyMessage);
     this.refreshMessageCapabilities();
   }
 
@@ -187,7 +188,7 @@ export class ChatStateService {
       },
     };
 
-    this.chatStorageService.addMessage(channelId, outgoing);
+    this.chatStorageService.addMessage(buildChannelRef(platform, channelId), outgoing);
     this.refreshMessageCapabilities();
   }
 
@@ -208,7 +209,9 @@ export class ChatStateService {
     }
 
     const channels = this.chatListService.getVisibleChannels();
-    const channel = channels.find((ch) => ch.channelId === message.sourceChannelId);
+    const channel = channels.find(
+      (ch) => ch.platform === message.platform && ch.channelId === message.sourceChannelId
+    );
     const platform = channel?.platform ?? message.platform;
 
     const deleted = await this.providerCoordinator.deleteMessage(
@@ -224,7 +227,10 @@ export class ChatStateService {
       return;
     }
 
-    this.chatStorageService.updateMessage(message.sourceChannelId, messageId, {
+    this.chatStorageService.updateMessage(
+      buildChannelRef(message.platform, message.sourceChannelId),
+      messageId,
+      {
       text: "Message removed from view.",
       isDeleted: true,
       actions: {
@@ -235,7 +241,8 @@ export class ChatStateService {
           "Already deleted in the local session."
         ),
       },
-    });
+      }
+    );
   }
 
   refreshMessageCapabilities(): void {
@@ -243,7 +250,9 @@ export class ChatStateService {
     const allMessages = this.messages();
 
     for (const message of allMessages) {
-      const channel = channels.find((ch) => ch.channelId === message.sourceChannelId);
+      const channel = channels.find(
+        (ch) => ch.platform === message.platform && ch.channelId === message.sourceChannelId
+      );
 
       if (!channel) {
         continue;
@@ -252,7 +261,10 @@ export class ChatStateService {
       const account = this.authorizationService.getAccountById(channel.accountId);
       const capabilities = getChannelAccountCapabilities(channel, account);
 
-      this.chatStorageService.updateMessage(message.sourceChannelId, message.id, {
+      this.chatStorageService.updateMessage(
+        buildChannelRef(message.platform, message.sourceChannelId),
+        message.id,
+        {
         actions: {
           reply: createMessageActionState(
             "reply",
@@ -265,7 +277,8 @@ export class ChatStateService {
             capabilities.canDelete ? undefined : "This channel cannot delete messages."
           ),
         },
-      });
+        }
+      );
     }
   }
 

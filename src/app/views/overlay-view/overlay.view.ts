@@ -34,6 +34,12 @@ import { TwitchChatService } from "@services/providers/twitch-chat.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
 import { ChatRichTextService, ChatTextSegment } from "@services/ui/chat-rich-text.service";
 import { OverlayChatMessage, OverlayWsStateService } from "@services/ui/overlay-ws-state.service";
+import {
+  buildChannelRef,
+  findChannelByRef,
+  migrateLegacyChannelRefs,
+  parseChannelRef,
+} from "@utils/channel-ref.util";
 
 /* helpers */
 import {
@@ -118,43 +124,47 @@ export class OverlayView implements OnDestroy {
   private currentChannelIds: string[] | undefined = undefined;
 
   private async initializeOverlayRuntime(widget: WidgetConfig): Promise<void> {
-    await this.ensureOverlayServerStarted(widget.port);
+    console.log('[OverlayView] Initializing overlay runtime for widget:', widget.id, 'port:', widget.port);
+    
+    // 1. Start overlay server first with proper error handling
+    const serverStarted = await this.ensureOverlayServerStarted(widget.port);
+    if (!serverStarted) {
+      console.error('[OverlayView] Failed to start overlay server on port', widget.port);
+      return;
+    }
 
-    // Load config from backend FIRST (not localStorage) before WebSocket connect
-    // This ensures overlay window uses the same config as main window
+    // 2. Wait for server to be ready (prevent race condition)
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    // 3. Load config from backend BEFORE WebSocket connect
     await this.loadAndApplyConfigFromBackend();
 
-    const plainChannelIds = this.getPlainChannelIds(this.currentChannelIds);
+    console.log('[OverlayView] Config loaded, currentChannelIds:', this.currentChannelIds);
+
+    // 4. Extract channel IDs and connect WebSocket
+    const channelIds = this.extractChannelIdsFromSelection(this.currentChannelIds);
+    console.log('[OverlayView] Connecting overlay WebSocket with channelIds:', channelIds);
+    
     this.overlayWs.connect({
       port: widget.port,
       widgetId: widget.id,
       filter: this.currentFilter,
-      channelIds: plainChannelIds,
+      channelIds: channelIds,
+      preserveMessages: true, // Preserve messages on reconnect to prevent flickering
     });
   }
 
-  private async ensureOverlayServerStarted(port: number): Promise<void> {
+  private async ensureOverlayServerStarted(port: number): Promise<boolean> {
     try {
       await invoke("startOverlayServer", { port });
+      console.log('[OverlayView] Overlay server started on port', port);
+      return true;
     } catch (error) {
       // In browser-only contexts (for example OBS), Tauri invoke may be unavailable.
       // The overlay server should already be serving this page there, so continue.
-      console.warn("[OverlayView] Unable to ensure overlay server is started:", error);
+      console.warn("[OverlayView] Unable to ensure overlay server is started (may be in OBS):", error);
+      return true;
     }
-  }
-
-  /**
-   * Extract plain channel names from composite keys (platform:channelName) for backend API.
-   * Backend stores messages by source_channel_id (plain channel name), not composite key.
-   */
-  private getPlainChannelIds(compositeKeys: string[] | undefined): string[] | undefined {
-    if (!compositeKeys || compositeKeys.length === 0) {
-      return undefined;
-    }
-    return compositeKeys.map((key) => {
-      const parts = key.split(":");
-      return parts.length > 1 ? parts[1] : key;
-    });
   }
 
   private loadAndApplyConfig(): void {
@@ -162,7 +172,10 @@ export class OverlayView implements OnDestroy {
     if (!widget) return;
 
     this.currentFilter = readOverlayFilterOverride(widget.id) ?? widget.filter;
-    this.currentChannelIds = readOverlayChannelIds(widget.id) ?? widget.channelIds;
+    this.currentChannelIds = migrateLegacyChannelRefs(
+      readOverlayChannelIds(widget.id) ?? widget.channelIds,
+      this.chatList.getVisibleChannels()
+    );
     const customCss = readOverlayCustomCss(widget.id);
     const textSize = readOverlayTextSize(widget.id) ?? 16;
     const animationType = readOverlayAnimationType(widget.id) ?? "fade";
@@ -189,7 +202,10 @@ export class OverlayView implements OnDestroy {
       if (config) {
         // Use backend config if available
         this.currentFilter = (config.filter as WidgetFilter) ?? widget.filter;
-        this.currentChannelIds = config.channelIds ?? widget.channelIds;
+        this.currentChannelIds = migrateLegacyChannelRefs(
+          config.channelIds ?? widget.channelIds,
+          this.chatList.getVisibleChannels()
+        );
         this.customCssText.set(config.customCss ?? "");
         this.textSize.set(config.textSize ?? 16);
         this.animationType.set((config.animationType as OverlayAnimationType) ?? "fade");
@@ -210,13 +226,14 @@ export class OverlayView implements OnDestroy {
   private onOverlayConfigChanged(): void {
     // Reload config from backend (not localStorage) when config changes
     this.loadAndApplyConfigFromBackend().then(() => {
-      // Reconnect WebSocket with new filter/channels (convert to plain channel names)
-      const plainChannelIds = this.getPlainChannelIds(this.currentChannelIds);
+      // Reconnect WebSocket with new filter/channels
+      const channelIds = this.extractChannelIdsFromSelection(this.currentChannelIds);
       this.overlayWs.connect({
         port: this.widget!.port,
         widgetId: this.widget!.id,
         filter: this.currentFilter,
-        channelIds: plainChannelIds,
+        channelIds: channelIds,
+        preserveMessages: true, // Preserve messages when config changes
       });
       this.cdr.markForCheck();
     });
@@ -232,10 +249,10 @@ export class OverlayView implements OnDestroy {
     // Initialize last known config from backend
     await this.pollBackendConfig(widgetId);
 
-    // Poll every 500ms for config changes
+    // Poll every 2 seconds for config changes (less aggressive)
     this.configPollInterval = setInterval(async () => {
       await this.pollBackendConfig(widgetId);
-    }, 500);
+    }, 2000);
   }
 
   private async pollBackendConfig(widgetId: string): Promise<void> {
@@ -266,7 +283,10 @@ export class OverlayView implements OnDestroy {
 
       const currentFilter = config.filter || "all";
       const currentCss = config.customCss || "";
-      const currentChannels = config.channelIds || [];
+      const currentChannels = migrateLegacyChannelRefs(
+        config.channelIds,
+        this.chatList.getVisibleChannels()
+      );
       const currentTextSize = config.textSize || 16;
       const currentAnimationType = config.animationType || "fade";
       const currentAnimationDirection = config.animationDirection || "top";
@@ -276,7 +296,7 @@ export class OverlayView implements OnDestroy {
       const hasChanged =
         this.lastKnownConfig.get("filter") !== currentFilter ||
         this.lastKnownConfig.get("css") !== currentCss ||
-        this.lastKnownConfig.get("channels") !== JSON.stringify(currentChannels) ||
+        this.lastKnownConfig.get("channels") !== JSON.stringify(currentChannels ?? null) ||
         this.lastKnownConfig.get("textSize") !== String(currentTextSize) ||
         this.lastKnownConfig.get("animationType") !== currentAnimationType ||
         this.lastKnownConfig.get("animationDirection") !== currentAnimationDirection ||
@@ -286,7 +306,7 @@ export class OverlayView implements OnDestroy {
       if (hasChanged) {
         this.lastKnownConfig.set("filter", currentFilter);
         this.lastKnownConfig.set("css", currentCss);
-        this.lastKnownConfig.set("channels", JSON.stringify(currentChannels));
+        this.lastKnownConfig.set("channels", JSON.stringify(currentChannels ?? null));
         this.lastKnownConfig.set("textSize", String(currentTextSize));
         this.lastKnownConfig.set("animationType", currentAnimationType);
         this.lastKnownConfig.set("animationDirection", currentAnimationDirection);
@@ -303,20 +323,59 @@ export class OverlayView implements OnDestroy {
         this.maxMessages.set(currentMaxMessages);
         this.transparentBg.set(currentTransparentBg);
 
-        // Reconnect WebSocket with new filter/channels (convert to plain channel names)
-        const plainChannelIds = this.getPlainChannelIds(this.currentChannelIds);
+        // Reconnect WebSocket with new filter/channels
+        const channelIds = this.extractChannelIdsFromSelection(this.currentChannelIds);
         this.overlayWs.connect({
           port: this.widget!.port,
           widgetId: this.widget!.id,
           filter: this.currentFilter,
-          channelIds: plainChannelIds,
+          channelIds: channelIds,
+          preserveMessages: true, // Preserve messages when config changes
         });
+
+        // Poll messages from backend after config change
+        await this.pollBackendMessages(widgetId, currentChannels);
 
         this.cdr.markForCheck();
       }
     } catch (e) {
       console.warn("[OverlayView] Failed to poll backend config:", e);
     }
+  }
+
+  private async pollBackendMessages(
+    widgetId: string,
+    channelIds: string[] | undefined
+  ): Promise<void> {
+    try {
+      const messages = await invoke<OverlayChatMessage[]>("getOverlayMessages", {
+        widgetId,
+        limit: this.maxMessages(),
+        channelIds,
+      });
+
+      // Merge messages from backend instead of replacing
+      // This prevents race conditions with WebSocket message delivery
+      if (messages.length > 0) {
+        // Add each message individually using upsert logic
+        for (const message of messages) {
+          this.overlayWs.addMessage(message);
+        }
+      }
+    } catch (e) {
+      // Silently fail - WebSocket should handle it
+    }
+  }
+
+  /**
+   * Extract channel IDs from selection for backend filtering.
+   * Channel IDs are stored as canonical channel refs (`platform:providerChannelId`).
+   */
+  private extractChannelIdsFromSelection(channelIds: string[] | undefined): string[] | undefined {
+    if (channelIds === undefined) {
+      return undefined;
+    }
+    return channelIds;
   }
 
   platformLabel(platform: PlatformType): string {
@@ -333,6 +392,46 @@ export class OverlayView implements OnDestroy {
 
   hasMultipleChannels(): boolean {
     return (this.currentChannelIds?.length ?? 0) > 1;
+  }
+
+  /**
+   * Check if selected channels are from multiple different services/platforms.
+   * Returns true if channels from different platforms are selected (e.g., Twitch + Kick).
+   */
+  hasMultipleServices(): boolean {
+    if (!this.currentChannelIds || this.currentChannelIds.length <= 1) {
+      return false;
+    }
+    const platforms = new Set<string>();
+    for (const channelId of this.currentChannelIds) {
+      const parsed = parseChannelRef(channelId);
+      platforms.add(parsed?.platform ?? "unknown");
+      if (platforms.size > 1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if multiple channels from the same service/platform are selected.
+   * Returns true if 2+ channels from the same platform are selected.
+   */
+  hasMultipleChannelsFromSameService(): boolean {
+    if (!this.currentChannelIds || this.currentChannelIds.length <= 1) {
+      return false;
+    }
+    const platformCounts = new Map<string, number>();
+    for (const channelId of this.currentChannelIds) {
+      const parsed = parseChannelRef(channelId);
+      const platform = parsed?.platform ?? "unknown";
+      const count = (platformCounts.get(platform) ?? 0) + 1;
+      platformCounts.set(platform, count);
+      if (count > 1) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -356,9 +455,10 @@ export class OverlayView implements OnDestroy {
       return cached;
     }
 
-    const channel = this.chatList
-      .getChannels(message.platform)
-      .find((ch) => ch.channelId === message.sourceChannelId);
+    const channel = findChannelByRef(
+      this.chatList.getChannels(message.platform),
+      buildChannelRef(message.platform, message.sourceChannelId)
+    );
 
     if (!channel) {
       if (message.platform === "youtube") {
@@ -419,25 +519,32 @@ export class OverlayView implements OnDestroy {
     const messages = this.overlayWs.messages();
 
     // Filter by enabled channels
-    // Convert composite keys (platform:channelName) to plain channel names for filtering
-    // because messages have sourceChannelId as plain channel name
-    const plainChannelIds = this.getPlainChannelIds(this.currentChannelIds);
+    // Extract plain channel IDs from stored channel.id format for filtering
+    const channelRefs = this.extractChannelIdsFromSelection(this.currentChannelIds);
 
-    // If channelIds is explicitly set to empty array, hide all messages
-    // If channelIds is undefined/null, show all messages (no filter)
+    console.log('[OverlayView] overlayMessages() called: total messages=', messages.length, 
+      '| currentChannelIds=', this.currentChannelIds, 
+      '| channelRefs=', channelRefs);
+
     if (this.currentChannelIds !== undefined && this.currentChannelIds !== null) {
       if (this.currentChannelIds.length === 0) {
-        // Empty selection = hide all messages
+        console.log('[OverlayView] Empty channel selection, hiding all messages');
         return [];
       }
-      // Filter by selected channels
       const filtered = messages.filter((msg) => {
-        return plainChannelIds!.includes(msg.sourceChannelId || "");
+        const channelRef = buildChannelRef(msg.platform, msg.sourceChannelId || "");
+        const isAllowed = channelRefs!.includes(channelRef);
+        if (!isAllowed) {
+          console.log('[OverlayView] Message filtered out:', msg.id, '| msg.channel=', channelRef, '| allowed=', channelRefs);
+        }
+        return isAllowed;
       });
+      console.log('[OverlayView] Filtered messages:', filtered.length, 'from', messages.length);
       return filtered.slice(0, this.maxMessages());
     }
 
     // No channel filter = show all messages
+    console.log('[OverlayView] No channel filter, showing all messages');
     return messages.slice(0, this.maxMessages());
   }
 
@@ -572,7 +679,10 @@ export class OverlayView implements OnDestroy {
     }
 
     const effectiveFilter = readOverlayFilterOverride(widget.id) ?? widget.filter;
-    const channelIds = readOverlayChannelIds(widget.id) ?? widget.channelIds;
+    const channelIds = migrateLegacyChannelRefs(
+      readOverlayChannelIds(widget.id) ?? widget.channelIds,
+      this.chatList.getVisibleChannels()
+    );
     const channelCount = channelIds?.length ?? 0;
     const channelLabel = channelCount > 0 ? `${channelCount} channel(s)` : "all channels";
     const filterLabel = effectiveFilter === "all" ? "All chat" : "Supporters only";

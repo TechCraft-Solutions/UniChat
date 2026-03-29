@@ -20,8 +20,8 @@
       <div class="flex flex-col gap-2" [class]="messagesContainerClasses()">
         @for (message of orderedMessages(); track message.id) {
           <article class="flex items-center gap-2 message-item">
-            <!-- Channel/Platform Icon (only if multiple channels) -->
-            @if (hasMultipleChannels()) {
+            <!-- Platform Icon (show when channels from different services) -->
+            @if (hasMultipleServices()) {
               <img
                 [src]="presentation.platformIconUrl(message.platform)"
                 [alt]="platformLabel(message.platform)"
@@ -30,9 +30,9 @@
               />
             }
 
-            <!-- Channel Profile Image (only for Twitch multi-chat with multiple channels) -->
+            <!-- Channel Profile Image (show when multiple channels from same service) -->
             @if (
-              hasMultipleChannels() && message.platform === "twitch" && getChannelImageUrl(message)
+              hasMultipleChannelsFromSameService() && getChannelImageUrl(message)
             ) {
               <img
                 [src]="getChannelImageUrl(message)!"

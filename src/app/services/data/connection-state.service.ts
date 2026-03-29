@@ -17,6 +17,7 @@ import { AuthorizationService } from "@services/features/authorization.service";
 
 /* helpers */
 import { getChannelAccountCapabilities } from "@helpers/chat.helper";
+import { buildChannelRef, findChannelByRef, migrateLegacyChannelRefs } from "@utils/channel-ref.util";
 /**
  * Connection State Service - Channel Connection Status
  *
@@ -45,7 +46,7 @@ export class ConnectionStateService {
   readonly connections = computed(() => {
     const channels = this.chatListService.getVisibleChannels();
     return channels.map((channel) => {
-      const conn = this.connectionsSignal()[channel.channelId];
+      const conn = this.connectionsSignal()[buildChannelRef(channel.platform, channel.channelId)];
       return {
         channelId: channel.channelId,
         platform: channel.platform,
@@ -66,18 +67,30 @@ export class ConnectionStateService {
 
   readonly connectionMap = this.connectionsSignal.asReadonly();
 
+  constructor() {
+    const migrated: Record<string, ChannelConnection> = {};
+    for (const [key, value] of Object.entries(this.connectionsSignal())) {
+      const migratedKeys = migrateLegacyChannelRefs([key], this.chatListService.getChannels());
+      const nextKey = migratedKeys?.[0] ?? key;
+      migrated[nextKey] = value;
+    }
+    if (Object.keys(migrated).length > 0) {
+      this.connectionsSignal.set(migrated);
+    }
+  }
+
   /**
    * Get error for a specific channel
    */
   getChannelError(channelId: string): ChannelConnectionError | undefined {
-    return this.connectionsSignal()[channelId]?.error;
+    return this.connectionsSignal()[this.normalizeChannelKey(channelId)]?.error;
   }
 
   /**
    * Check if channel has an error
    */
   hasError(channelId: string): boolean {
-    return !!this.connectionsSignal()[channelId]?.error;
+    return !!this.connectionsSignal()[this.normalizeChannelKey(channelId)]?.error;
   }
 
   /**
@@ -91,7 +104,7 @@ export class ConnectionStateService {
    * Report an error for a channel connection
    */
   reportError(channelId: string, error: Partial<ChannelConnectionError>): void {
-    const existingError = this.connectionsSignal()[channelId]?.error;
+    const existingError = this.connectionsSignal()[this.normalizeChannelKey(channelId)]?.error;
     this.updateConnection(channelId, {
       error: {
         code: error.code ?? "unknown",
@@ -107,7 +120,7 @@ export class ConnectionStateService {
    * Update room state for a channel (slow mode, followers-only, etc.)
    */
   updateRoomState(channelId: string, roomState: Partial<RoomState>): void {
-    const current = this.connectionsSignal()[channelId];
+    const current = this.connectionsSignal()[this.normalizeChannelKey(channelId)];
     this.updateConnection(channelId, {
       roomState: {
         isSlowMode: false,
@@ -125,7 +138,7 @@ export class ConnectionStateService {
    * Get room state for a channel
    */
   getRoomState(channelId: string): RoomState | undefined {
-    return this.connectionsSignal()[channelId]?.roomState;
+    return this.connectionsSignal()[this.normalizeChannelKey(channelId)]?.roomState;
   }
 
   /**
@@ -194,8 +207,9 @@ export class ConnectionStateService {
   }
 
   private updateConnection(channelId: string, patch: Partial<ChannelConnection>): void {
+    const channelRef = this.normalizeChannelKey(channelId);
     this.connectionsSignal.update((connections) => {
-      const current = connections[channelId] ?? {
+      const current = connections[channelRef] ?? {
         channelId,
         platform: this.findChannel(channelId)?.platform ?? "twitch",
         status: "disconnected" as PlatformStatus,
@@ -210,7 +224,7 @@ export class ConnectionStateService {
 
       return {
         ...connections,
-        [channelId]: { ...current, ...patch },
+        [channelRef]: { ...current, ...patch },
       };
     });
   }
@@ -227,8 +241,25 @@ export class ConnectionStateService {
   }
 
   private findChannel(channelId: string) {
-    return this.chatListService
-      .getChannels()
-      .find((channel) => channel.id === channelId || channel.channelId === channelId);
+    return (
+      findChannelByRef(this.chatListService.getChannels(), channelId) ??
+      this.chatListService
+        .getChannels()
+        .find((channel) => channel.id === channelId || channel.channelId === channelId)
+    );
+  }
+
+  private normalizeChannelKey(channelId: string): string {
+    const direct = findChannelByRef(this.chatListService.getChannels(), channelId);
+    if (direct) {
+      return buildChannelRef(direct.platform, direct.channelId);
+    }
+
+    const channel = this.findChannel(channelId);
+    if (!channel) {
+      return channelId;
+    }
+
+    return buildChannelRef(channel.platform, channel.channelId);
   }
 }

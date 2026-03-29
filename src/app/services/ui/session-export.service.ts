@@ -6,10 +6,11 @@ import { ChatMessage } from "@models/chat.model";
 
 /* services */
 import { ChatStorageService } from "@services/data/chat-storage.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 export interface ExportOptions {
   format: "json" | "csv";
   includeMetadata?: boolean;
-  channels?: string[]; // Specific channel IDs to export, or all if undefined
+  channels?: string[]; // Specific canonical channel refs to export, or all if undefined
   platforms?: ChatMessage["platform"][]; // Specific platforms to export
   startTime?: string; // ISO timestamp
   endTime?: string; // ISO timestamp
@@ -59,7 +60,7 @@ export class SessionExportService {
     // Filter by channels
     if (options.channels && options.channels.length > 0) {
       const channelSet = new Set(options.channels);
-      messages = messages.filter((m) => channelSet.has(m.sourceChannelId));
+      messages = messages.filter((m) => channelSet.has(buildChannelRef(m.platform, m.sourceChannelId)));
     }
 
     // Filter by platforms

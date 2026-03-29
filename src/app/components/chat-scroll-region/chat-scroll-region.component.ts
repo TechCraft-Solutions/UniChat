@@ -29,14 +29,15 @@ import { ChatMessage } from "@models/chat.model";
   imports: [MatIconModule, ScrollingModule],
   templateUrl: "./chat-scroll-region.component.html",
   host: {
-    class: "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+    class: "flex min-h-0 min-w-0 flex-1 flex-col",
   },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChatScrollRegionComponent {
-  private static readonly nearBottomPx = 100; // More generous threshold
-  private static readonly topThresholdPx = 200;
+  private static readonly nearBottomPx = 400; // Increased threshold for better "near bottom" detection (Twitch-like)
+  private static readonly suppressAutoScrollThresholdPx = 30; // Reduced to detect smaller intentional scrolls
   private static readonly messageItemHeight = 80; // Approximate height in pixels for virtual scroll
+  private static readonly scrollBehavior: ScrollBehavior = "smooth"; // Smooth scroll animation
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
@@ -51,6 +52,7 @@ export class ChatScrollRegionComponent {
   readonly pendingNewCount = signal(0);
   private snapshotLength = 0;
   private prevMessageLen = 0;
+  private lastScrollTop = 0; // Track scroll position to detect intentional scrolling
 
   readonly showJumpButton = computed(() => !this.pinnedToBottom());
   readonly showUnreadCount = computed(() => !this.pinnedToBottom() && this.pendingNewCount() > 0);
@@ -67,6 +69,14 @@ export class ChatScrollRegionComponent {
         }
       });
 
+    // Add scroll event listener to viewport after it's initialized
+    afterNextRender(() => {
+      const node = this.viewport()?.nativeElement;
+      if (node) {
+        node.addEventListener('scroll', () => this.onScroll(), { passive: true });
+      }
+    });
+
     effect(() => {
       this.scrollToken();
       untracked(() => {
@@ -75,6 +85,9 @@ export class ChatScrollRegionComponent {
         const node = this.viewport()?.nativeElement;
         const distance = node ? node.scrollHeight - node.scrollTop - node.clientHeight : 0;
         const nearBottom = distance <= ChatScrollRegionComponent.nearBottomPx;
+
+        // Reset scroll tracking for new channel
+        this.lastScrollTop = node?.scrollTop ?? 0;
 
         if (nearBottom) {
           // User is at bottom - scroll to new bottom
@@ -107,7 +120,6 @@ export class ChatScrollRegionComponent {
         // When user scrolls up, pinnedToBottom becomes false and STAYS false
         // until they manually scroll back to bottom or click "Latest" button
         if (this.pinnedToBottom() && grew) {
-          console.log("[ChatScroll] Auto-scrolling because: pinnedToBottom=true, grew=true");
           // We're at bottom and new messages arrived - auto-scroll
           this.pendingNewCount.set(0);
           this.snapshotLength = len;
@@ -123,9 +135,6 @@ export class ChatScrollRegionComponent {
         // User scrolled up OR messages were prepended (history) - don't auto-scroll
         // Just count pending messages
         if (grew) {
-          console.log(
-            `[ChatScroll] NOT auto-scrolling: pinnedToBottom=${this.pinnedToBottom()}, counting ${len - this.snapshotLength} pending messages`
-          );
           this.pendingNewCount.set(Math.max(0, len - this.snapshotLength));
         }
       });
@@ -137,16 +146,26 @@ export class ChatScrollRegionComponent {
     if (!node) {
       return;
     }
-    const distance = node.scrollHeight - node.scrollTop - node.clientHeight;
+
+    const scrollTop = node.scrollTop;
+    const scrollDelta = Math.abs(scrollTop - this.lastScrollTop);
+
+    // Ignore tiny scroll movements (less than 50px) to prevent accidental button toggle
+    if (scrollDelta < ChatScrollRegionComponent.suppressAutoScrollThresholdPx) {
+      return;
+    }
+
+    this.lastScrollTop = scrollTop;
+
+    const distance = node.scrollHeight - scrollTop - node.clientHeight;
     const nearBottom = distance <= ChatScrollRegionComponent.nearBottomPx;
 
     // User scrolled UP (away from bottom) - disable auto-scroll
     if (!nearBottom) {
       if (this.pinnedToBottom()) {
-        // First time scrolling up - mark as not pinned
+        // First time scrolling up intentionally - mark as not pinned
         this.pinnedToBottom.set(false);
         this.snapshotLength = this.messages().length;
-        console.log("[ChatScroll] User scrolled up, disabled auto-scroll");
       }
       // Keep pinnedToBottom=false while scrolled up
     }
@@ -155,21 +174,29 @@ export class ChatScrollRegionComponent {
       this.pinnedToBottom.set(true);
       this.snapshotLength = this.messages().length;
       this.pendingNewCount.set(0);
-      console.log("[ChatScroll] User at bottom, enabled auto-scroll");
     }
   }
 
   jumpToBottom(): void {
-    this.scrollToBottom();
+    this.scrollToBottom(true); // Use smooth scroll when user clicks button
     this.pinnedToBottom.set(true);
     this.snapshotLength = this.messages().length;
     this.pendingNewCount.set(0);
   }
 
-  private scrollToBottom(): void {
+  private scrollToBottom(smooth: boolean = false): void {
     const node = this.viewport()?.nativeElement;
     if (node) {
-      node.scrollTop = node.scrollHeight;
+      if (smooth) {
+        // Use smooth scrolling for user-initiated jumps
+        node.scrollTo({
+          top: node.scrollHeight,
+          behavior: ChatScrollRegionComponent.scrollBehavior,
+        });
+      } else {
+        // Instant scroll for auto-scroll on new messages
+        node.scrollTop = node.scrollHeight;
+      }
     }
   }
 }

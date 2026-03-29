@@ -11,6 +11,7 @@ import { ConnectionStateService } from "@services/data/connection-state.service"
 import { KickChatService } from "@services/providers/kick-chat.service";
 import { TwitchChatService } from "@services/providers/twitch-chat.service";
 import { YouTubeChatService } from "@services/providers/youtube-chat.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 @Injectable({
   providedIn: "root",
 })
@@ -24,13 +25,14 @@ export class ChatProviderCoordinatorService {
 
   constructor() {
     this.twitchService.onStatusChange((channelId, status) => {
-      this.connectionStateService.setChannelStatus(channelId, status);
+      const channelRef = buildChannelRef("twitch", channelId);
+      this.connectionStateService.setChannelStatus(channelRef, status);
 
       // Update global connection state based on status
       if (status === "connected") {
-        this.chatStateManager.markChannelAsConnected(channelId);
+        this.chatStateManager.markChannelAsConnected(channelRef);
       } else if (status === "disconnected" || status === "reconnecting") {
-        this.chatStateManager.markChannelAsDisconnected(channelId);
+        this.chatStateManager.markChannelAsDisconnected(channelRef);
       }
     });
   }
@@ -39,18 +41,23 @@ export class ChatProviderCoordinatorService {
     const channel = this.resolveChannel(channelId, platform);
     switch (platform) {
       case "twitch":
-        this.connectionStateService.setChannelStatus(channel?.channelId ?? channelId, "connecting");
+        this.connectionStateService.setChannelStatus(
+          buildChannelRef(platform, channel?.channelId ?? channelId),
+          "connecting"
+        );
         this.twitchService.connect(channel?.channelName ?? channelId);
         break;
       case "kick":
         this.kickService.connect(channel?.channelId ?? channelId);
-        // Mark as connected immediately for kick/youtube (no status callbacks)
-        this.chatStateManager.markChannelAsConnected(channel?.channelId ?? channelId);
+        this.chatStateManager.markChannelAsConnected(
+          buildChannelRef(platform, channel?.channelId ?? channelId)
+        );
         break;
       case "youtube":
         this.youtubeService.connect(channel?.channelId ?? channelId);
-        // Mark as connected immediately for kick/youtube (no status callbacks)
-        this.chatStateManager.markChannelAsConnected(channel?.channelId ?? channelId);
+        this.chatStateManager.markChannelAsConnected(
+          buildChannelRef(platform, channel?.channelId ?? channelId)
+        );
         break;
     }
   }
@@ -61,7 +68,7 @@ export class ChatProviderCoordinatorService {
       case "twitch":
         this.twitchService.disconnect(channel?.channelName ?? channelId);
         this.connectionStateService.setChannelStatus(
-          channel?.channelId ?? channelId,
+          buildChannelRef(platform, channel?.channelId ?? channelId),
           "disconnected"
         );
         break;
@@ -74,7 +81,9 @@ export class ChatProviderCoordinatorService {
     }
 
     // Update global state on disconnect
-    this.chatStateManager.markChannelAsDisconnected(channel?.channelId ?? channelId);
+    this.chatStateManager.markChannelAsDisconnected(
+      buildChannelRef(platform, channel?.channelId ?? channelId)
+    );
   }
 
   isConnected(channelId: string, platform: PlatformType): boolean {

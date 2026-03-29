@@ -32,10 +32,10 @@
             [cdkDragData]="channel.id"
             (cdkDragStarted)="onMixedChannelDragStarted()"
             (cdkDragEnded)="onMixedChannelDragEnded()"
-            (click)="toggleChannelFilter(channel.id); loadChannelImage(channel)"
+            (click)="toggleChannelFilter(channelRefFor(channel)); loadChannelImage(channel)"
             class="cursor-move inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium"
             [class]="
-              isChannelDisabled(channel.id)
+              isChannelDisabled(channelRefFor(channel))
                 ? 'border-slate-300/90 bg-slate-100 text-slate-500 line-through opacity-90 dark:border-white/10 dark:bg-black/25 dark:text-slate-500'
                 : 'border-slate-800 bg-slate-800 text-white shadow-sm dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900 dark:shadow-none'
             "
@@ -45,7 +45,7 @@
               [class]="
                 presentation.getPlatformBadgeClassesMixedFilter(
                   channel.platform,
-                  !isChannelDisabled(channel.id)
+                  !isChannelDisabled(channelRefFor(channel))
                 )
               "
               [title]="presentation.platformLabel(channel.platform)"
@@ -98,10 +98,10 @@
       </div>
     </div>
 
-    <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div class="relative flex min-h-0 flex-1 flex-col overflow-visible">
       <!-- Connection Error Banners for all channels with errors -->
       @for (channel of orderedVisibleChannels(); track channel.id) {
-        @if (connectionStateService.hasError(channel.channelId)) {
+        @if (connectionStateService.hasError(channelRefFor(channel))) {
           <div class="shrink-0 px-3 pt-2">
             <app-connection-error-banner
               [channelId]="channel.channelId"

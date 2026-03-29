@@ -1,5 +1,6 @@
 /* sys lib */
 import { Injectable, signal } from "@angular/core";
+import { parseChannelRef } from "@utils/channel-ref.util";
 /**
  * Chat State Manager - Session Connection Tracking
  *
@@ -45,16 +46,17 @@ export class ChatStateManagerService {
    * Check if a channel is already connected in this session
    */
   isChannelConnected(channelId: string): boolean {
-    return this.connectedChannelsSignal().has(channelId);
+    return this.connectedChannelsSignal().has(this.normalizeChannelKey(channelId));
   }
 
   /**
    * Mark a channel as connected (called after successful connection)
    */
   markChannelAsConnected(channelId: string): void {
+    const normalized = this.normalizeChannelKey(channelId);
     this.connectedChannelsSignal.update((set) => {
       const newSet = new Set(set);
-      newSet.add(channelId);
+      newSet.add(normalized);
       return newSet;
     });
   }
@@ -63,10 +65,19 @@ export class ChatStateManagerService {
    * Mark a channel as disconnected
    */
   markChannelAsDisconnected(channelId: string): void {
+    const normalized = this.normalizeChannelKey(channelId);
     this.connectedChannelsSignal.update((set) => {
       const newSet = new Set(set);
-      newSet.delete(channelId);
+      newSet.delete(normalized);
       return newSet;
     });
+  }
+
+  private normalizeChannelKey(channelId: string): string {
+    const parsed = parseChannelRef(channelId);
+    if (parsed) {
+      return channelId;
+    }
+    return channelId;
   }
 }

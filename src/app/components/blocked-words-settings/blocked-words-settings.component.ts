@@ -9,6 +9,7 @@ import { MatInputModule } from "@angular/material/input";
 /* services */
 import { ChatListService } from "@services/data/chat-list.service";
 import { BlockedWordsService, BlockedWordRule } from "@services/ui/blocked-words.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 @Component({
   selector: "app-blocked-words-settings",
   standalone: true,
@@ -131,5 +132,9 @@ export class BlockedWordsSettingsComponent {
     // Test against all channels (global rules)
     const result = this.blockedWordsService.filterMessage(message, "test");
     this.testResult.set(result);
+  }
+
+  channelRefFor(channel: ReturnType<ChatListService["getVisibleChannels"]>[number]): string {
+    return buildChannelRef(channel.platform, channel.channelId);
   }
 }

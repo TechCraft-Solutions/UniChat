@@ -10,6 +10,7 @@ import { ChannelConnectionError, PlatformType } from "@models/chat.model";
 /* services */
 import { ConnectionStateService } from "@services/data/connection-state.service";
 import { ChatProviderCoordinatorService } from "@services/providers/chat-provider-coordinator.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 @Component({
   selector: "app-connection-error-banner",
   standalone: true,
@@ -69,7 +70,11 @@ export class ConnectionErrorBannerComponent {
   readonly channelId = input.required<string>();
   readonly platform = input.required<PlatformType>();
 
-  readonly error = computed(() => this.connectionStateService.getChannelError(this.channelId()));
+  readonly error = computed(() =>
+    this.connectionStateService.getChannelError(
+      buildChannelRef(this.platform(), this.channelId())
+    )
+  );
 
   readonly retryConnection = output<void>();
   readonly dismissError = output<void>();
@@ -80,7 +85,7 @@ export class ConnectionErrorBannerComponent {
   }
 
   onDismiss(): void {
-    this.connectionStateService.clearError(this.channelId());
+    this.connectionStateService.clearError(buildChannelRef(this.platform(), this.channelId()));
     this.dismissError.emit();
   }
 }

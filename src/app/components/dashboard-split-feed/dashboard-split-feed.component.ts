@@ -27,6 +27,7 @@ import { DashboardChatInteractionService } from "@services/ui/dashboard-chat-int
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
 import { SplitFeedUiService } from "@services/ui/split-feed-ui.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 
 /* components */
 import { ChatHistoryHeaderComponent } from "@components/chat-history-header/chat-history-header.component";
@@ -422,6 +423,10 @@ export class DashboardSplitFeedComponent {
     }
   }
 
+  channelRefFor(platform: PlatformType, channelId: string): string {
+    return buildChannelRef(platform, channelId);
+  }
+
   async onLoadHistory(event: {
     channelId: string | undefined;
     platform: string | undefined;
@@ -437,7 +442,7 @@ export class DashboardSplitFeedComponent {
       if (event.platform === "twitch") {
         const messages = await this.twitchChat.loadChannelHistory(event.channelId, event.count);
         if (messages.length > 0) {
-          this.chatStorage.prependMessages(event.channelId, messages);
+          this.chatStorage.prependMessages(buildChannelRef("twitch", event.channelId), messages);
         }
       }
     } else if (event.channelId) {
@@ -448,7 +453,10 @@ export class DashboardSplitFeedComponent {
       if (channel && channel.platform === "twitch") {
         const messages = await this.twitchChat.loadChannelHistory(channel.channelId, event.count);
         if (messages.length > 0) {
-          this.chatStorage.prependMessages(channel.channelId, messages);
+          this.chatStorage.prependMessages(
+            buildChannelRef(channel.platform, channel.channelId),
+            messages
+          );
         }
       }
     } else {
@@ -461,7 +469,10 @@ export class DashboardSplitFeedComponent {
             event.count
           );
           if (messages.length > 0) {
-            this.chatStorage.prependMessages(activeChannel.channelId, messages);
+            this.chatStorage.prependMessages(
+              buildChannelRef(activeChannel.platform, activeChannel.channelId),
+              messages
+            );
           }
         }
       }

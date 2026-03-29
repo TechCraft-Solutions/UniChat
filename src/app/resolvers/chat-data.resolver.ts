@@ -5,6 +5,7 @@ import { inject } from "@angular/core";
 import { ChatListService } from "@services/data/chat-list.service";
 import { ChatStateManagerService } from "@services/data/chat-state-manager.service";
 import { ChatProviderCoordinatorService } from "@services/providers/chat-provider-coordinator.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 /**
  * Resolver for dashboard route that prevents unnecessary refetching.
  * Follows TaskFlow's storage-first pattern:
@@ -29,9 +30,10 @@ export const ChatDataResolver = () => {
   const channels = chatListService.getVisibleChannels();
 
   for (const channel of channels) {
-    if (!chatStateManager.isChannelConnected(channel.channelId)) {
+    const channelRef = buildChannelRef(channel.platform, channel.channelId);
+    if (!chatStateManager.isChannelConnected(channelRef)) {
       providerCoordinator.connectChannel(channel.channelId, channel.platform);
-      chatStateManager.markChannelAsConnected(channel.channelId);
+      chatStateManager.markChannelAsConnected(channelRef);
     }
   }
 

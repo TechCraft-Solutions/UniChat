@@ -7,6 +7,7 @@ import { ChatMessage, PlatformType } from "@models/chat.model";
 /* services */
 import { ChatStorageService } from "@services/data/chat-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 
 /**
  * Export format options
@@ -54,7 +55,7 @@ export class ChatHistoryExportService {
       dateFormat: "time",
     }
   ): Promise<void> {
-    const messages = this.chatStorage.getMessagesByChannel(channelId);
+    const messages = this.chatStorage.getMessagesByChannel(buildChannelRef(platform, channelId));
     const channel = this.chatList.getChannels(platform).find((ch) => ch.channelId === channelId);
     const channelName = channel?.channelName ?? channelId;
 
@@ -80,7 +81,9 @@ export class ChatHistoryExportService {
     const allMessages: Record<string, ChatMessage[]> = {};
 
     for (const channel of allChannels) {
-      const messages = this.chatStorage.getMessagesByChannel(channel.channelId);
+      const messages = this.chatStorage.getMessagesByChannel(
+        buildChannelRef(channel.platform, channel.channelId)
+      );
       if (messages.length > 0) {
         allMessages[`${channel.platform}:${channel.channelId}`] = messages;
       }
@@ -312,7 +315,9 @@ export class ChatHistoryExportService {
 
     let totalMessages = 0;
     for (const channel of allChannels) {
-      const messages = this.chatStorage.getMessagesByChannel(channel.channelId);
+      const messages = this.chatStorage.getMessagesByChannel(
+        buildChannelRef(channel.platform, channel.channelId)
+      );
       byPlatform[channel.platform] += messages.length;
       totalMessages += messages.length;
     }

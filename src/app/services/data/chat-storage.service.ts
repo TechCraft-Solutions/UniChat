@@ -15,6 +15,7 @@ import { sortMessagesByRecency, groupByPlatform } from "@helpers/chat.helper";
 
 /* config */
 import { APP_CONFIG } from "@config/app.constants";
+import { buildChannelRef } from "@utils/channel-ref.util";
 const channelMessagesStorageKey = "unichat.channelMessages.v1";
 
 /**
@@ -79,6 +80,10 @@ export class ChatStorageService {
     const allMessages = this.allMessages();
     return groupByPlatform(allMessages);
   });
+
+  getChannelRefForMessage(message: Pick<ChatMessage, "platform" | "sourceChannelId">): string {
+    return buildChannelRef(message.platform, message.sourceChannelId);
+  }
 
   isChannelLoaded(channelId: string): boolean {
     return this.loadedChannels().has(channelId);
@@ -146,39 +151,8 @@ export class ChatStorageService {
     // Update last message time after adding
     this.messageTypeDetector.updateLastMessageTime(message);
 
-    // Forward to overlay via WebSocket (existing)
+    // Forward to overlay via WebSocket
     this.overlayBridge.forwardMessage(message);
-
-    // Also store in backend for overlay to fetch
-    this.sendToOverlayBackend(message);
-  }
-
-  private async sendToOverlayBackend(message: ChatMessage): Promise<void> {
-    if (!message.canRenderInOverlay || !message.text) {
-      return;
-    }
-
-    // Use default widget ID (same as overlay view uses)
-    const widgetId = APP_CONFIG.DEFAULT_WIDGET_ID;
-
-    try {
-      await invoke("sendOverlayMessage", {
-        widgetId,
-        message: {
-          id: message.id,
-          platform: message.platform,
-          author: message.author,
-          text: message.text,
-          timestamp: message.timestamp,
-          isSupporter: message.isSupporter,
-          sourceChannelId: message.sourceChannelId,
-          authorAvatarUrl: message.authorAvatarUrl,
-          emotes: message.rawPayload.emotes,
-        },
-      });
-    } catch (err) {
-      console.warn("[ChatStorage] Failed to send message to overlay backend:", err);
-    }
   }
 
   addMessages(channelId: string, messages: ChatMessage[]): void {
@@ -224,11 +198,6 @@ export class ChatStorageService {
     // Forward messages in original order for display
     for (const message of messages) {
       this.overlayBridge.forwardMessage(message);
-    }
-
-    // Also store in backend for overlay to fetch
-    for (const message of messages) {
-      this.sendToOverlayBackend(message);
     }
   }
 

@@ -115,7 +115,7 @@ export interface SplitLayout {
   orderedPlatforms: PlatformType[];
   hiddenPlatforms: PlatformType[];
   columnWidths: Record<PlatformType, number>;
-  /** Per-platform order of `channelId` (provider id) for split channel switcher */
+  /** Per-platform order of provider channel ids for split channel switcher */
   orderedChannelIds?: Partial<Record<PlatformType, string[]>>;
 }
 
@@ -123,7 +123,7 @@ export interface DashboardPreferences {
   feedMode: FeedMode;
   densityMode: DensityMode;
   splitLayout: SplitLayout;
-  /** `channelId` (provider id) hidden in mixed feed; others stay visible */
+  /** Canonical channel refs (`platform:providerChannelId`) hidden in mixed feed; others stay visible */
   mixedDisabledChannelIds: string[];
 }
 
@@ -135,7 +135,7 @@ export interface WidgetConfig {
   sceneHint: string;
   themeHint: string;
   port: number;
-  channelIds?: string[]; // Channels to include in overlay (empty/undefined = all channels)
+  channelIds?: string[]; // Canonical channel refs (`platform:providerChannelId`) to include in overlay
 
   // Overlay appearance settings
   customCss?: string; // Custom CSS styles

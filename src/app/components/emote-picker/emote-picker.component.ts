@@ -13,7 +13,7 @@ import {
 import { FormsModule } from "@angular/forms";
 import { MatIconModule } from "@angular/material/icon";
 import { MatTooltipModule } from "@angular/material/tooltip";
-import { NgClass, NgIf, NgFor } from "@angular/common";
+import { NgClass } from "@angular/common";
 
 /* services */
 import {
@@ -34,7 +34,7 @@ import {
 @Component({
   selector: "app-emote-picker",
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatTooltipModule, NgClass, NgIf, NgFor],
+  imports: [FormsModule, MatIconModule, MatTooltipModule, NgClass],
   templateUrl: "./emote-picker.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

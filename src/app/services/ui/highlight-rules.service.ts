@@ -3,6 +3,8 @@ import { Injectable, signal, computed, inject } from "@angular/core";
 
 /* services */
 import { LocalStorageService } from "@services/core/local-storage.service";
+import { ChatListService } from "@services/data/chat-list.service";
+import { migrateLegacyChannelRefs } from "@utils/channel-ref.util";
 export interface HighlightRule {
   id: string;
   pattern: string;
@@ -28,6 +30,7 @@ const HIGHLIGHT_RULES_STORAGE_KEY = "unichat.highlightRules.v1";
 })
 export class HighlightRulesService {
   private readonly localStorageService = inject(LocalStorageService);
+  private readonly chatListService = inject(ChatListService);
 
   private readonly rulesSignal = signal<HighlightRule[]>([]);
 
@@ -43,7 +46,12 @@ export class HighlightRulesService {
 
   private loadRules(): void {
     const stored = this.localStorageService.get<HighlightRule[]>(HIGHLIGHT_RULES_STORAGE_KEY, []);
-    this.rulesSignal.set(stored);
+    const channels = this.chatListService.getChannels();
+    const migrated = stored.map((rule) => ({
+      ...rule,
+      channelIds: rule.isGlobal ? undefined : migrateLegacyChannelRefs(rule.channelIds, channels),
+    }));
+    this.rulesSignal.set(migrated);
   }
 
   private persistRules(): void {

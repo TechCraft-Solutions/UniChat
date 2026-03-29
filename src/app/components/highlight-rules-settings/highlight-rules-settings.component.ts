@@ -9,6 +9,7 @@ import { MatInputModule } from "@angular/material/input";
 /* services */
 import { ChatListService } from "@services/data/chat-list.service";
 import { HighlightRulesService, HighlightRule } from "@services/ui/highlight-rules.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 @Component({
   selector: "app-highlight-rules-settings",
   standalone: true,
@@ -144,5 +145,9 @@ export class HighlightRulesSettingsComponent {
 
     const color = this.highlightRulesService.getHighlightColor(message, author, "test");
     this.testResult.set(color);
+  }
+
+  channelRefFor(channel: ReturnType<ChatListService["getVisibleChannels"]>[number]): string {
+    return buildChannelRef(channel.platform, channel.channelId);
   }
 }

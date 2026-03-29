@@ -23,6 +23,7 @@ import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.
 import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.service";
 import { OverlaySourceBridgeService } from "@services/ui/overlay-source-bridge.service";
 import { PinnedMessagesService } from "@services/ui/pinned-messages.service";
+import { buildChannelRef } from "@utils/channel-ref.util";
 
 /* components */
 import { ChatSearchComponent } from "@components/chat-search/chat-search.component";
@@ -79,9 +80,10 @@ export class DashboardView {
 
       // Only connect channels that aren't already connected globally
       for (const ch of channels) {
-        if (!this.chatStateManager.isChannelConnected(ch.channelId)) {
+        const channelRef = buildChannelRef(ch.platform, ch.channelId);
+        if (!this.chatStateManager.isChannelConnected(channelRef)) {
           this.chatProviderCoordinator.connectChannel(ch.channelId, ch.platform);
-          this.chatStateManager.markChannelAsConnected(ch.channelId);
+          this.chatStateManager.markChannelAsConnected(channelRef);
         }
       }
     });
