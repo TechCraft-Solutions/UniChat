@@ -3,9 +3,5 @@
   "identifier": "overlay",
   "description": "Capability for overlay preview windows",
   "windows": ["overlay-*", "overlay-widget-main"],
-  "permissions": [
-    "core:default",
-    "core:event:default",
-    "core:event:allow-listen"
-  ]
+  "permissions": ["core:default", "core:event:default", "core:event:allow-listen"]
 }
