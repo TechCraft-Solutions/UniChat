@@ -130,8 +130,13 @@ export class AuthorizationService {
   private upsertAccount(account: AuthAccountPayload): void {
     const mapped = this.toChatAccount(account);
     this.accountsSignal.update((accounts) => {
-      const filtered = accounts.filter((acc) => acc.platform !== account.platform);
-      return [...filtered, mapped];
+      const idx = accounts.findIndex((acc) => acc.id === mapped.id);
+      if (idx >= 0) {
+        const next = [...accounts];
+        next[idx] = mapped;
+        return next;
+      }
+      return [...accounts, mapped];
     });
   }
 

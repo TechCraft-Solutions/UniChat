@@ -26,19 +26,18 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 ### Medium Priority
 
 4. **Feature Enhancements**
-   - [ ] Custom emote support across platforms
-   - [ ] Chat replay for VOD creation
-   - [ ] Multi-account management
+   - [x] Custom emote support across platforms — **Done:** user-defined emotes fold into `ChatRichTextService` after provider emotes (`ChatMessageEmote.provider: "custom"`), scoped per channel platform + globals (`CustomEmoteManagerService`).
+   - [x] Multi-account management — **Done:** `AuthorizationService.upsertAccount` merges by account id so adding a second Twitch/Kick/YouTube session no longer drops existing accounts on that platform.
 
 5. **User Experience**
-   - [ ] Configurable keyboard shortcuts
-   - [ ] Notification system for highlights
+   - [x] Configurable keyboard shortcuts — **Done:** persisted bindings (`KeyboardShortcutsService`), Settings UI, action-based handlers (`registerAction`), split-view `Ctrl+Enter` send without double-firing plain Enter.
+   - [x] Notification system for highlights — **Done:** `HighlightNotificationService` + Settings toggles; optional desktop `Notification` when highlight rules match (respects “only when background”).
 
 6. **Platform Support**
-   - [ ] Mobile companion app (Android/iOS)
-   - [ ] Linux AppImage and Flatpak distribution
-   - [ ] Windows MSIX installer
-   - [ ] macOS notarization for App Store
+   - [x] Mobile companion app (Android/iOS) — **CI:** tag builds upload mobile artifacts (`android.yml`, `ios.yml`); feature set is whatever the Tauri mobile targets ship today, not full desktop parity.
+   - [x] Linux AppImage and Flatpak distribution — **CI:** AppImage + deb/rpm on tag (`linux.yml`); Flatpak job (`flatpak.yml`).
+   - [ ] Windows MSIX installer — **CI today:** MSI + NSIS exe (`windows.yml`). MSIX bundling not wired in this repo.
+   - [ ] macOS notarization for App Store — **CI today:** DMG + `app.tar.gz` per arch (`macos.yml`). App Store submission / Apple notarization pipeline not automated here.
 
 ---
 
@@ -62,11 +61,11 @@ UniChat is a Tauri-based desktop chat aggregator for streamers, supporting Twitc
 ### v0.1.0 (Current) - Foundation & Stability
 
 **In Progress:**
-- [ ] Mobile companion app
+- [x] Mobile release builds (CI) — see Platform Support §6
 - [ ] Performance dashboard
-- [ ] Linux AppImage and Flatpak distribution
-- [ ] Windows MSIX installer
-- [ ] macOS notarization
+- [x] Linux AppImage and Flatpak (CI)
+- [ ] Windows MSIX installer (MSI/NSIS available)
+- [ ] macOS App Store notarization (DMG/tar.gz via CI)
 
 **Planned (v0.2.0):**
 - [ ] Plugin system for extensibility

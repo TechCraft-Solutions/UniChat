@@ -33,6 +33,7 @@ import {
 /* components */
 import { BlockedWordsSettingsComponent } from "@components/blocked-words-settings/blocked-words-settings.component";
 import { HighlightRulesSettingsComponent } from "@components/highlight-rules-settings/highlight-rules-settings.component";
+import { KeyboardShortcutsSettingsComponent } from "@components/keyboard-shortcuts-settings/keyboard-shortcuts-settings.component";
 import { SessionExportSettingsComponent } from "@components/session-export-settings/session-export-settings.component";
 @Component({
   selector: "app-settings-page-view",
@@ -43,6 +44,7 @@ import { SessionExportSettingsComponent } from "@components/session-export-setti
     UpperCasePipe,
     BlockedWordsSettingsComponent,
     HighlightRulesSettingsComponent,
+    KeyboardShortcutsSettingsComponent,
     SessionExportSettingsComponent,
   ],
   templateUrl: "./settings-page.view.html",

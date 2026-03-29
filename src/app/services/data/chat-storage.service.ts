@@ -6,6 +6,7 @@ import { ChatMessage, PlatformType, ChatHistoryLoadState, MessageType } from "@m
 
 /* services */
 import { BlockedWordsService } from "@services/ui/blocked-words.service";
+import { HighlightNotificationService } from "@services/ui/highlight-notification.service";
 import { MessageTypeDetectorService } from "@services/ui/message-type-detector.service";
 import { OverlaySourceBridgeService } from "@services/ui/overlay-source-bridge.service";
 
@@ -54,6 +55,7 @@ export class ChatStorageService {
   private readonly overlayBridge = inject(OverlaySourceBridgeService);
   private readonly messageTypeDetector = inject(MessageTypeDetectorService);
   private readonly blockedWordsService = inject(BlockedWordsService);
+  private readonly highlightNotifications = inject(HighlightNotificationService);
 
   /** Live ingress batches (flushed on requestAnimationFrame). */
   private readonly pendingBatches = new Map<string, ChatMessage[]>();
@@ -188,6 +190,7 @@ export class ChatStorageService {
 
     // Forward messages in original order for display
     for (const message of messages) {
+      this.highlightNotifications.maybeNotify(message);
       this.overlayBridge.forwardMessage(message);
     }
   }
@@ -237,6 +240,7 @@ export class ChatStorageService {
 
     // Forward messages in original order for display
     for (const message of messages) {
+      this.highlightNotifications.maybeNotify(message);
       this.overlayBridge.forwardMessage(message);
     }
   }
@@ -339,6 +343,7 @@ export class ChatStorageService {
 
     for (const incoming of snapshot.values()) {
       for (const message of incoming) {
+        this.highlightNotifications.maybeNotify(message);
         this.overlayBridge.forwardMessage(message);
       }
     }

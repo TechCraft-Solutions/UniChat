@@ -103,6 +103,9 @@
     <!-- Highlight Rules Section -->
     <app-highlight-rules-settings />
 
+    <!-- Keyboard shortcuts -->
+    <app-keyboard-shortcuts-settings />
+
     <!-- Session Export Section -->
     <app-session-export-settings />
 
@@ -364,30 +367,24 @@
 
           <!-- Options -->
           <div class="grid grid-cols-2 gap-3">
-            <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-              <input
-                type="checkbox"
-                [(ngModel)]="exportIncludeTimestamps"
-                class="peer"
-              />
+            <label
+              class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer"
+            >
+              <input type="checkbox" [(ngModel)]="exportIncludeTimestamps" class="peer" />
               <span class="checkmark"></span>
               Include Timestamps
             </label>
-            <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-              <input
-                type="checkbox"
-                [(ngModel)]="exportIncludePlatform"
-                class="peer"
-              />
+            <label
+              class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer"
+            >
+              <input type="checkbox" [(ngModel)]="exportIncludePlatform" class="peer" />
               <span class="checkmark"></span>
               Include Platform
             </label>
-            <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-              <input
-                type="checkbox"
-                [(ngModel)]="exportIncludeBadges"
-                class="peer"
-              />
+            <label
+              class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer"
+            >
+              <input type="checkbox" [(ngModel)]="exportIncludeBadges" class="peer" />
               <span class="checkmark"></span>
               Include Badges
             </label>

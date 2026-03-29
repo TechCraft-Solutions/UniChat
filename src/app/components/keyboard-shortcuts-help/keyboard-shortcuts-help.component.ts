@@ -40,7 +40,7 @@ import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.servic
               Navigation
             </h3>
             <div class="space-y-2">
-              @for (shortcut of shortcutsByCategory().navigation; track shortcut.keys) {
+              @for (shortcut of shortcutsByCategory().navigation; track shortcut.bindingId) {
                 <div class="flex items-center justify-between">
                   <span class="text-sm text-slate-600 dark:text-slate-400">
                     {{ shortcut.description }}
@@ -59,7 +59,7 @@ import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.servic
           <div>
             <h3 class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Actions</h3>
             <div class="space-y-2">
-              @for (shortcut of shortcutsByCategory().actions; track shortcut.keys) {
+              @for (shortcut of shortcutsByCategory().actions; track shortcut.bindingId) {
                 <div class="flex items-center justify-between">
                   <span class="text-sm text-slate-600 dark:text-slate-400">
                     {{ shortcut.description }}
@@ -78,7 +78,7 @@ import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.servic
           <div>
             <h3 class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Overlay</h3>
             <div class="space-y-2">
-              @for (shortcut of shortcutsByCategory().overlay; track shortcut.keys) {
+              @for (shortcut of shortcutsByCategory().overlay; track shortcut.bindingId) {
                 <div class="flex items-center justify-between">
                   <span class="text-sm text-slate-600 dark:text-slate-400">
                     {{ shortcut.description }}
@@ -97,7 +97,7 @@ import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.servic
           <div>
             <h3 class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">General</h3>
             <div class="space-y-2">
-              @for (shortcut of shortcutsByCategory().general; track shortcut.keys) {
+              @for (shortcut of shortcutsByCategory().general; track shortcut.bindingId) {
                 <div class="flex items-center justify-between">
                   <span class="text-sm text-slate-600 dark:text-slate-400">
                     {{ shortcut.description }}

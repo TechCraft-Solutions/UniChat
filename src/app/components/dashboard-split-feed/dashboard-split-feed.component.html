@@ -211,10 +211,11 @@
               <div class="flex gap-2 p-2">
                 <input
                   type="text"
+                  [attr.data-unichat-composer]="platform"
                   [placeholder]="composerPlaceholder(platform)"
                   class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 dark:border-white/10 dark:bg-slate-950/60 dark:text-white dark:placeholder:text-slate-500"
                   #sendInput
-                  (keydown.enter)="sendSplitComposer(platform, sendInput)"
+                  (keydown)="onComposerKeydown($event, platform, sendInput)"
                 />
                 <button
                   type="button"

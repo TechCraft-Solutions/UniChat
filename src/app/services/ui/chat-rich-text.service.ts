@@ -1,10 +1,14 @@
 /* sys lib */
-import { Injectable } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
 
 /* models */
-import { ChatMessage, ChatMessageEmote } from "@models/chat.model";
+import { ChatMessage, ChatMessageEmote, PlatformType } from "@models/chat.model";
 
 /* services */
+import {
+  CustomEmoteManagerService,
+  CustomEmote,
+} from "@services/features/custom-emote-manager.service";
 import { normalizeChatLinkHref } from "@services/ui/link-preview.service";
 
 /* utils */
@@ -19,10 +23,16 @@ export interface ChatTextSegment {
 
 const URL_IN_TEXT = /https?:\/\/[^\s<>"'()[\]]+|www\.[^\s<>"'()[\]]+/gi;
 
+function isWordChar(ch: string): boolean {
+  return ch.length > 0 && /[0-9a-zA-Z_]/.test(ch);
+}
+
 @Injectable({
   providedIn: "root",
 })
 export class ChatRichTextService {
+  private readonly customEmotes = inject(CustomEmoteManagerService);
+
   /** LRU cache for segment building (max 500 entries) */
   private readonly segmentCache = new LRUMemoCache<string, ChatTextSegment[]>(500);
 
@@ -31,7 +41,7 @@ export class ChatRichTextService {
    * Caches results based on message ID and text content
    */
   buildSegments(message: ChatMessage): ChatTextSegment[] {
-    const cacheKey = `${message.id}-${message.text}-${message.rawPayload.emotes?.length ?? 0}`;
+    const cacheKey = `${message.id}-${message.text}-${message.rawPayload.emotes?.length ?? 0}-${this.customEmotes.emotesRevision()}`;
 
     return this.segmentCache.get(cacheKey, () => {
       const text = message.text ?? "";
@@ -43,7 +53,14 @@ export class ChatRichTextService {
           out.push(chunk);
           continue;
         }
-        out.push(...this.splitTextWithLinks(chunk.value));
+        const customParts = this.foldCustomEmotesInPlainText(chunk.value, message.platform);
+        for (const part of customParts) {
+          if (part.type === "emote") {
+            out.push(part);
+          } else {
+            out.push(...this.splitTextWithLinks(part.value));
+          }
+        }
       }
 
       return out.length ? out : [{ type: "text", value: text }];
@@ -82,6 +99,92 @@ export class ChatRichTextService {
     }
 
     return segments.length ? segments : [{ type: "text", value: text }];
+  }
+
+  private foldCustomEmotesInPlainText(
+    text: string,
+    platform: PlatformType
+  ): Array<ChatTextSegment & { type: "text" | "emote" }> {
+    if (!text) {
+      return [];
+    }
+    const emoteList = this.customEmotes.getEmotesForMessageRendering(platform);
+    if (emoteList.length === 0) {
+      return [{ type: "text", value: text }];
+    }
+
+    const out: Array<ChatTextSegment & { type: "text" | "emote" }> = [];
+    let i = 0;
+    let textBuf = "";
+    const flushText = () => {
+      if (textBuf) {
+        out.push({ type: "text", value: textBuf });
+        textBuf = "";
+      }
+    };
+
+    while (i < text.length) {
+      const found = this.findCustomEmoteAt(text, i, emoteList);
+      if (found) {
+        flushText();
+        const start = found.start;
+        const end = found.end;
+        out.push({
+          type: "emote",
+          value: text.slice(start, end + 1),
+          emote: {
+            provider: "custom",
+            id: found.emote.id,
+            code: found.emote.code,
+            start,
+            end,
+            url: found.emote.url,
+          },
+        });
+        i = end + 1;
+      } else {
+        textBuf += text[i];
+        i++;
+      }
+    }
+    flushText();
+
+    return out.length ? out : [{ type: "text", value: text }];
+  }
+
+  private findCustomEmoteAt(
+    text: string,
+    start: number,
+    emotes: CustomEmote[]
+  ): { emote: CustomEmote; start: number; end: number } | null {
+    let best: CustomEmote | null = null;
+    for (const e of emotes) {
+      const c = e.code;
+      if (!text.startsWith(c, start)) {
+        continue;
+      }
+      const end = start + c.length - 1;
+      if (!this.customEmoteBoundaryOk(text, start, end, c)) {
+        continue;
+      }
+      if (!best || c.length > best.code.length) {
+        best = e;
+      }
+    }
+    if (!best) {
+      return null;
+    }
+    return { emote: best, start, end: start + best.code.length - 1 };
+  }
+
+  private customEmoteBoundaryOk(text: string, start: number, end: number, code: string): boolean {
+    if (start > 0 && isWordChar(text[start - 1]) && isWordChar(code[0])) {
+      return false;
+    }
+    if (end < text.length - 1 && isWordChar(text[end + 1]) && isWordChar(code[code.length - 1])) {
+      return false;
+    }
+    return true;
   }
 
   private splitTextWithLinks(text: string): ChatTextSegment[] {

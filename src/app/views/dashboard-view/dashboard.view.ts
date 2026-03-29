@@ -2,12 +2,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   effect,
   inject,
   signal,
   viewChild,
 } from "@angular/core";
 import { MatIconModule } from "@angular/material/icon";
+import { Router } from "@angular/router";
 
 /* models */
 import { FeedMode, PlatformType, ChatMessage } from "@models/chat.model";
@@ -16,6 +18,7 @@ import { FeedMode, PlatformType, ChatMessage } from "@models/chat.model";
 import { ChatListService } from "@services/data/chat-list.service";
 import { ChatStateManagerService } from "@services/data/chat-state-manager.service";
 import { ChatStateService } from "@services/data/chat-state.service";
+import { DashboardChatInteractionService } from "@services/ui/dashboard-chat-interaction.service";
 import { DashboardStateService } from "@services/features/dashboard-state.service";
 import { ChatProviderCoordinatorService } from "@services/providers/chat-provider-coordinator.service";
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
@@ -56,8 +59,11 @@ export class DashboardView {
   private readonly feedData = inject(DashboardFeedDataService);
   private readonly chatStateManager = inject(ChatStateManagerService);
   private readonly chatStateService = inject(ChatStateService);
+  private readonly interactions = inject(DashboardChatInteractionService);
   private readonly pinnedMessagesService = inject(PinnedMessagesService);
   private readonly keyboardShortcutsService = inject(KeyboardShortcutsService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   // Reference to split feed component for resetting sizes
   readonly splitFeed = viewChild<DashboardSplitFeedComponent>(DashboardSplitFeedComponent);
@@ -88,13 +94,35 @@ export class DashboardView {
       }
     });
 
-    // Register keyboard shortcuts
-    this.keyboardShortcutsService.register("Ctrl+K", () => this.toggleSearch());
-    this.keyboardShortcutsService.register("Ctrl+P", () => this.togglePinned());
-    this.keyboardShortcutsService.register("Ctrl+M", () => this.toggleFeedMode());
-    this.keyboardShortcutsService.register("Ctrl+?", () => this.toggleShortcuts());
-    this.keyboardShortcutsService.register("F1", () => this.toggleShortcuts());
-    this.keyboardShortcutsService.register("Escape", () => this.closeAllModals());
+    const cleanups = [
+      this.keyboardShortcutsService.registerAction("open-search", () => this.toggleSearch()),
+      this.keyboardShortcutsService.registerAction("open-pinned", () => this.togglePinned()),
+      this.keyboardShortcutsService.registerAction("toggle-feed-mode", () => this.toggleFeedMode()),
+      this.keyboardShortcutsService.registerAction("close-modals", () => this.closeAllModals()),
+      this.keyboardShortcutsService.registerAction("show-shortcuts", () => this.toggleShortcuts()),
+      this.keyboardShortcutsService.registerAction("open-overlay-settings", () => {
+        void this.router.navigate(["/overlay-management"]);
+      }),
+      this.keyboardShortcutsService.registerAction("reply-selected", () => {
+        const id =
+          this.chatStateService.highlightedMessageId() ?? this.interactions.replyTargetMessageId();
+        if (id) {
+          this.interactions.onReplyClick(id);
+        }
+      }),
+      this.keyboardShortcutsService.registerAction("delete-selected", () => {
+        const id =
+          this.chatStateService.highlightedMessageId() ?? this.interactions.replyTargetMessageId();
+        if (id) {
+          this.interactions.deleteMessage(id);
+        }
+      }),
+    ];
+    this.destroyRef.onDestroy(() => {
+      for (const u of cleanups) {
+        u();
+      }
+    });
   }
 
   toggleFeedMode(): void {

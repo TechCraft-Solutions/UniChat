@@ -47,9 +47,12 @@ export class CustomEmoteManagerService {
   // Signal-based state management
   private readonly emotesSignal = signal<CustomEmote[]>(this.loadEmotes());
   private readonly categoriesSignal = signal<EmoteCategory[]>(this.loadCategories());
+  /** Bumps when emote list changes (invalidates rich-text segment cache). */
+  private readonly emotesRevisionSignal = signal(0);
 
   readonly emotes = this.emotesSignal.asReadonly();
   readonly categories = this.categoriesSignal.asReadonly();
+  readonly emotesRevision = this.emotesRevisionSignal.asReadonly();
 
   /**
    * Load emotes from localStorage
@@ -92,6 +95,7 @@ export class CustomEmoteManagerService {
 
     this.emotesSignal.update((emotes) => [...emotes, emote]);
     this.saveEmotes();
+    this.bumpEmotesRevision();
 
     // Add to category
     this.addEmoteToCategory(emote.id, emote.category || "custom");
@@ -107,10 +111,37 @@ export class CustomEmoteManagerService {
     if (emote) {
       this.emotesSignal.update((emotes) => emotes.filter((e) => e.id !== emoteId));
       this.saveEmotes();
+      this.bumpEmotesRevision();
 
       // Remove from category
       this.removeEmoteFromCategory(emoteId, emote.category || "custom");
     }
+  }
+
+  /**
+   * Emotes applied when rendering chat for a provider (global customs + platform-specific).
+   * Sorted longest-code first for greedy matching.
+   */
+  getEmotesForMessageRendering(platform: PlatformType): CustomEmote[] {
+    const applicable = this.emotesSignal().filter((e) => !e.platform || e.platform === platform);
+    const byLen = [...applicable].sort((a, b) => b.code.length - a.code.length);
+    const seen = new Set<string>();
+    const out: CustomEmote[] = [];
+    for (const e of byLen) {
+      if (!e.code.trim()) {
+        continue;
+      }
+      const key = e.code.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(e);
+      }
+    }
+    return out;
+  }
+
+  private bumpEmotesRevision(): void {
+    this.emotesRevisionSignal.update((n) => n + 1);
   }
 
   /**
@@ -236,6 +267,9 @@ export class CustomEmoteManagerService {
 
     this.emotesSignal.update((emotes) => [...emotes, ...newEmotes]);
     this.saveEmotes();
+    if (newEmotes.length > 0) {
+      this.bumpEmotesRevision();
+    }
   }
 
   /**
@@ -251,6 +285,7 @@ export class CustomEmoteManagerService {
   clearAllEmotes(): void {
     this.emotesSignal.set([]);
     this.saveEmotes();
+    this.bumpEmotesRevision();
 
     // Clear custom category but keep default categories
     this.categoriesSignal.update((cats) =>

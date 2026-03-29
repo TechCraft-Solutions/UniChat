@@ -8,6 +8,7 @@ import { MatInputModule } from "@angular/material/input";
 
 /* services */
 import { ChatListService } from "@services/data/chat-list.service";
+import { HighlightNotificationService } from "@services/ui/highlight-notification.service";
 import { HighlightRulesService, HighlightRule } from "@services/ui/highlight-rules.service";
 import { buildChannelRef } from "@utils/channel-ref.util";
 @Component({
@@ -20,6 +21,7 @@ import { buildChannelRef } from "@utils/channel-ref.util";
 export class HighlightRulesSettingsComponent {
   private readonly highlightRulesService = inject(HighlightRulesService);
   private readonly chatListService = inject(ChatListService);
+  readonly highlightNotifications = inject(HighlightNotificationService);
 
   readonly rules = this.highlightRulesService.rules;
 

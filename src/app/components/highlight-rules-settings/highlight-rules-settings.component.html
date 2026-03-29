@@ -6,6 +6,39 @@
     Highlight messages from important users or containing specific keywords
   </p>
 
+  <div
+    class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"
+  >
+    <p class="text-xs font-medium uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">
+      Desktop notifications
+    </p>
+    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+      Show a system notification when an incoming message matches your highlight rules (requires
+      permission from the browser / OS).
+    </p>
+    <div class="mt-3 flex flex-wrap items-center gap-4">
+      <label class="flex items-center gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          [checked]="highlightNotifications.prefs().enabled"
+          (change)="highlightNotifications.setEnabled($any($event.target).checked)"
+          class="peer"
+        />
+        <span>Notify on highlight</span>
+      </label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          [checked]="highlightNotifications.prefs().onlyWhenBackground"
+          [disabled]="!highlightNotifications.prefs().enabled"
+          (change)="highlightNotifications.setOnlyWhenBackground($any($event.target).checked)"
+          class="peer"
+        />
+        <span>Only when window is in background</span>
+      </label>
+    </div>
+  </div>
+
   <!-- Test Highlight -->
   <div
     class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"
@@ -59,20 +92,12 @@
 
         <div class="flex flex-wrap items-center gap-4">
           <label class="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              [(ngModel)]="newIsRegex"
-              class="peer"
-            />
+            <input type="checkbox" [(ngModel)]="newIsRegex" class="peer" />
             <span class="checkmark"></span>
             <span>Regex pattern</span>
           </label>
           <label class="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              [(ngModel)]="newIsGlobal"
-              class="peer"
-            />
+            <input type="checkbox" [(ngModel)]="newIsGlobal" class="peer" />
             <span class="checkmark"></span>
             <span>Apply to all channels</span>
           </label>
@@ -158,20 +183,12 @@
             </div>
             <div class="flex flex-wrap items-center gap-4">
               <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  [(ngModel)]="editingIsRegex"
-                  class="peer"
-                />
+                <input type="checkbox" [(ngModel)]="editingIsRegex" class="peer" />
                 <span class="checkmark"></span>
                 <span>Regex</span>
               </label>
               <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  [(ngModel)]="editingIsGlobal"
-                  class="peer"
-                />
+                <input type="checkbox" [(ngModel)]="editingIsGlobal" class="peer" />
                 <span class="checkmark"></span>
                 <span>All channels</span>
               </label>

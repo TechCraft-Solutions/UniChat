@@ -71,7 +71,7 @@ export interface RawPayloadMetadata {
 }
 
 export interface ChatMessageEmote {
-  provider: "twitch" | "7tv" | "kick";
+  provider: "twitch" | "7tv" | "kick" | "custom";
   id: string;
   code: string;
   start: number;

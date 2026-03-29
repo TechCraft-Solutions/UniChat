@@ -1,32 +1,69 @@
 /* sys lib */
 import { Injectable, inject, signal, computed } from "@angular/core";
 
-/* components */
-import { ChatSearchComponent } from "@components/chat-search/chat-search.component";
-export interface KeyboardShortcut {
-  keys: string;
+/* services */
+import { LocalStorageService } from "@services/core/local-storage.service";
+
+export type ShortcutActionId =
+  | "open-search"
+  | "open-pinned"
+  | "toggle-feed-mode"
+  | "close-modals"
+  | "send-message"
+  | "reply-selected"
+  | "delete-selected"
+  | "open-overlay-settings"
+  | "show-shortcuts";
+
+export interface KeyboardShortcutAction {
+  id: ShortcutActionId;
   description: string;
   category: "navigation" | "actions" | "overlay" | "general";
 }
 
-export const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
-  // Navigation
-  { keys: "Ctrl+K", description: "Open search", category: "navigation" },
-  { keys: "Ctrl+P", description: "Open pinned messages", category: "navigation" },
-  { keys: "Ctrl+M", description: "Toggle mixed/split view", category: "navigation" },
-  { keys: "Escape", description: "Close modal/panel", category: "navigation" },
+export interface KeyboardShortcutBinding {
+  /** Stable row id (persists user key overrides). */
+  bindingId: string;
+  actionId: ShortcutActionId;
+  keys: string;
+}
 
-  // Actions
-  { keys: "Ctrl+Enter", description: "Send message", category: "actions" },
-  { keys: "Ctrl+R", description: "Reply to selected message", category: "actions" },
-  { keys: "Delete", description: "Delete selected message", category: "actions" },
+export interface KeyboardShortcutView {
+  bindingId: string;
+  actionId: ShortcutActionId;
+  keys: string;
+  description: string;
+  category: KeyboardShortcutAction["category"];
+}
 
-  // Overlay
-  { keys: "Ctrl+O", description: "Open overlay settings", category: "overlay" },
+const STORAGE_KEY = "unichat.keyboardShortcutBindings.v1";
 
-  // General
-  { keys: "Ctrl+?", description: "Show keyboard shortcuts", category: "general" },
-  { keys: "F1", description: "Show keyboard shortcuts", category: "general" },
+export const KEYBOARD_SHORTCUT_ACTIONS: Record<
+  ShortcutActionId,
+  Omit<KeyboardShortcutAction, "id">
+> = {
+  "open-search": { description: "Open search", category: "navigation" },
+  "open-pinned": { description: "Open pinned messages", category: "navigation" },
+  "toggle-feed-mode": { description: "Toggle mixed/split view", category: "navigation" },
+  "close-modals": { description: "Close modal/panel", category: "navigation" },
+  "send-message": { description: "Send message", category: "actions" },
+  "reply-selected": { description: "Reply to selected message", category: "actions" },
+  "delete-selected": { description: "Delete selected message", category: "actions" },
+  "open-overlay-settings": { description: "Open overlay settings", category: "overlay" },
+  "show-shortcuts": { description: "Show keyboard shortcuts", category: "general" },
+};
+
+export const DEFAULT_KEYBOARD_BINDINGS: KeyboardShortcutBinding[] = [
+  { bindingId: "bind-open-search", actionId: "open-search", keys: "Ctrl+K" },
+  { bindingId: "bind-open-pinned", actionId: "open-pinned", keys: "Ctrl+P" },
+  { bindingId: "bind-toggle-feed", actionId: "toggle-feed-mode", keys: "Ctrl+M" },
+  { bindingId: "bind-close-modals", actionId: "close-modals", keys: "Escape" },
+  { bindingId: "bind-send", actionId: "send-message", keys: "Ctrl+Enter" },
+  { bindingId: "bind-reply", actionId: "reply-selected", keys: "Ctrl+R" },
+  { bindingId: "bind-delete", actionId: "delete-selected", keys: "Delete" },
+  { bindingId: "bind-overlay", actionId: "open-overlay-settings", keys: "Ctrl+O" },
+  { bindingId: "bind-shortcuts-ctrl", actionId: "show-shortcuts", keys: "Ctrl+?" },
+  { bindingId: "bind-shortcuts-f1", actionId: "show-shortcuts", keys: "F1" },
 ];
 
 /**
@@ -39,11 +76,19 @@ export const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
   providedIn: "root",
 })
 export class KeyboardShortcutsService {
-  private readonly shortcutsSignal = signal<KeyboardShortcut[]>(DEFAULT_SHORTCUTS);
+  private readonly localStorageService = inject(LocalStorageService);
 
-  readonly shortcuts = this.shortcutsSignal.asReadonly();
+  private readonly bindingsSignal = signal<KeyboardShortcutBinding[]>(this.loadBindings());
+
+  private readonly actionHandlers = new Map<ShortcutActionId, (event: KeyboardEvent) => void>();
+  private keydownListener: ((e: KeyboardEvent) => void) | null = null;
+
+  readonly bindings = this.bindingsSignal.asReadonly();
+
+  readonly shortcuts = computed(() => this.bindingsToViews(this.bindingsSignal()));
+
   readonly shortcutsByCategory = computed(() => {
-    const shortcuts = this.shortcutsSignal();
+    const shortcuts = this.shortcuts();
     return {
       navigation: shortcuts.filter((s) => s.category === "navigation"),
       actions: shortcuts.filter((s) => s.category === "actions"),
@@ -53,40 +98,139 @@ export class KeyboardShortcutsService {
   });
 
   /**
-   * Register a keyboard shortcut handler
-   * @param keys - Key combination (e.g., "Ctrl+K", "Alt+Shift+S")
-   * @param handler - Function to call when shortcut is triggered
+   * Register handler for an action. One handler per action (latest wins).
+   * Returns cleanup.
+   */
+  registerAction(actionId: ShortcutActionId, handler: (event: KeyboardEvent) => void): () => void {
+    this.actionHandlers.set(actionId, handler);
+    this.ensureGlobalKeyListener();
+    return () => {
+      this.actionHandlers.delete(actionId);
+      if (this.actionHandlers.size === 0) {
+        this.removeGlobalKeyListener();
+      }
+    };
+  }
+
+  /**
+   * @deprecated Use `registerAction` with `ShortcutActionId`.
    */
   register(keys: string, handler: (event: KeyboardEvent) => void): () => void {
-    const normalizedKeys = this.normalizeKeys(keys);
-
+    const normalized = this.normalizeKeys(keys);
     const keydownHandler = (event: KeyboardEvent) => {
-      if (this.matchesShortcut(event, normalizedKeys)) {
+      if (this.matchesShortcut(event, normalized)) {
         event.preventDefault();
         event.stopPropagation();
         handler(event);
       }
     };
-
     window.addEventListener("keydown", keydownHandler);
-
-    // Return cleanup function
     return () => {
       window.removeEventListener("keydown", keydownHandler);
     };
   }
 
-  /**
-   * Check if a keyboard event matches a shortcut
-   */
+  updateBindingKeys(bindingId: string, keys: string): boolean {
+    const trimmed = keys.trim();
+    if (!trimmed) {
+      return false;
+    }
+    const normalizedNew = this.normalizeKeys(trimmed);
+    const current = this.bindingsSignal();
+    for (const b of current) {
+      if (b.bindingId !== bindingId && this.normalizeKeys(b.keys) === normalizedNew) {
+        return false;
+      }
+    }
+    this.bindingsSignal.update((rows) =>
+      rows.map((b) => (b.bindingId === bindingId ? { ...b, keys: trimmed } : b))
+    );
+    this.persistBindings();
+    return true;
+  }
+
+  resetBindingsToDefaults(): void {
+    this.bindingsSignal.set([...DEFAULT_KEYBOARD_BINDINGS]);
+    this.localStorageService.remove(STORAGE_KEY);
+  }
+
+  private loadBindings(): KeyboardShortcutBinding[] {
+    const stored = this.localStorageService.get<Partial<Record<string, string>> | null>(
+      STORAGE_KEY,
+      null
+    );
+    const base = DEFAULT_KEYBOARD_BINDINGS.map((b) => ({ ...b }));
+    if (!stored) {
+      return base;
+    }
+    return base.map((b) => {
+      const override = stored[b.bindingId];
+      return override ? { ...b, keys: override } : b;
+    });
+  }
+
+  private persistBindings(): void {
+    const map: Record<string, string> = {};
+    for (const b of this.bindingsSignal()) {
+      const def = DEFAULT_KEYBOARD_BINDINGS.find((d) => d.bindingId === b.bindingId);
+      if (def && this.normalizeKeys(b.keys) !== this.normalizeKeys(def.keys)) {
+        map[b.bindingId] = b.keys;
+      }
+    }
+    if (Object.keys(map).length === 0) {
+      this.localStorageService.remove(STORAGE_KEY);
+    } else {
+      this.localStorageService.set(STORAGE_KEY, map);
+    }
+  }
+
+  private bindingsToViews(bindings: KeyboardShortcutBinding[]): KeyboardShortcutView[] {
+    return bindings.map((b) => {
+      const meta = KEYBOARD_SHORTCUT_ACTIONS[b.actionId];
+      return {
+        bindingId: b.bindingId,
+        actionId: b.actionId,
+        keys: b.keys,
+        description: meta.description,
+        category: meta.category,
+      };
+    });
+  }
+
+  private ensureGlobalKeyListener(): void {
+    if (this.keydownListener) {
+      return;
+    }
+    this.keydownListener = (event: KeyboardEvent) => {
+      const pressed = this.normalizeKeys(this.eventToKeys(event));
+      for (const b of this.bindingsSignal()) {
+        if (this.normalizeKeys(b.keys) !== pressed) {
+          continue;
+        }
+        const handler = this.actionHandlers.get(b.actionId);
+        if (handler) {
+          event.preventDefault();
+          event.stopPropagation();
+          handler(event);
+        }
+        return;
+      }
+    };
+    window.addEventListener("keydown", this.keydownListener);
+  }
+
+  private removeGlobalKeyListener(): void {
+    if (this.keydownListener) {
+      window.removeEventListener("keydown", this.keydownListener);
+      this.keydownListener = null;
+    }
+  }
+
   private matchesShortcut(event: KeyboardEvent, shortcutKeys: string): boolean {
     const pressedKeys = this.normalizeKeys(this.eventToKeys(event));
     return pressedKeys === shortcutKeys;
   }
 
-  /**
-   * Convert keyboard event to key string
-   */
   private eventToKeys(event: KeyboardEvent): string {
     const keys: string[] = [];
 
@@ -95,7 +239,6 @@ export class KeyboardShortcutsService {
     if (event.shiftKey) keys.push("Shift");
     if (event.metaKey) keys.push("Meta");
 
-    // Get the actual key (uppercase for letters)
     const key = event.key.toUpperCase();
     if (!["CONTROL", "ALT", "SHIFT", "META"].includes(key)) {
       keys.push(key);
@@ -104,15 +247,11 @@ export class KeyboardShortcutsService {
     return keys.join("+");
   }
 
-  /**
-   * Normalize key string for comparison
-   */
-  private normalizeKeys(keys: string): string {
+  normalizeKeys(keys: string): string {
     return keys
       .split("+")
       .map((k) => k.trim().toUpperCase())
       .sort((a, b) => {
-        // Modifiers first, then other keys
         const modifiers = ["CTRL", "ALT", "SHIFT", "META"];
         const aIsMod = modifiers.includes(a);
         const bIsMod = modifiers.includes(b);
@@ -121,22 +260,5 @@ export class KeyboardShortcutsService {
         return a.localeCompare(b);
       })
       .join("+");
-  }
-
-  /**
-   * Add custom shortcut to the list
-   */
-  addShortcut(shortcut: KeyboardShortcut): void {
-    this.shortcutsSignal.update((shortcuts) => [...shortcuts, shortcut]);
-  }
-
-  /**
-   * Remove shortcut from the list
-   */
-  removeShortcut(keys: string): void {
-    const normalizedKeys = this.normalizeKeys(keys);
-    this.shortcutsSignal.update((shortcuts) =>
-      shortcuts.filter((s) => this.normalizeKeys(s.keys) !== normalizedKeys)
-    );
   }
 }

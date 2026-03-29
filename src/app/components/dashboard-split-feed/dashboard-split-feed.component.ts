@@ -3,6 +3,7 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from "@angular/cdk/drag-
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   effect,
   inject,
   signal,
@@ -26,6 +27,7 @@ import { ChatMessagePresentationService } from "@services/ui/chat-message-presen
 import { DashboardChatInteractionService } from "@services/ui/dashboard-chat-interaction.service";
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
+import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.service";
 import { SplitFeedUiService } from "@services/ui/split-feed-ui.service";
 import { buildChannelRef } from "@utils/channel-ref.util";
 
@@ -65,6 +67,8 @@ export class DashboardSplitFeedComponent {
   private readonly chatStorage = inject(ChatStorageService);
   private readonly chatProviderCoordinator = inject(ChatProviderCoordinatorService);
   private readonly avatarCache = inject(AvatarCacheService);
+  private readonly keyboardShortcutsService = inject(KeyboardShortcutsService);
+  private readonly destroyRef = inject(DestroyRef);
 
   // Reference to the history header component
   readonly historyHeader = viewChild<
@@ -111,6 +115,19 @@ export class DashboardSplitFeedComponent {
         }
       }
     });
+
+    const unsubSend = this.keyboardShortcutsService.registerAction("send-message", () => {
+      const el = document.activeElement;
+      if (!(el instanceof HTMLInputElement)) {
+        return;
+      }
+      const p = el.dataset["unichatComposer"] as PlatformType | undefined;
+      if (!p || !this.feedData.platformsWithVisibleChannels().includes(p)) {
+        return;
+      }
+      this.sendSplitComposer(p, el);
+    });
+    this.destroyRef.onDestroy(() => unsubSend());
   }
 
   private normalizeBlockWidths(platforms: PlatformType[]): void {
@@ -335,6 +352,17 @@ export class DashboardSplitFeedComponent {
       return;
     }
     this.selectChannel(platform, channel);
+  }
+
+  onComposerKeydown(event: KeyboardEvent, platform: PlatformType, input: HTMLInputElement): void {
+    if (event.key !== "Enter") {
+      return;
+    }
+    if (event.ctrlKey || event.metaKey) {
+      return;
+    }
+    event.preventDefault();
+    this.sendSplitComposer(platform, input);
   }
 
   sendSplitComposer(platform: PlatformType, input: HTMLInputElement): void {
