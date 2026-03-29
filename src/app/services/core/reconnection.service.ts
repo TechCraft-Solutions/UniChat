@@ -183,8 +183,6 @@ export class ReconnectionService {
   }
 
   private reportGap(channelId: string, platform: PlatformType, missedCount: number): void {
-    console.warn(`[Reconnection] Detected gap in ${channelId}: ${missedCount} messages missed`);
-
     // Report to error service for UI display
     this.errorService.reportError(channelId, {
       code: ConnectionErrorCode.UNKNOWN,
@@ -197,7 +195,6 @@ export class ReconnectionService {
 
   private reportTimeGap(channelId: string, platform: PlatformType, timeGapMs: number): void {
     const seconds = Math.floor(timeGapMs / 1000);
-    console.warn(`[Reconnection] Time gap in ${channelId}: ${seconds}s without messages`);
 
     this.notifyGapListeners(channelId, Math.ceil(seconds / 2), platform);
   }

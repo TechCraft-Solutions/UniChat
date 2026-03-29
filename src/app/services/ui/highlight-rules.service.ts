@@ -130,8 +130,8 @@ export class HighlightRulesService {
             return rule.color;
           }
         }
-      } catch (error) {
-        console.warn(`[HighlightRules] Invalid regex pattern: ${rule.pattern}`, error);
+      } catch {
+        /* invalid regex for rule — skip */
       }
     }
 

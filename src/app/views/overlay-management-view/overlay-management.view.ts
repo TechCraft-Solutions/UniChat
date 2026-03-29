@@ -146,8 +146,8 @@ export class OverlayManagementView {
         maxMessages: this.maxMessagesModel(),
         transparentBg: this.transparentBgModel(),
       });
-    } catch (error) {
-      console.warn("[OverlayManagement] Failed to init backend config:", error);
+    } catch {
+      /* backend config init optional */
     }
   }
 
@@ -229,9 +229,7 @@ export class OverlayManagementView {
       port: w.port,
       widgetId: w.id,
       transparentBg: this.transparentBgModel(),
-    }).catch((err) => {
-      console.error("[Overlay] Failed to open preview window:", err);
-    });
+    }).catch(() => undefined);
   }
 
   saveConfig(): void {
@@ -274,9 +272,7 @@ export class OverlayManagementView {
       animationDirection: this.animationDirectionModel(),
       maxMessages: this.maxMessagesModel(),
       transparentBg: this.transparentBgModel(),
-    }).catch((err) => {
-      console.error("[OverlayManagement] Failed to send config to backend:", err);
-    });
+    }).catch(() => undefined);
 
     // Show visual confirmation
     this.saveSuccess.set(true);

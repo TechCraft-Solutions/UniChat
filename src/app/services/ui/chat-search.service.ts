@@ -73,8 +73,7 @@ export class ChatSearchService {
         const flags = options.caseSensitive ? "g" : "gi";
         pattern = new RegExp(escaped, flags);
       }
-    } catch (error) {
-      console.warn("[ChatSearch] Invalid regex pattern:", error);
+    } catch {
       this.isSearchingSignal.set(false);
       return [];
     }

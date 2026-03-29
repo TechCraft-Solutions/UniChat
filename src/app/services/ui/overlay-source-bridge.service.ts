@@ -36,35 +36,25 @@ export class OverlaySourceBridgeService {
    * Safe to call multiple times; connection is re-created only if `port` changes.
    */
   async ensureConnected(port: number): Promise<void> {
-    console.log('[OverlaySourceBridge] ensureConnected called with port:', port);
-    
-    // Return existing promise if connection in progress
     if (this.connectionPromise) {
-      console.log('[OverlaySourceBridge] Connection in progress, returning existing promise');
       return this.connectionPromise;
     }
 
     if (!port || !Number.isFinite(port) || port <= 0) {
-      console.error("[OverlaySourceBridge] Invalid port:", port);
       return Promise.resolve();
     }
 
     if (this.connectedPort === port && this.socket?.readyState === WebSocket.OPEN) {
-      console.log('[OverlaySourceBridge] Already connected to port', port);
       return Promise.resolve();
     }
 
     this.connectedPort = port;
     this.reconnectAttempts = 0;
-    this.connectionState = 'connecting';
-    console.log('[OverlaySourceBridge] Connection state: connecting');
+    this.connectionState = "connecting";
 
-    // Start overlay server if it isn't already running.
     try {
       await invoke("startOverlayServer", { port });
-      console.log('[OverlaySourceBridge] Overlay server started on port', port);
-    } catch (error) {
-      console.warn("[OverlaySourceBridge] Failed to start overlay server:", error);
+    } catch {
       // If invoke fails (e.g. already started), we'll still try to connect WS.
     }
 
@@ -72,38 +62,32 @@ export class OverlaySourceBridgeService {
 
     const wsUrl = `ws://127.0.0.1:${port}/ws/overlay?role=source`;
     this.socket = new WebSocket(wsUrl);
-    console.log('[OverlaySourceBridge] Connecting to:', wsUrl);
 
     // Create connection promise
     this.connectionPromise = new Promise<void>((resolve) => {
       const timeout = setTimeout(() => {
-        this.connectionState = 'disconnected';
+        this.connectionState = "disconnected";
         this.connectionPromise = null;
-        console.log('[OverlaySourceBridge] Connection timeout, state: disconnected');
-        resolve(); // Resolve anyway after timeout
+        resolve();
       }, 3000);
 
       const onOpen = () => {
         clearTimeout(timeout);
-        this.connectionState = 'connected';
+        this.connectionState = "connected";
         this.connectionPromise = null;
-        console.log('[OverlaySourceBridge] Connection opened, state: connected');
-        
-        // Flush queued messages
+
         this.flushMessageQueue();
         resolve();
       };
 
-      const onError = (event: Event) => {
-        this.connectionState = 'disconnected';
+      const onError = () => {
+        this.connectionState = "disconnected";
         this.connectionPromise = null;
-        console.log('[OverlaySourceBridge] Connection error, state: disconnected');
         clearTimeout(timeout);
-        resolve(); // don't block UI
+        resolve();
       };
 
       if (!this.socket) {
-        console.error("[OverlaySourceBridge] Socket not created");
         this.connectionPromise = null;
         resolve();
         return;
@@ -124,16 +108,12 @@ export class OverlaySourceBridgeService {
       return;
     }
 
-    console.log(`[OverlaySourceBridge] Flushing ${this.messageQueue.length} queued messages`);
-    
     const queue = [...this.messageQueue];
     this.messageQueue = [];
-    
+
     for (const message of queue) {
       this.sendWebSocketMessage(message);
     }
-    
-    console.log('[OverlaySourceBridge] Message queue flushed');
   }
 
   /**
@@ -141,7 +121,6 @@ export class OverlaySourceBridgeService {
    */
   private async attemptReconnect(port: number): Promise<void> {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("[OverlaySourceBridge] Max reconnection attempts reached");
       return;
     }
 
@@ -162,27 +141,18 @@ export class OverlaySourceBridgeService {
 
     // If socket is open, send immediately
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      console.log('[OverlaySourceBridge] Sending message immediately:', message.id);
       this.sendWebSocketMessage(message);
       return;
     }
 
-    // Queue message for later delivery
     this.messageQueue.push(message);
-    console.log(`[OverlaySourceBridge] Message queued (queue size: ${this.messageQueue.length}):`, message.id);
-    
-    // Limit queue size to prevent memory issues
+
     if (this.messageQueue.length > 50) {
-      this.messageQueue.shift(); // Remove oldest message
-      console.log('[OverlaySourceBridge] Message queue full, removed oldest message');
+      this.messageQueue.shift();
     }
 
-    // Attempt to reconnect in background
     if (this.connectedPort) {
-      console.log('[OverlaySourceBridge] Attempting to reconnect...');
-      this.ensureConnected(this.connectedPort).catch((err) => {
-        console.error('[OverlaySourceBridge] Reconnection failed:', err);
-      });
+      this.ensureConnected(this.connectedPort).catch(() => undefined);
     }
   }
 
@@ -191,7 +161,6 @@ export class OverlaySourceBridgeService {
    */
   private sendWebSocketMessage(message: ChatMessage): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.warn('[OverlaySourceBridge] Cannot send - socket not open, readyState:', this.socket?.readyState);
       return;
     }
 
@@ -212,9 +181,7 @@ export class OverlaySourceBridgeService {
     try {
       const json = JSON.stringify(payload);
       this.socket.send(json);
-      console.log('[OverlaySourceBridge] Message sent:', message.id, '| channel:', message.sourceChannelId, '| platform:', message.platform, '| text:', message.text.substring(0, 50));
-    } catch (error) {
-      console.error("[OverlaySourceBridge] Failed to send message:", error);
+    } catch {
       // Queue message for retry
       this.messageQueue.push(message);
       if (this.messageQueue.length > 50) {

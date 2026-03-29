@@ -293,7 +293,6 @@ export class ChatHistoryExportService {
       // Cleanup
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Failed to save export file:", error);
       throw new Error(`Export failed: ${error}`);
     }
   }

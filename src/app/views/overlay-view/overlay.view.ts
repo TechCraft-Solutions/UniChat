@@ -93,7 +93,6 @@ export class OverlayView implements OnDestroy {
   constructor() {
     const widget = this.activeWidget;
     if (!widget) {
-      console.error("[OverlayView] No active widget found");
       return;
     }
 
@@ -127,12 +126,8 @@ export class OverlayView implements OnDestroy {
   private currentChannelIds: string[] | undefined = undefined;
 
   private async initializeOverlayRuntime(widget: WidgetConfig): Promise<void> {
-    console.log('[OverlayView] Initializing overlay runtime for widget:', widget.id, 'port:', widget.port);
-    
-    // 1. Start overlay server first with proper error handling
     const serverStarted = await this.ensureOverlayServerStarted(widget.port);
     if (!serverStarted) {
-      console.error('[OverlayView] Failed to start overlay server on port', widget.port);
       return;
     }
 
@@ -142,12 +137,8 @@ export class OverlayView implements OnDestroy {
     // 3. Load config from backend BEFORE WebSocket connect
     await this.loadAndApplyConfigFromBackend();
 
-    console.log('[OverlayView] Config loaded, currentChannelIds:', this.currentChannelIds);
-
-    // 4. Extract channel IDs and connect WebSocket
     const channelIds = this.extractChannelIdsFromSelection(this.currentChannelIds);
-    console.log('[OverlayView] Connecting overlay WebSocket with channelIds:', channelIds);
-    
+
     this.overlayWs.connect({
       port: widget.port,
       widgetId: widget.id,
@@ -160,12 +151,10 @@ export class OverlayView implements OnDestroy {
   private async ensureOverlayServerStarted(port: number): Promise<boolean> {
     try {
       await invoke("startOverlayServer", { port });
-      console.log('[OverlayView] Overlay server started on port', port);
       return true;
-    } catch (error) {
+    } catch {
       // In browser-only contexts (for example OBS), Tauri invoke may be unavailable.
       // The overlay server should already be serving this page there, so continue.
-      console.warn("[OverlayView] Unable to ensure overlay server is started (may be in OBS):", error);
       return true;
     }
   }
@@ -219,9 +208,7 @@ export class OverlayView implements OnDestroy {
         // Fallback to localStorage if no backend config
         this.loadAndApplyConfig();
       }
-    } catch (error) {
-      console.warn("[OverlayView] Failed to fetch backend config, using localStorage:", error);
-      // Fallback to localStorage
+    } catch {
       this.loadAndApplyConfig();
     }
   }
@@ -274,8 +261,8 @@ export class OverlayView implements OnDestroy {
           if (response.ok) {
             config = await response.json();
           }
-        } catch (httpError) {
-          console.warn("[OverlayView] HTTP config fetch failed:", httpError);
+        } catch {
+          /* HTTP fallback unavailable */
         }
       }
 
@@ -341,8 +328,8 @@ export class OverlayView implements OnDestroy {
 
         this.cdr.markForCheck();
       }
-    } catch (e) {
-      console.warn("[OverlayView] Failed to poll backend config:", e);
+    } catch {
+      /* poll failed */
     }
   }
 
@@ -525,29 +512,17 @@ export class OverlayView implements OnDestroy {
     // Extract plain channel IDs from stored channel.id format for filtering
     const channelRefs = this.extractChannelIdsFromSelection(this.currentChannelIds);
 
-    console.log('[OverlayView] overlayMessages() called: total messages=', messages.length, 
-      '| currentChannelIds=', this.currentChannelIds, 
-      '| channelRefs=', channelRefs);
-
     if (this.currentChannelIds !== undefined && this.currentChannelIds !== null) {
       if (this.currentChannelIds.length === 0) {
-        console.log('[OverlayView] Empty channel selection, hiding all messages');
         return [];
       }
       const filtered = messages.filter((msg) => {
         const channelRef = buildChannelRef(msg.platform, msg.sourceChannelId || "");
-        const isAllowed = channelRefs!.includes(channelRef);
-        if (!isAllowed) {
-          console.log('[OverlayView] Message filtered out:', msg.id, '| msg.channel=', channelRef, '| allowed=', channelRefs);
-        }
-        return isAllowed;
+        return channelRefs!.includes(channelRef);
       });
-      console.log('[OverlayView] Filtered messages:', filtered.length, 'from', messages.length);
       return filtered.slice(0, this.maxMessages());
     }
 
-    // No channel filter = show all messages
-    console.log('[OverlayView] No channel filter, showing all messages');
     return messages.slice(0, this.maxMessages());
   }
 

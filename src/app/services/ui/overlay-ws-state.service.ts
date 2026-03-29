@@ -56,12 +56,8 @@ export class OverlayWsStateService {
   readonly messages = this.messagesSignal.asReadonly();
 
   connect(opts: OverlayConnectOptions): void {
-    console.log('[OverlayWsState] connect called with:', opts);
-    
-    // Don't reconnect if already connected with same params
     const key = `${opts.port}:${opts.widgetId}:${opts.filter}:${opts.channelIds?.join(",") ?? ""}`;
     if (this.currentKey === key && this.socket?.readyState === WebSocket.OPEN) {
-      console.log('[OverlayWsState] Already connected with same params');
       return;
     }
 
@@ -75,24 +71,20 @@ export class OverlayWsStateService {
     // This prevents messages from disappearing during brief network issues
     const shouldPreserveMessages = opts.preserveMessages ?? this.reconnectAttempts > 0;
     if (!shouldPreserveMessages) {
-      console.log('[OverlayWsState] Clearing messages');
       this.messagesSignal.set([]);
     }
 
     this.reconnectAttempts = 0;
-    this.connectionState = 'connecting';
-    console.log('[OverlayWsState] Connection state: connecting');
+    this.connectionState = "connecting";
 
     const wsUrl = `ws://127.0.0.1:${opts.port}/ws/overlay?widgetId=${encodeURIComponent(
       opts.widgetId
     )}&role=overlay`;
-    console.log('[OverlayWsState] Connecting to:', wsUrl);
 
     this.socket = new WebSocket(wsUrl);
 
     this.socket.onopen = () => {
-      this.connectionState = 'connected';
-      console.log('[OverlayWsState] Connection opened, state: connected');
+      this.connectionState = "connected";
       const subscribe = {
         type: "subscribe",
         subscribe: {
@@ -101,7 +93,6 @@ export class OverlayWsStateService {
           channelIds: opts.channelIds,
         },
       };
-      console.log('[OverlayWsState] Sending subscribe:', subscribe);
       this.socket?.send(JSON.stringify(subscribe));
     };
 
@@ -115,16 +106,12 @@ export class OverlayWsStateService {
       try {
         parsed = JSON.parse(data) as OverlayWsOverlayMessageEnvelope;
       } catch {
-        console.error("[OverlayWsState] Failed to parse message:", data);
         return;
       }
 
       if (parsed.type !== "overlayMessage" || !parsed.message) {
-        console.warn('[OverlayWsState] Received invalid message type:', parsed.type);
         return;
       }
-
-      console.log('[OverlayWsState] Received message:', parsed.message.id, '| channel:', parsed.message.sourceChannelId, '| text:', parsed.message.text.substring(0, 50));
 
       const msg: OverlayChatMessage = {
         id: parsed.message.id,
@@ -140,17 +127,14 @@ export class OverlayWsStateService {
       };
 
       this.messagesSignal.update((current) => upsertAndSort(current, msg));
-      console.log('[OverlayWsState] Message added to signal, total messages:', this.messagesSignal().length, '| filtered by channels:', opts.channelIds);
     };
 
-    this.socket.onerror = (event) => {
-      console.error('[OverlayWsState] WebSocket error:', event);
-      this.connectionState = 'disconnected';
+    this.socket.onerror = () => {
+      this.connectionState = "disconnected";
     };
 
-    this.socket.onclose = (event) => {
-      console.log('[OverlayWsState] WebSocket closed, code:', event.code, 'reason:', event.reason || 'none');
-      this.connectionState = 'disconnected';
+    this.socket.onclose = () => {
+      this.connectionState = "disconnected";
       // Attempt to reconnect
       this.attemptReconnect(opts);
     };

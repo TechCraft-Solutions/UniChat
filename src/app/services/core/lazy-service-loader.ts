@@ -63,9 +63,7 @@ export class LazyServiceLoader {
    */
   static preload<T>(loader: () => Promise<{ new (): T }>, serviceName: string): void {
     // Start loading but don't wait for it
-    this.load(loader, serviceName).catch((err) => {
-      console.warn(`Failed to preload service ${serviceName}:`, err);
-    });
+    this.load(loader, serviceName).catch(() => undefined);
   }
 
   /**

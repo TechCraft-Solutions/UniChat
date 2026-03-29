@@ -78,18 +78,12 @@ export class ModerationDashboardComponent {
   async executeMacro(macro: ModerationMacro): Promise<void> {
     if (!this.message()) return;
 
-    const result = await this.moderationService.executeMacro(
+    await this.moderationService.executeMacro(
       this.message()!.platform,
       this.message()!.sourceChannelId,
       this.message()!.author,
       macro
     );
-
-    if (result.success) {
-      console.log(`[Mod] Successfully executed ${macro.name} on ${this.message()!.author}`);
-    } else {
-      console.error(`[Mod] Failed to execute ${macro.name}:`, result.error);
-    }
   }
 
   /**

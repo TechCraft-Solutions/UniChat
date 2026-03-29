@@ -63,15 +63,6 @@ export class MemoryManagementService {
     }
 
     this.chatStorage.pruneOldMessages();
-
-    const newStats = this.chatStorage.getMemoryStats();
-    const removed = stats.totalMessages - newStats.totalMessages;
-
-    if (removed > 0) {
-      console.log(
-        `[MemoryManagement] Pruned ${removed} old messages (${newStats.totalMessages} remaining)`
-      );
-    }
   }
 
   /**

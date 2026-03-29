@@ -91,14 +91,12 @@ export class YouTubeChatService extends BaseChatProviderService {
     try {
       const videoId = this.normalizeVideoId(storageKey);
       if (!videoId) {
-        console.warn(`[YouTubeChat] Could not resolve target for ${storageKey}`);
         this.errorService.reportChannelNotFound(storageKey, "youtube");
         return;
       }
 
       await this.drainLiveChat(videoId, storageKey, abortController.signal);
-    } catch (error) {
-      console.error(`[YouTubeChat] Failed to start session for ${storageKey}:`, error);
+    } catch {
       this.errorService.reportNetworkError(storageKey, "Failed to start chat session", true);
     } finally {
       this.pollAbortByChannel.delete(storageKey);
@@ -206,11 +204,6 @@ export class YouTubeChatService extends BaseChatProviderService {
             state.lastRetryAt = Date.now();
             this.rateLimitState.set(storageKey, state);
 
-            console.warn(
-              `[YouTubeChat] Rate limited (${state.consecutive429s}). Backing off for ${state.backoffMs}ms`
-            );
-
-            // Report rate limit error
             this.errorService.reportRateLimited(storageKey, "youtube");
           }
         }
@@ -297,7 +290,6 @@ export class YouTubeChatService extends BaseChatProviderService {
         accessToken,
       });
       if (!liveChatId) {
-        console.warn("[YouTubeChat] No live chat found for video");
         return false;
       }
 
@@ -308,8 +300,7 @@ export class YouTubeChatService extends BaseChatProviderService {
       });
 
       return true;
-    } catch (error) {
-      console.error("[YouTubeChat] Error sending message:", error);
+    } catch {
       return false;
     }
   }
@@ -339,8 +330,7 @@ export class YouTubeChatService extends BaseChatProviderService {
       });
 
       return true;
-    } catch (error) {
-      console.error("[YouTubeChat] Error deleting message:", error);
+    } catch {
       return false;
     }
   }

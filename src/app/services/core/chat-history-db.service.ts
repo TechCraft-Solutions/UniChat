@@ -90,8 +90,8 @@ export class ChatHistoryDbService {
       };
 
       await this.requestToPromise(store.add(record));
-    } catch (error) {
-      console.warn("[ChatHistoryDb] Failed to store message:", error);
+    } catch {
+      /* IndexedDB store failed */
     }
   }
 
@@ -116,8 +116,8 @@ export class ChatHistoryDbService {
       }
 
       await this.transactionToPromise(transaction);
-    } catch (error) {
-      console.warn("[ChatHistoryDb] Failed to store messages:", error);
+    } catch {
+      /* IndexedDB batch store failed */
     }
   }
 
@@ -143,8 +143,7 @@ export class ChatHistoryDbService {
         };
         request.onerror = () => reject(request.error);
       });
-    } catch (error) {
-      console.warn("[ChatHistoryDb] Failed to get messages:", error);
+    } catch {
       return [];
     }
   }
@@ -176,8 +175,7 @@ export class ChatHistoryDbService {
         };
         request.onerror = () => reject(request.error);
       });
-    } catch (error) {
-      console.warn("[ChatHistoryDb] Failed to get messages before timestamp:", error);
+    } catch {
       return [];
     }
   }
@@ -199,8 +197,8 @@ export class ChatHistoryDbService {
           await this.requestToPromise(store.delete(key));
         }
       };
-    } catch (error) {
-      console.warn("[ChatHistoryDb] Failed to delete channel messages:", error);
+    } catch {
+      /* delete failed */
     }
   }
 
@@ -213,8 +211,8 @@ export class ChatHistoryDbService {
       const transaction = db.transaction([STORE_NAME], "readwrite");
       const store = transaction.objectStore(STORE_NAME);
       await this.requestToPromise(store.delete(messageId));
-    } catch (error) {
-      console.warn("[ChatHistoryDb] Failed to delete message:", error);
+    } catch {
+      /* delete failed */
     }
   }
 
@@ -227,8 +225,8 @@ export class ChatHistoryDbService {
       const transaction = db.transaction([STORE_NAME], "readwrite");
       const store = transaction.objectStore(STORE_NAME);
       await this.requestToPromise(store.clear());
-    } catch (error) {
-      console.warn("[ChatHistoryDb] Failed to clear all messages:", error);
+    } catch {
+      /* clear failed */
     }
   }
 
@@ -258,8 +256,7 @@ export class ChatHistoryDbService {
 
       const totalMessages = await this.requestToPromise<number>(countRequest);
       return { totalMessages, channels };
-    } catch (error) {
-      console.warn("[ChatHistoryDb] Failed to get stats:", error);
+    } catch {
       return { totalMessages: 0, channels: [] };
     }
   }
@@ -292,8 +289,7 @@ export class ChatHistoryDbService {
       });
 
       return deletedCount;
-    } catch (error) {
-      console.warn("[ChatHistoryDb] Failed to cleanup old messages:", error);
+    } catch {
       return 0;
     }
   }

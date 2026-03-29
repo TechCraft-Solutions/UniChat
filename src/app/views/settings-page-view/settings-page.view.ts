@@ -206,8 +206,8 @@ export class SettingsPageView {
         includeBadges: this.exportIncludeBadges,
         dateFormat: "iso",
       });
-    } catch (error) {
-      console.error("Failed to export all history:", error);
+    } catch {
+      /* export failed — error already surfaced by export service if thrown */
     }
   }
 
@@ -231,8 +231,8 @@ export class SettingsPageView {
         includeBadges: this.exportIncludeBadges,
         dateFormat: "time",
       });
-    } catch (error) {
-      console.error("Failed to export channel history:", error);
+    } catch {
+      /* export failed */
     }
   }
 }

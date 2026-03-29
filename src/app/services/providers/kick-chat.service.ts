@@ -84,7 +84,6 @@ export class KickChatService extends BaseChatProviderService {
       }
       this.openSocket(channelSlug, chatroomId);
     } catch (error) {
-      console.error(`[KickChat] Error starting for ${channelSlug}:`, error);
       this.errorService.reportNetworkError(
         channelSlug,
         "Failed to connect to Kick chat. Retrying...",
@@ -119,8 +118,7 @@ export class KickChatService extends BaseChatProviderService {
       this.handleSocketMessage(channelSlug, data);
     });
 
-    socket.addEventListener("error", (event) => {
-      console.error(`[KickChat] WebSocket error for ${channelSlug}:`, event);
+    socket.addEventListener("error", () => {
       this.errorService.reportWebSocketError(channelSlug, "kick", true);
     });
 
@@ -154,10 +152,8 @@ export class KickChatService extends BaseChatProviderService {
         throw new Error(`Channel '${channelSlug}' not found on Kick`);
       } else if (response.status === 401 || response.status === 403) {
         // Fall back to Tauri backend command
-        console.warn(`[KickChat] Browser fetch failed with ${response.status}, trying backend...`);
       }
-    } catch (browserError) {
-      console.warn(`[KickChat] Browser fetch failed:`, browserError);
+    } catch {
       // Continue to backend fallback
     }
 
@@ -179,9 +175,6 @@ export class KickChatService extends BaseChatProviderService {
         message.includes("authentication")
       ) {
         // For auth errors, provide a more helpful message
-        console.warn(
-          `[KickChat] API auth error for ${channelSlug}. Kick may require authentication.`
-        );
         this.errorService.reportNetworkError(
           channelSlug,
           "Kick API requires authentication. Some features may be limited.",
@@ -322,15 +315,11 @@ export class KickChatService extends BaseChatProviderService {
 
       if (!response.ok) {
         const error = await response.text();
-        console.warn(`[KickChat] Failed to send message: ${response.status}`, error);
-        // Surface error to user via console (could be extended with UI notification)
         throw new Error(`Kick API error ${response.status}: ${error || response.statusText}`);
       }
 
       return true;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      console.error("[KickChat] Error sending message:", message);
+    } catch {
       return false;
     }
   }
@@ -368,8 +357,7 @@ export class KickChatService extends BaseChatProviderService {
       // Fallback to Tauri command
       const userInfo = await invoke<KickUserInfo>("kickFetchUserInfo", { username });
       return userInfo;
-    } catch (error) {
-      console.warn(`[KickChat] Failed to fetch user info for ${username}:`, error);
+    } catch {
       return null;
     }
   }

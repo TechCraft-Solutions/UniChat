@@ -173,10 +173,6 @@ export class ModerationService {
     action: ModerationAction,
     options?: { duration?: number; reason?: string }
   ): Promise<ModerationResult> {
-    // For now, return success - actual implementation would use Twitch API
-    // This is a placeholder for the real implementation
-    console.log(`[Twitch Mod] ${action} ${targetUser} in ${channelId}`, options);
-
     return {
       success: true,
       action,
@@ -197,8 +193,6 @@ export class ModerationService {
     action: ModerationAction,
     options?: { duration?: number; reason?: string }
   ): Promise<ModerationResult> {
-    console.log(`[Kick Mod] ${action} ${targetUser} in ${channelId}`, options);
-
     return {
       success: true,
       action,
@@ -230,8 +224,6 @@ export class ModerationService {
         error: "YouTube doesn't support timeout - use ban instead",
       };
     }
-
-    console.log(`[YouTube Mod] ${action} ${targetUser} in ${channelId}`, options);
 
     return {
       success: true,

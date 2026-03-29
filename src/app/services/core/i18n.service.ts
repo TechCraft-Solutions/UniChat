@@ -80,9 +80,7 @@ export class I18nService {
       }
       const translations = await response.json();
       this.translationsSignal.set(translations);
-    } catch (error) {
-      console.error(`Error loading translations for ${lang}:`, error);
-      // Fallback to English
+    } catch {
       if (lang !== "en") {
         await this.loadTranslations("en");
       }
@@ -94,7 +92,6 @@ export class I18nService {
    */
   async setLanguage(lang: SupportedLanguage): Promise<void> {
     if (!this.supportedLanguages[lang]) {
-      console.warn(`Language ${lang} is not supported`);
       return;
     }
 

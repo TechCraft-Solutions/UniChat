@@ -133,8 +133,8 @@ export class BlockedWordsService {
             filtered = filtered.replace(regex, rule.replacement);
           }
         }
-      } catch (error) {
-        console.warn(`[BlockedWords] Invalid regex pattern: ${rule.pattern}`, error);
+      } catch {
+        /* invalid regex for rule — skip */
       }
     }
 

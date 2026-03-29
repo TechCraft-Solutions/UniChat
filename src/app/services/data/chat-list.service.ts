@@ -174,26 +174,10 @@ export class ChatListService {
               needsSave = true;
             }
           }
-          
-          // Migrate Twitch channels with wrong ID format (name instead of numeric ID)
-          if (channel.platform === "twitch" && channel.channelId && !channel.channelId.match(/^\d+$/)) {
-            // Channel ID looks like a name (contains letters), not a numeric provider ID
-            // The channel name IS the provider ID for Twitch (login name)
-            // This is actually correct for Twitch - the provider ID is the login name, not numeric
-            console.log('[ChatListService] Channel loaded:', channel.platform, channel.channelName, '->', channel.channelId);
-          }
-          
           return channel;
         })
         .filter((channel) => !!channel.channelId);
-      
-      // Log all loaded channels for debugging
-      console.log('[ChatListService] Loaded channels:', migrated.map(c => ({
-        platform: c.platform,
-        name: c.channelName,
-        id: c.channelId
-      })));
-      
+
       if (needsSave) {
         this.saveChannels(migrated);
       }

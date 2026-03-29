@@ -81,9 +81,8 @@ export class IconsCatalogService {
         this.globalEmotes = payloadWithMeta.emotes;
         this.globalBadges = payloadWithMeta.badges;
         this.globalLoaded = true;
-      } catch (err) {
+      } catch {
         // Avoid re-triggering network calls on every failed render/reload.
-        console.error("IconsCatalogService.ensureGlobalLoaded failed", err);
         const empty = this.emptyPayloadWithBackoff();
         this.storage.setGlobal(empty);
         this.globalEmotes = empty.emotes;
@@ -131,8 +130,7 @@ export class IconsCatalogService {
         this.channelEmotesByRoom.set(rid, payloadWithMeta.emotes);
         this.channelBadgesByRoom.set(rid, payloadWithMeta.badges);
         this.channelLoaded.add(rid);
-      } catch (err) {
-        console.error("IconsCatalogService.ensureChannelLoaded failed", err);
+      } catch {
         const empty = this.emptyPayloadWithBackoff();
         this.storage.setChannel(rid, empty);
         this.channelEmotesByRoom.set(rid, empty.emotes);

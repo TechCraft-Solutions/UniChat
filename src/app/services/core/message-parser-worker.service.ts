@@ -65,18 +65,15 @@ export class MessageParserWorkerService implements OnDestroy {
           this.handleWorkerMessage(event);
         };
 
-        this.worker.onerror = (error) => {
-          console.warn("[MessageParserWorker] Worker error, falling back to main thread:", error);
+        this.worker.onerror = () => {
           this.isWorkerAvailable = false;
         };
 
         this.isWorkerAvailable = true;
-        console.log("[MessageParserWorker] Worker initialized");
       } else {
-        console.warn("[MessageParserWorker] Web Workers not supported, using main thread");
+        /* Web Workers not supported */
       }
-    } catch (error) {
-      console.warn("[MessageParserWorker] Failed to initialize worker:", error);
+    } catch {
       this.isWorkerAvailable = false;
     }
   }
@@ -103,7 +100,6 @@ export class MessageParserWorkerService implements OnDestroy {
         }
       }
     } else if (type === "error") {
-      console.warn("[MessageParserWorker] Worker error:", payload.error);
       this.isWorkerAvailable = false;
     }
   }
@@ -209,7 +205,6 @@ export class MessageParserWorkerService implements OnDestroy {
       setTimeout(() => {
         if (this.pendingBatchRequests.has(batchId)) {
           this.pendingBatchRequests.delete(batchId);
-          console.warn("[MessageParserWorker] Batch parse timeout, falling back to main thread");
           resolve(this.parseBatchOnMainThread(messages, options));
         }
       }, 5000);

@@ -308,8 +308,7 @@ export class TwitchChatService extends BaseChatProviderService {
       });
 
       return newMessages;
-    } catch (error) {
-      console.warn("Failed to load channel history:", error);
+    } catch {
       return [];
     }
   }
@@ -404,14 +403,6 @@ export class TwitchChatService extends BaseChatProviderService {
     const authorAvatarUrl = undefined;
 
     const providerChannelId = channel?.channelId ?? channelName;
-    console.log(
-      "[TwitchChat] Building message - channelName:",
-      channelName,
-      "found channel:",
-      channel?.channelId,
-      "using providerChannelId:",
-      providerChannelId
-    );
 
     return {
       id: `msg-${sourceMessageId}`,
@@ -481,7 +472,6 @@ export class TwitchChatService extends BaseChatProviderService {
       try {
         const res = await fetch(url.toString());
         if (!res.ok) {
-          console.warn(`[TwitchChat] Failed to fetch recent messages from Robotty: ${res.status}`);
           if (res.status === 404) {
             this.errorService.reportChannelNotFound(normalized, "twitch");
           } else if (res.status >= 500) {
@@ -536,8 +526,7 @@ export class TwitchChatService extends BaseChatProviderService {
           break;
         }
         beforeCursor = String(pageMinRm);
-      } catch (error) {
-        console.warn(`[TwitchChat] Error fetching recent messages from Robotty:`, error);
+      } catch {
         this.errorService.reportNetworkError(
           normalized,
           "Failed to load chat history. Check your connection.",
