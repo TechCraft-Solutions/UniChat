@@ -35,6 +35,7 @@ import { buildChannelRef } from "@utils/channel-ref.util";
 import { ChatHistoryHeaderComponent } from "@components/chat-history-header/chat-history-header.component";
 import { ChatMessageCardComponent } from "@components/chat-message-card/chat-message-card.component";
 import { ChatScrollRegionComponent } from "@components/chat-scroll-region/chat-scroll-region.component";
+import { ComposerEmotePopoverComponent } from "@components/composer-emote-popover/composer-emote-popover.component";
 import { ConnectionErrorBannerComponent } from "@components/connection-error-banner/connection-error-banner.component";
 @Component({
   selector: "app-dashboard-split-feed",
@@ -49,6 +50,7 @@ import { ConnectionErrorBannerComponent } from "@components/connection-error-ban
     ChatMessageCardComponent,
     ChatHistoryHeaderComponent,
     ConnectionErrorBannerComponent,
+    ComposerEmotePopoverComponent,
   ],
   templateUrl: "./dashboard-split-feed.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,

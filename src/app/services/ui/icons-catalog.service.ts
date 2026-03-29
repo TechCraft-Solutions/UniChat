@@ -19,6 +19,13 @@ export interface ResolveTwitchBadgeResult {
   url: string;
 }
 
+/** Flattened emote row for composer picker (7TV/BTTV-style codes from icons fetch). */
+export interface PickableIconsEmote {
+  code: string;
+  url: string;
+  scope: "global" | "channel";
+}
+
 @Injectable({
   providedIn: "root",
 })
@@ -143,6 +150,37 @@ export class IconsCatalogService {
 
     this.channelLoadPromises.set(rid, loadPromise);
     await loadPromise;
+  }
+
+  /**
+   * All cached global emotes plus channel set for a Twitch broadcaster id (numeric).
+   * Channel entries win on duplicate codes. Requires prior load via `ensureGlobalLoaded` / `ensureChannelLoaded`.
+   */
+  async listPickableIconsEmotes(twitchRoomId: string | null): Promise<PickableIconsEmote[]> {
+    await this.ensureGlobalLoaded();
+    const rid = twitchRoomId?.trim() ?? "";
+    if (rid) {
+      await this.ensureChannelLoaded(rid);
+    }
+
+    const byCode = new Map<string, PickableIconsEmote>();
+    for (const [code, icon] of Object.entries(this.globalEmotes)) {
+      if (!code || !icon?.url) {
+        continue;
+      }
+      byCode.set(code, { code, url: icon.url, scope: "global" });
+    }
+    if (rid) {
+      const channel = this.channelEmotesByRoom.get(rid) ?? {};
+      for (const [code, icon] of Object.entries(channel)) {
+        if (!code || !icon?.url) {
+          continue;
+        }
+        byCode.set(code, { code, url: icon.url, scope: "channel" });
+      }
+    }
+
+    return [...byCode.values()].sort((a, b) => a.code.localeCompare(b.code));
   }
 
   resolveSevenTvEmote(

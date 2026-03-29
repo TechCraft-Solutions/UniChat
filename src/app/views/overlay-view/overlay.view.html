@@ -30,10 +30,8 @@
               />
             }
 
-            <!-- Channel Profile Image (show when multiple channels from same service) -->
-            @if (
-              hasMultipleChannelsFromSameService() && getChannelImageUrl(message)
-            ) {
+            <!-- Channel Profile Image (show when widget follows 2+ channels) -->
+            @if (hasMultipleChannels() && getChannelImageUrl(message)) {
               <img
                 [src]="getChannelImageUrl(message)!"
                 [alt]="message.author"

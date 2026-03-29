@@ -217,6 +217,11 @@
                   #sendInput
                   (keydown)="onComposerKeydown($event, platform, sendInput)"
                 />
+                <app-composer-emote-popover
+                  [platform]="platform"
+                  [channel]="activeChannel(platform) ?? null"
+                  [composerInput]="sendInput"
+                />
                 <button
                   type="button"
                   (click)="sendSplitComposer(platform, sendInput)"

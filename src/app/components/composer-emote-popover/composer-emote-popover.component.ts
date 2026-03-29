@@ -1,0 +1,121 @@
+/* sys lib */
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from "@angular/core";
+import { FormsModule } from "@angular/forms";
+import { MatIconModule } from "@angular/material/icon";
+
+/* models */
+import { ChatChannel, PlatformType } from "@models/chat.model";
+
+/* services */
+import {
+  CustomEmoteManagerService,
+  CustomEmote,
+} from "@services/features/custom-emote-manager.service";
+import { TwitchViewerCardService } from "@services/providers/twitch-viewer-card.service";
+import { IconsCatalogService, PickableIconsEmote } from "@services/ui/icons-catalog.service";
+
+@Component({
+  selector: "app-composer-emote-popover",
+  standalone: true,
+  imports: [FormsModule, MatIconModule],
+  templateUrl: "./composer-emote-popover.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class ComposerEmotePopoverComponent {
+  private readonly customEmotes = inject(CustomEmoteManagerService);
+  private readonly iconsCatalog = inject(IconsCatalogService);
+  private readonly twitchViewerCard = inject(TwitchViewerCardService);
+
+  readonly platform = input.required<PlatformType>();
+  readonly channel = input<ChatChannel | null>(null);
+  readonly composerInput = input<HTMLInputElement | null>(null);
+
+  readonly isOpen = signal(false);
+  readonly loading = signal(false);
+  readonly searchQuery = signal("");
+  readonly twitchIconsError = signal<string | null>(null);
+
+  private readonly twitchPickable = signal<PickableIconsEmote[]>([]);
+
+  readonly customList = computed(() => {
+    const q = this.searchQuery().trim().toLowerCase();
+    const list = this.customEmotes.getEmotesForMessageRendering(this.platform());
+    if (!q) {
+      return list;
+    }
+    return list.filter((e) => e.code.toLowerCase().includes(q));
+  });
+
+  readonly twitchList = computed(() => {
+    const q = this.searchQuery().trim().toLowerCase();
+    const list = this.twitchPickable();
+    if (!q) {
+      return list;
+    }
+    return list.filter((e) => e.code.toLowerCase().includes(q));
+  });
+
+  toggle(): void {
+    this.isOpen.update((v) => !v);
+    if (this.isOpen()) {
+      void this.loadEmotesForOpen();
+    } else {
+      this.searchQuery.set("");
+      this.twitchIconsError.set(null);
+    }
+  }
+
+  close(): void {
+    this.isOpen.set(false);
+    this.searchQuery.set("");
+    this.twitchIconsError.set(null);
+  }
+
+  private async loadEmotesForOpen(): Promise<void> {
+    this.loading.set(true);
+    this.twitchPickable.set([]);
+    this.twitchIconsError.set(null);
+
+    try {
+      if (this.platform() === "twitch") {
+        const ch = this.channel();
+        const login = ch?.channelName?.trim();
+        let roomId: string | null = null;
+        if (login) {
+          const info = await this.twitchViewerCard.fetchUserInfo(login);
+          if (info?.id && /^\d+$/.test(info.id)) {
+            roomId = info.id;
+          }
+        }
+        try {
+          const rows = await this.iconsCatalog.listPickableIconsEmotes(roomId);
+          this.twitchPickable.set(rows);
+        } catch {
+          this.twitchIconsError.set("Could not load channel emote set.");
+          const globalsOnly = await this.iconsCatalog.listPickableIconsEmotes(null);
+          this.twitchPickable.set(globalsOnly);
+        }
+      }
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  pickCustom(emote: CustomEmote): void {
+    this.appendCode(emote.code);
+  }
+
+  pickTwitch(emote: PickableIconsEmote): void {
+    this.appendCode(emote.code);
+  }
+
+  private appendCode(code: string): void {
+    const el = this.composerInput();
+    if (!el || !code) {
+      return;
+    }
+    const next = `${el.value}${code} `;
+    el.value = next;
+    el.focus();
+  }
+}

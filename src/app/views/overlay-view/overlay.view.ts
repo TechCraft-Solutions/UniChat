@@ -404,27 +404,6 @@ export class OverlayView implements OnDestroy {
   }
 
   /**
-   * Check if multiple channels from the same service/platform are selected.
-   * Returns true if 2+ channels from the same platform are selected.
-   */
-  hasMultipleChannelsFromSameService(): boolean {
-    if (!this.currentChannelIds || this.currentChannelIds.length <= 1) {
-      return false;
-    }
-    const platformCounts = new Map<string, number>();
-    for (const channelId of this.currentChannelIds) {
-      const parsed = parseChannelRef(channelId);
-      const platform = parsed?.platform ?? "unknown";
-      const count = (platformCounts.get(platform) ?? 0) + 1;
-      platformCounts.set(platform, count);
-      if (count > 1) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
    * Get channel profile image URL for overlay messages
    * Currently supports Twitch multi-chat channels
    */
