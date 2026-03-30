@@ -77,11 +77,17 @@ export function buildSplitFeed(messages: ChatMessage[]): Record<PlatformType, Ch
 export function groupByPlatform<T extends { platform: PlatformType }>(
   items: T[]
 ): Record<PlatformType, T[]> {
-  return {
-    twitch: items.filter((item) => item.platform === "twitch"),
-    kick: items.filter((item) => item.platform === "kick"),
-    youtube: items.filter((item) => item.platform === "youtube"),
+  const grouped: Record<PlatformType, T[]> = {
+    twitch: [],
+    kick: [],
+    youtube: [],
   };
+
+  for (const item of items) {
+    grouped[item.platform].push(item);
+  }
+
+  return grouped;
 }
 
 export function createMessageActionState(

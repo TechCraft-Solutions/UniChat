@@ -19,7 +19,12 @@ export interface SearchOptions {
 export interface SearchResult {
   message: ChatMessage;
   matchType: "text" | "author" | "both";
-  highlightedText: string;
+  highlightedSegments: HighlightSegment[];
+}
+
+export interface HighlightSegment {
+  text: string;
+  isMatch: boolean;
 }
 
 /**
@@ -65,12 +70,12 @@ export class ChatSearchService {
     let pattern: RegExp | null = null;
     try {
       if (options.isRegex) {
-        const flags = options.caseSensitive ? "g" : "gi";
+        const flags = options.caseSensitive ? "" : "i";
         pattern = new RegExp(options.query, flags);
       } else {
         // Escape regex special characters for literal search
         const escaped = options.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const flags = options.caseSensitive ? "g" : "gi";
+        const flags = options.caseSensitive ? "" : "i";
         pattern = new RegExp(escaped, flags);
       }
     } catch {
@@ -102,8 +107,8 @@ export class ChatSearchService {
         // Apply author filter if specified
         if (options.author) {
           const authorPattern = options.caseSensitive
-            ? new RegExp(options.author)
-            : new RegExp(options.author, "i");
+              ? new RegExp(options.author)
+              : new RegExp(options.author, "i");
           if (!authorPattern.test(message.author)) {
             continue;
           }
@@ -112,7 +117,7 @@ export class ChatSearchService {
         results.push({
           message,
           matchType: textMatch && authorMatch ? "both" : textMatch ? "text" : "author",
-          highlightedText: this.highlightMatches(message.text, pattern),
+            highlightedSegments: this.highlightMatches(message.text, pattern),
         });
       }
     }
@@ -183,9 +188,42 @@ export class ChatSearchService {
     return Array.from(authors);
   }
 
-  private highlightMatches(text: string, pattern: RegExp): string {
-    // Create a copy of the pattern without global flag for replacement
-    const replacePattern = new RegExp(pattern.source, pattern.flags.includes("i") ? "gi" : "g");
-    return text.replace(replacePattern, (match) => `<mark>${match}</mark>`);
+  private highlightMatches(text: string, pattern: RegExp): HighlightSegment[] {
+    // Build a safe highlighting token stream without using HTML strings.
+    // Use global regex for iteration; pattern itself intentionally does NOT include `g`.
+    const highlightFlags = pattern.flags.includes("i") ? "gi" : "g";
+    const re = new RegExp(pattern.source, highlightFlags);
+
+    const segments: HighlightSegment[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = re.exec(text)) !== null) {
+      const start = match.index;
+      const matchText = match[0];
+      const end = start + matchText.length;
+
+      // Prevent infinite loops for patterns that can match empty strings.
+      if (matchText.length === 0) {
+        re.lastIndex = start + 1;
+        continue;
+      }
+
+      if (start > lastIndex) {
+        segments.push({ text: text.slice(lastIndex, start), isMatch: false });
+      }
+      segments.push({ text: matchText, isMatch: true });
+      lastIndex = end;
+    }
+
+    if (segments.length === 0) {
+      return [{ text, isMatch: false }];
+    }
+
+    if (lastIndex < text.length) {
+      segments.push({ text: text.slice(lastIndex), isMatch: false });
+    }
+
+    return segments;
   }
 }

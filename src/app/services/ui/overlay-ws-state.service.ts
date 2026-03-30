@@ -38,6 +38,7 @@ export interface OverlayConnectOptions {
   filter: WidgetFilter;
   channelIds?: string[];
   preserveMessages?: boolean; // If true, keep existing messages on reconnect
+  maxMessages?: number;
 }
 
 @Injectable({
@@ -54,8 +55,11 @@ export class OverlayWsStateService {
 
   private readonly messagesSignal = signal<OverlayChatMessage[]>([]);
   readonly messages = this.messagesSignal.asReadonly();
+  private maxQueueSize = 0;
 
   connect(opts: OverlayConnectOptions): void {
+    this.maxQueueSize = opts.maxMessages ?? 0;
+
     const key = `${opts.port}:${opts.widgetId}:${opts.filter}:${opts.channelIds?.join(",") ?? ""}`;
     if (this.currentKey === key && this.socket?.readyState === WebSocket.OPEN) {
       return;
@@ -126,7 +130,7 @@ export class OverlayWsStateService {
         emotes: parsed.message.emotes,
       };
 
-      this.messagesSignal.update((current) => upsertAndSort(current, msg));
+      this.messagesSignal.update((current) => upsertAndSort(current, msg, this.maxQueueSize));
     };
 
     this.socket.onerror = () => {
@@ -144,14 +148,15 @@ export class OverlayWsStateService {
    * Add a message directly (used when polling from backend)
    */
   addMessage(message: OverlayChatMessage): void {
-    this.messagesSignal.update((current) => upsertAndSort(current, message));
+    this.messagesSignal.update((current) => upsertAndSort(current, message, this.maxQueueSize));
   }
 
   /**
    * Set messages directly (used when polling from backend)
    */
   setMessages(messages: OverlayChatMessage[]): void {
-    this.messagesSignal.set(messages);
+    const sorted = [...messages].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    this.messagesSignal.set(this.maxQueueSize > 0 ? sorted.slice(0, this.maxQueueSize) : sorted);
   }
 
   private async attemptReconnect(opts: OverlayConnectOptions): Promise<void> {
@@ -186,11 +191,15 @@ function toPlatformType(platform: string): PlatformType {
 
 function upsertAndSort(
   current: OverlayChatMessage[],
-  next: OverlayChatMessage
+  next: OverlayChatMessage,
+  maxQueueSize: number
 ): OverlayChatMessage[] {
   const index = current.findIndex((m) => m.id === next.id);
   const merged =
     index === -1 ? [...current, next] : current.map((m) => (m.id === next.id ? next : m));
 
-  return merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const sorted = merged.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+  return maxQueueSize > 0 ? sorted.slice(0, maxQueueSize) : sorted;
 }
