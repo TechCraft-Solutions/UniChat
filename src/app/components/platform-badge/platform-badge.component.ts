@@ -8,14 +8,7 @@ import { PlatformType } from "@models/chat.model";
 import { getPlatformBadgeClasses, getPlatformLabel } from "@helpers/chat.helper";
 @Component({
   selector: "app-platform-badge",
-  template: `
-    <span
-      class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em]"
-      [class]="getPlatformBadgeClasses(platform())"
-    >
-      {{ getPlatformLabel(platform()) }}
-    </span>
-  `,
+  templateUrl: "./platform-badge.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PlatformBadgeComponent {

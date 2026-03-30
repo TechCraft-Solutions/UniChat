@@ -18,7 +18,20 @@ export class LinkPreviewModal {
   private readonly domSanitizer = inject(DomSanitizer);
 
   trustedFrameSrc(href: string): SafeResourceUrl {
-    return this.domSanitizer.bypassSecurityTrustResourceUrl(href);
+    // Keep the trust bypass narrow: only allow URLs that our iframe-src allowlist already approved.
+    // `frameSrc` is derived from `getLinkPreviewIframeSrc()`, but re-check here to avoid implicit trust.
+    try {
+      const validated = getLinkPreviewIframeSrc(href);
+      const url = new URL(href);
+
+      if (validated === href && (url.protocol === "http:" || url.protocol === "https:")) {
+        return this.domSanitizer.bypassSecurityTrustResourceUrl(href);
+      }
+    } catch {
+      /* ignore and fall back */
+    }
+
+    return this.domSanitizer.bypassSecurityTrustResourceUrl("about:blank");
   }
 
   iframeSrc(href: string): string | null {
