@@ -1,5 +1,12 @@
 /* sys lib */
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MatIconModule } from "@angular/material/icon";
 import { ActivatedRoute } from "@angular/router";
@@ -18,11 +25,12 @@ import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { DashboardStateService } from "@services/features/dashboard-state.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
-import {
-  findChannelByRef,
-  migrateLegacyChannelRefs,
-  toChannelRef,
-} from "@utils/channel-ref.util";
+import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
+import { findChannelByRef, migrateLegacyChannelRefs, toChannelRef } from "@utils/channel-ref.util";
+
+/* components */
+import { CheckboxComponent } from "@components/ui/checkbox/checkbox.component";
+import { SharedHeaderComponent } from "@components/shared-header/shared-header.component";
 function overlayFilterOverrideKey(widgetId: string): string {
   return `unichat-overlay-filter-override:${widgetId}`;
 }
@@ -58,7 +66,7 @@ function overlayTransparentBgKey(widgetId: string): string {
 @Component({
   selector: "app-overlay-management-view",
   standalone: true,
-  imports: [FormsModule, MatIconModule],
+  imports: [FormsModule, MatIconModule, CheckboxComponent, SharedHeaderComponent],
   templateUrl: "./overlay-management.view.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -67,6 +75,7 @@ export class OverlayManagementView {
   private readonly dashboardState = inject(DashboardStateService);
   private readonly chatList = inject(ChatListService);
   private readonly localStorageService = inject(LocalStorageService);
+  private readonly dashboardPreferences = inject(DashboardPreferencesService);
   readonly presentation = inject(ChatMessagePresentationService);
 
   readonly saveSuccess = signal<boolean>(false);
@@ -113,10 +122,24 @@ export class OverlayManagementView {
     this.customCssModel.set(this.localStorageService.get(overlayCustomCssKey(w.id), ""));
 
     const storedChannelIds = this.readOverlayChannelIds(w.id);
-    const channelIdsToUse = migrateLegacyChannelRefs(
+    let channelIdsToUse = migrateLegacyChannelRefs(
       storedChannelIds ?? w.channelIds,
       this.availableChannels()
     );
+
+    // Convert undefined to explicit array of all visible channels
+    // This ensures we can properly filter by dashboard disabled and show correct count
+    if (channelIdsToUse === undefined) {
+      channelIdsToUse = this.availableChannels().map((ch) => toChannelRef(ch));
+    }
+
+    // Filter out channels that are disabled in dashboard mixed feed
+    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
+    if (channelIdsToUse.length > 0 && dashboardDisabled.length > 0) {
+      channelIdsToUse = channelIdsToUse.filter((id) => !dashboardDisabled.includes(id));
+    }
+
+    // If all channels were filtered out, keep empty array (means "no channels")
     this.channelIdsModel.set(channelIdsToUse);
 
     // Load overlay appearance settings
@@ -160,7 +183,10 @@ export class OverlayManagementView {
   }
 
   private readOverlayChannelIds(widgetId: string): string[] | null {
-    const stored = this.localStorageService.get<string[] | null>(overlayChannelIdsKey(widgetId), null);
+    const stored = this.localStorageService.get<string[] | null>(
+      overlayChannelIdsKey(widgetId),
+      null
+    );
     if (Array.isArray(stored)) {
       return stored;
     }
@@ -296,7 +322,10 @@ export class OverlayManagementView {
   }
 
   get selectedChannelIds(): string[] {
-    return this.channelIdsModel() ?? [];
+    const current = this.channelIdsModel() ?? [];
+    // Filter out dashboard-disabled channels for accurate count
+    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
+    return current.filter((id) => !dashboardDisabled.includes(id));
   }
 
   set selectedChannelIds(value: string[]) {
@@ -345,27 +374,57 @@ export class OverlayManagementView {
 
   toggleChannel(channelId: string): void {
     const current = this.channelIdsModel() ?? [];
+    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
     const index = current.indexOf(channelId);
+
     if (index === -1) {
-      this.channelIdsModel.set([...current, channelId]);
+      // Enabling channel in overlay
+      if (dashboardDisabled.includes(channelId)) {
+        // Also enable in dashboard (remove from disabled list)
+        this.dashboardPreferences.removeMixedDisabledChannelId(channelId);
+      }
+      // Create new array to trigger signal update
+      if (!current.includes(channelId)) {
+        this.channelIdsModel.set([...current, channelId]);
+      }
     } else {
-      const next = current.filter((id) => id !== channelId);
-      this.channelIdsModel.set(next.length > 0 ? next : undefined);
+      // Disabling channel in overlay
+      // Also disable in dashboard mixed feed
+      this.dashboardPreferences.addMixedDisabledChannelId(channelId);
+
+      // Create new array to trigger signal update
+      this.channelIdsModel.set(current.filter((id) => id !== channelId));
     }
     // Auto-save removed - user must click Save button
   }
 
   isChannelSelected(channelId: string): boolean {
     const current = this.channelIdsModel();
-    return current == null || current.includes(channelId);
+    // Always use arrays now - check if channel is in the list
+    if (!current) {
+      return false;
+    }
+    // Also check if channel is disabled in dashboard
+    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
+    if (dashboardDisabled.includes(channelId)) {
+      return false;
+    }
+    return current.includes(channelId);
   }
 
   selectAllChannels(): void {
-    this.channelIdsModel.set(undefined);
+    // Select all visible channels that are not disabled in dashboard
+    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
+    const enabledChannels = this.availableChannels()
+      .filter((ch) => !dashboardDisabled.includes(toChannelRef(ch)))
+      .map((ch) => toChannelRef(ch));
+    this.channelIdsModel.set(enabledChannels);
     // Auto-save removed - user must click Save button
   }
 
   clearChannelSelection(): void {
+    // Only clear overlay selection, don't touch dashboard
+    // User can still enable channels in dashboard independently
     this.channelIdsModel.set([]);
     // Auto-save removed - user must click Save button
   }
@@ -375,7 +434,9 @@ export class OverlayManagementView {
     return channel ? `${channel.channelName} (${channel.platform})` : channelId;
   }
 
-  channelSelectionValue(channel: ReturnType<ChatListService["getVisibleChannels"]>[number]): string {
+  channelSelectionValue(
+    channel: ReturnType<ChatListService["getVisibleChannels"]>[number]
+  ): string {
     return toChannelRef(channel);
   }
 }
