@@ -127,10 +127,17 @@ export class TwitchChatService extends BaseChatProviderService {
         isR9k: state.r9k ?? false,
       });
     });
-    // @ts-ignore - tmi.js emits connectionfailure but not in types
-    client.on("connectionfailure", () => {
+    // `tmi.js` runtime emits `connectionfailure`; types may not include it.
+    type TmiClientWithConnectionFailure = tmi.Client & {
+      on(event: "connectionfailure", listener: () => void): tmi.Client;
+    };
+
+    (client as unknown as TmiClientWithConnectionFailure).on(
+      "connectionfailure",
+      () => {
       this.errorService.reportNetworkTimeout(normalizedChannel, "twitch");
-    });
+      }
+    );
     client.on("notice", (reason: string) => {
       if (reason.includes("ratelimit") || reason.includes("rate limit")) {
         this.errorService.reportRateLimited(normalizedChannel, "twitch");

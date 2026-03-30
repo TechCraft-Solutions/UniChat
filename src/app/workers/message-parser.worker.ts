@@ -20,6 +20,7 @@ interface ParseMessageRequest {
 interface BatchParseRequest {
   type: "batch-parse";
   payload: {
+    batchId: string;
     messages: ChatMessage[];
     options: ParseOptions;
   };
@@ -43,6 +44,7 @@ interface ParseMessageResponse {
 interface BatchParseResponse {
   type: "batch-parse-result";
   payload: {
+    batchId: string;
     results: Array<{ messageId: string; result: ParsedMessage; processingTime: number }>;
     totalProcessingTime: number;
   };
@@ -161,7 +163,7 @@ self.onmessage = (event: MessageEvent<ParseMessageRequest | BatchParseRequest>) 
 
       self.postMessage(response);
     } else if (type === "batch-parse") {
-      const { messages, options } = payload;
+      const { batchId, messages, options } = payload;
       const startTime = performance.now();
 
       const results = messages.map((message) => ({
@@ -175,6 +177,7 @@ self.onmessage = (event: MessageEvent<ParseMessageRequest | BatchParseRequest>) 
       const response: BatchParseResponse = {
         type: "batch-parse-result",
         payload: {
+          batchId,
           results,
           totalProcessingTime,
         },

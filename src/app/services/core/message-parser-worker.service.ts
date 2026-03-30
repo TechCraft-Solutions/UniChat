@@ -24,9 +24,14 @@ interface ParseOptions {
 interface WorkerResponse {
   type: "parse-result" | "batch-parse-result" | "error";
   payload: {
+    batchId?: string;
     messageId?: string;
     result?: ParsedMessage;
-    results?: Array<{ messageId: string; result: ParsedMessage }>;
+    results?: Array<{
+      messageId: string;
+      result: ParsedMessage;
+      processingTime?: number;
+    }>;
     processingTime?: number;
     totalProcessingTime?: number;
     error?: string;
@@ -44,6 +49,7 @@ export class MessageParserWorkerService implements OnDestroy {
     string,
     (results: Array<{ messageId: string; result: ParsedMessage }>) => void
   >();
+  private pendingBatchTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly workerThreshold = 10; // Use worker for batches > 10 messages
 
   constructor() {
@@ -90,14 +96,22 @@ export class MessageParserWorkerService implements OnDestroy {
         resolve(payload.result);
         this.pendingRequests.delete(payload.messageId);
       }
-    } else if (type === "batch-parse-result" && payload.results) {
-      const batchId = payload.results[0]?.messageId?.split("-batch-")[0];
-      if (batchId) {
-        const resolve = this.pendingBatchRequests.get(batchId);
-        if (resolve) {
-          resolve(payload.results);
-          this.pendingBatchRequests.delete(batchId);
-        }
+    } else if (type === "batch-parse-result" && payload.batchId && payload.results) {
+      const batchId = payload.batchId;
+
+      // Clear timeout regardless of whether the resolver still exists.
+      const timeoutId = this.pendingBatchTimeouts.get(batchId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        this.pendingBatchTimeouts.delete(batchId);
+      }
+
+      const resolve = this.pendingBatchRequests.get(batchId);
+      if (resolve) {
+        // Strip worker-only metadata so the public API stays stable.
+        const mapped = payload.results.map((r) => ({ messageId: r.messageId, result: r.result }));
+        resolve(mapped);
+        this.pendingBatchRequests.delete(batchId);
       }
     } else if (type === "error") {
       this.isWorkerAvailable = false;
@@ -198,16 +212,19 @@ export class MessageParserWorkerService implements OnDestroy {
 
       this.worker.postMessage({
         type: "batch-parse",
-        payload: { messages, options },
+        payload: { batchId, messages, options },
       });
 
       // Timeout after 5 seconds
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         if (this.pendingBatchRequests.has(batchId)) {
           this.pendingBatchRequests.delete(batchId);
+          this.pendingBatchTimeouts.delete(batchId);
           resolve(this.parseBatchOnMainThread(messages, options));
         }
       }, 5000);
+
+      this.pendingBatchTimeouts.set(batchId, timeoutId);
     });
   }
 
@@ -270,5 +287,13 @@ export class MessageParserWorkerService implements OnDestroy {
       this.worker = null;
       this.isWorkerAvailable = false;
     }
+
+    // Prevent callbacks/timers from running after teardown.
+    for (const timeoutId of this.pendingBatchTimeouts.values()) {
+      clearTimeout(timeoutId);
+    }
+    this.pendingBatchTimeouts.clear();
+    this.pendingRequests.clear();
+    this.pendingBatchRequests.clear();
   }
 }
