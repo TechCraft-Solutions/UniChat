@@ -12,7 +12,7 @@
         (click)="closePicker.emit()"
         class="rounded p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
       >
-        <mat-icon [fontIcon]="'close'" class="h-4! w-4!" />
+        <mat-icon [fontIcon]="'close'" class="w-5! h-5!" />
       </button>
     </div>
 
@@ -21,7 +21,7 @@
       <div class="relative">
         <mat-icon
           [fontIcon]="'search'"
-          class="absolute left-2 top-1/2 h-4! w-4! -translate-y-1/2 text-slate-400"
+          class="absolute left-2 top-1/2 w-5! h-5! -translate-y-1/2 text-slate-400"
         />
         <input
           #searchInput
@@ -107,7 +107,7 @@
           (click)="toggleAddEmoteForm()"
           class="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 py-2 text-xs font-medium text-slate-600 transition hover:border-emerald-500 hover:text-emerald-600 dark:border-white/10 dark:text-slate-400"
         >
-          <mat-icon [fontIcon]="'add'" class="h-4! w-4!" />
+          <mat-icon [fontIcon]="'add'" class="w-5! h-5!" />
           Add Custom Emote
         </button>
       } @else {
