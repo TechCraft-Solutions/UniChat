@@ -40,24 +40,13 @@
                 : 'border-slate-800 bg-slate-800 text-white shadow-sm dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900 dark:shadow-none'
             "
           >
-            <span
-              class="inline-flex h-5 w-5 items-center justify-center rounded-full ring-1 ring-inset"
-              [class]="
-                presentation.getPlatformBadgeClassesMixedFilter(
-                  channel.platform,
-                  !isChannelDisabled(channelRefFor(channel))
-                )
-              "
+            <img
+              [src]="presentation.platformIconUrl(channel.platform)"
+              [alt]="presentation.platformLabel(channel.platform)"
               [title]="presentation.platformLabel(channel.platform)"
-              [attr.aria-label]="presentation.platformLabel(channel.platform)"
-            >
-              <img
-                [src]="presentation.platformIconUrl(channel.platform)"
-                [alt]="presentation.platformLabel(channel.platform)"
-                class="h-3.5 w-3.5 shrink-0 object-contain"
-                loading="lazy"
-              />
-            </span>
+              class="h-4 w-4 shrink-0 object-contain"
+              loading="lazy"
+            />
             @if (hasChannelImage(channel)) {
               <img
                 [src]="getCachedChannelImage(channel)!"
@@ -86,7 +75,7 @@
             Enable all
           </button>
         }
-        @if (disabledChannels().size < chatListService.getVisibleChannels().length) {
+        @if (disabledChannels().size < visibleChannelCount()) {
           <button
             type="button"
             (click)="disableAllChannels()"
@@ -111,7 +100,7 @@
         }
       }
       <app-chat-history-header #historyHeader (loadHistory)="onLoadHistory($event)" />
-      @let mixedMsgs = feedData.getMixedFeedChronological();
+      @let mixedMsgs = mixedMessages();
       <app-chat-scroll-region [scrollToken]="feedData.mixedScrollToken()" [messages]="mixedMsgs">
         <div class="flex flex-col gap-y-2 px-3 py-3 sm:px-4">
           @for (message of mixedMsgs; track message.id) {

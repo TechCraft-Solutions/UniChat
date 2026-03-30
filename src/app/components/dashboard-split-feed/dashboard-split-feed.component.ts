@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  computed,
   effect,
   inject,
   signal,
@@ -12,7 +13,7 @@ import {
 import { MatIconModule } from "@angular/material/icon";
 
 /* models */
-import { ChatChannel, PlatformType } from "@models/chat.model";
+import { ChatChannel, ChatMessage, PlatformType } from "@models/chat.model";
 
 /* services */
 import { AvatarCacheService } from "@services/core/avatar-cache.service";
@@ -20,7 +21,6 @@ import { ChatListService } from "@services/data/chat-list.service";
 import { ChatStateService } from "@services/data/chat-state.service";
 import { ChatStorageService } from "@services/data/chat-storage.service";
 import { ConnectionStateService } from "@services/data/connection-state.service";
-import { ChatProviderCoordinatorService } from "@services/providers/chat-provider-coordinator.service";
 import { TwitchChatService } from "@services/providers/twitch-chat.service";
 import { BlockResizeService } from "@services/ui/block-resize.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
@@ -37,6 +37,15 @@ import { ChatMessageCardComponent } from "@components/chat-message-card/chat-mes
 import { ChatScrollRegionComponent } from "@components/chat-scroll-region/chat-scroll-region.component";
 import { ComposerEmotePopoverComponent } from "@components/composer-emote-popover/composer-emote-popover.component";
 import { ConnectionErrorBannerComponent } from "@components/connection-error-banner/connection-error-banner.component";
+
+interface SplitPlatformViewModel {
+  orderedChannels: ChatChannel[];
+  draggableOrderedChannels: ChatChannel[];
+  orderedChannelIds: string[];
+  activeChannel?: ChatChannel;
+  activeChannelId?: string;
+}
+
 @Component({
   selector: "app-dashboard-split-feed",
   standalone: true,
@@ -67,7 +76,6 @@ export class DashboardSplitFeedComponent {
   private readonly dashboardPreferencesService = inject(DashboardPreferencesService);
   private readonly twitchChat = inject(TwitchChatService);
   private readonly chatStorage = inject(ChatStorageService);
-  private readonly chatProviderCoordinator = inject(ChatProviderCoordinatorService);
   private readonly avatarCache = inject(AvatarCacheService);
   private readonly keyboardShortcutsService = inject(KeyboardShortcutsService);
   private readonly destroyRef = inject(DestroyRef);
@@ -91,28 +99,51 @@ export class DashboardSplitFeedComponent {
   // Track block widths in pixels for precise resizing
   blockWidthsPx = signal<Map<string, number>>(new Map());
 
+  readonly visiblePlatforms = this.feedData.platformsWithVisibleChannels;
+
+  private readonly platformViewModels = computed(() => {
+    this.feedData.channelsByPlatform();
+    this.dashboardPreferencesService.preferences();
+    const activeChannelIds = this.splitUi.activeChannelIdByPlatform();
+    const viewModels: Partial<Record<PlatformType, SplitPlatformViewModel>> = {};
+
+    for (const platform of this.visiblePlatforms()) {
+      const orderedChannels = this.feedData.orderedChannelsForPlatform(platform);
+      const draggableOrderedChannels = orderedChannels.filter((channel) => {
+        const id = channel.channelId;
+        return typeof id === "string" && id.trim().length > 0;
+      });
+      const activeChannelId = activeChannelIds[platform];
+      const activeChannel =
+        orderedChannels.find((channel) => channel.channelId === activeChannelId) ?? orderedChannels[0];
+
+      viewModels[platform] = {
+        orderedChannels,
+        draggableOrderedChannels,
+        orderedChannelIds: draggableOrderedChannels.map((channel) => channel.channelId),
+        activeChannel,
+        activeChannelId: activeChannel?.channelId,
+      };
+    }
+
+    return viewModels;
+  });
+
   constructor() {
     // Keep persisted block widths consistent with the currently visible platform subset.
     // Otherwise, if (for example) `kick` disappears, the stored widths for the remaining blocks
     // may sum to < 100%, leaving blank space.
     effect(() => {
-      const platforms = this.feedData.platformsWithVisibleChannels();
+      const platforms = this.visiblePlatforms();
       this.normalizeBlockWidths(platforms);
     });
 
     effect(() => {
-      for (const platform of this.feedData.platformsWithVisibleChannels()) {
-        const channels = this.feedData.orderedChannelsForPlatform(platform);
+      for (const platform of this.visiblePlatforms()) {
+        const channels = this.platformState(platform).orderedChannels;
         this.splitUi.ensureActiveChannel(platform, channels);
-        // Connect and load messages for the active channel
-        const activeChannel = this.activeChannel(platform);
+        const activeChannel = this.platformState(platform).activeChannel;
         if (activeChannel) {
-          // Connect the channel to the provider
-          this.chatProviderCoordinator.connectChannel(
-            activeChannel.channelId,
-            activeChannel.platform
-          );
-          // Mark channel as loaded for message display
           this.feedData.loadChannelMessages(platform, activeChannel.channelId);
         }
       }
@@ -124,7 +155,7 @@ export class DashboardSplitFeedComponent {
         return;
       }
       const p = el.dataset["unichatComposer"] as PlatformType | undefined;
-      if (!p || !this.feedData.platformsWithVisibleChannels().includes(p)) {
+      if (!p || !this.visiblePlatforms().includes(p)) {
         return;
       }
       this.sendSplitComposer(p, el);
@@ -188,7 +219,7 @@ export class DashboardSplitFeedComponent {
    * Get the index of a platform in the visible platforms list
    */
   private getPlatformIndex(platform: PlatformType): number {
-    return this.feedData.platformsWithVisibleChannels().indexOf(platform);
+    return this.visiblePlatforms().indexOf(platform);
   }
 
   onResizeStart(platform: PlatformType, event: MouseEvent): void {
@@ -305,29 +336,23 @@ export class DashboardSplitFeedComponent {
   }
 
   orderedChannels(platform: PlatformType): ChatChannel[] {
-    return this.feedData.orderedChannelsForPlatform(platform);
+    return this.platformState(platform).orderedChannels;
   }
 
   draggableOrderedChannels(platform: PlatformType): ChatChannel[] {
-    // CDK drag-drop announcements/accessibility assume data values are strings.
-    return this.orderedChannels(platform).filter((ch) => {
-      const id = ch.channelId;
-      return typeof id === "string" && id.trim().length > 0;
-    });
+    return this.platformState(platform).draggableOrderedChannels;
   }
 
   orderedChannelIds(platform: PlatformType): string[] {
-    return this.draggableOrderedChannels(platform).map((ch) => ch.channelId);
+    return this.platformState(platform).orderedChannelIds;
   }
 
   activeChannel(platform: PlatformType): ChatChannel | undefined {
-    const id = this.splitUi.activeChannelId(platform);
-    const list = this.orderedChannels(platform);
-    return list.find((c) => c.channelId === id) ?? list[0];
+    return this.platformState(platform).activeChannel;
   }
 
   activeChannelId(platform: PlatformType): string | undefined {
-    return this.activeChannel(platform)?.channelId;
+    return this.platformState(platform).activeChannelId;
   }
 
   selectChannel(platform: PlatformType, channel: ChatChannel): void {
@@ -395,7 +420,7 @@ export class DashboardSplitFeedComponent {
   }
 
   onPlatformDrop(event: CdkDragDrop<PlatformType[]>): void {
-    const visibleCopy = [...this.feedData.platformsWithVisibleChannels()];
+    const visibleCopy = [...this.visiblePlatforms()];
     moveItemInArray(visibleCopy, event.previousIndex, event.currentIndex);
     this.dashboardPreferencesService.setSplitOrderedPlatforms(visibleCopy);
   }
@@ -464,7 +489,7 @@ export class DashboardSplitFeedComponent {
   }): Promise<void> {
     // For split feed, load history for the specific channel if provided,
     // otherwise load for the active channel of each platform
-    const platforms = this.feedData.platformsWithVisibleChannels();
+    const platforms = this.visiblePlatforms();
 
     if (event.channelId && event.platform) {
       // Load history for specific channel (Twitch only)
@@ -510,5 +535,23 @@ export class DashboardSplitFeedComponent {
 
     // Notify the history header that loading is complete
     this.historyHeader()?.setLoadingComplete(true, true);
+  }
+
+  messagesForActiveChannel(platform: PlatformType): ChatMessage[] {
+    const channelId = this.activeChannelId(platform);
+    if (!channelId) {
+      return [];
+    }
+    return this.feedData.getMessagesForChannel(platform, channelId);
+  }
+
+  private platformState(platform: PlatformType): SplitPlatformViewModel {
+    return (
+      this.platformViewModels()[platform] ?? {
+        orderedChannels: [],
+        draggableOrderedChannels: [],
+        orderedChannelIds: [],
+      }
+    );
   }
 }

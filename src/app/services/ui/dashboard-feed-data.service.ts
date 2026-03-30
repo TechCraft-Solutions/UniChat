@@ -6,13 +6,11 @@ import { ChatChannel, ChatMessage, PlatformType } from "@models/chat.model";
 
 /* services */
 import { ChatListService } from "@services/data/chat-list.service";
-import { ChatStateService } from "@services/data/chat-state.service";
 import { ChatStorageService } from "@services/data/chat-storage.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
 
 /* helpers */
 import {
-  buildSplitFeed,
   groupChannelsByPlatform,
   sortMessagesChronological,
 } from "@helpers/chat.helper";
@@ -23,7 +21,6 @@ import { buildChannelRef } from "@utils/channel-ref.util";
 export class DashboardFeedDataService {
   private readonly chatListService = inject(ChatListService);
   private readonly dashboardPreferencesService = inject(DashboardPreferencesService);
-  private readonly chatStateService = inject(ChatStateService);
   private readonly chatStorageService = inject(ChatStorageService);
 
   readonly orderedPlatforms = computed(
@@ -32,7 +29,7 @@ export class DashboardFeedDataService {
 
   /**
    * All visible channels from settings (used for connection and split feed).
-   * Mixed feed filtering is done separately in getMixedFeedChronological().
+   * Mixed feed filtering is handled separately in `mixedFeedChronological`.
    */
   readonly allVisibleChannels = computed(() => {
     return this.chatListService.getVisibleChannels();
@@ -55,27 +52,6 @@ export class DashboardFeedDataService {
 
   readonly channelsByPlatform = computed(() => groupChannelsByPlatform(this.allVisibleChannels()));
 
-  readonly mixedFeedProviderChannelIdsByPlatform = computed(() => {
-    const byPlatform = this.channelsByPlatform();
-    const disabled = new Set(
-      this.dashboardPreferencesService.preferences().mixedDisabledChannelIds
-    );
-
-    // Filter out disabled channels per platform
-    const filterDisabled = (channels: ChatChannel[]) =>
-      new Set(
-        channels
-          .filter((c) => !disabled.has(buildChannelRef(c.platform, c.channelId)))
-          .map((c) => c.channelId)
-      );
-
-    return {
-      twitch: filterDisabled(byPlatform.twitch),
-      kick: filterDisabled(byPlatform.kick),
-      youtube: filterDisabled(byPlatform.youtube),
-    } as Record<PlatformType, Set<string>>;
-  });
-
   readonly visiblePlatformsInOrder = computed(() => {
     const ordered = this.orderedPlatforms();
     const byPlatform = this.channelsByPlatform();
@@ -94,9 +70,52 @@ export class DashboardFeedDataService {
     return ordered.filter((p) => (byPlatform[p]?.length ?? 0) > 0);
   });
 
-  readonly splitFeed = computed(() => {
-    const messages = this.chatStateService.messages();
-    return buildSplitFeed(messages);
+  readonly channelMessagesChronologicalByRef = computed(() => {
+    const messagesByChannel = this.chatStorageService.channelMessages();
+    const chronological: Record<string, ChatMessage[]> = {};
+
+    for (const [storageKey, messages] of Object.entries(messagesByChannel)) {
+      if (messages.length === 0) {
+        continue;
+      }
+
+      // Providers still write some buckets with legacy plain channel ids.
+      // Canonicalize everything to `platform:providerChannelId` so dashboard
+      // selectors can resolve the same channel regardless of storage key shape.
+      const firstMessage = messages[0];
+      const channelRef = buildChannelRef(firstMessage.platform, firstMessage.sourceChannelId);
+      const existing = chronological[channelRef] ?? [];
+      chronological[channelRef] = [...existing, ...messages];
+
+      // Keep an alias for already-canonical buckets so any future direct lookups
+      // remain consistent while the rest of storage migrates.
+      if (storageKey === channelRef) {
+        chronological[storageKey] = chronological[channelRef];
+      }
+    }
+
+    for (const [channelRef, messages] of Object.entries(chronological)) {
+      chronological[channelRef] = sortMessagesChronological(messages);
+    }
+
+    return chronological;
+  });
+
+  readonly mixedFeedChronological = computed(() => {
+    const chronologicalByRef = this.channelMessagesChronologicalByRef();
+    const refs = this.mixedFeedChannels().map((channel) =>
+      buildChannelRef(channel.platform, channel.channelId)
+    );
+    const messages: ChatMessage[] = [];
+
+    for (const ref of refs) {
+      const channelMessages = chronologicalByRef[ref];
+      if (channelMessages?.length) {
+        messages.push(...channelMessages);
+      }
+    }
+
+    return sortMessagesChronological(messages);
   });
 
   orderedChannelsForPlatform(platform: PlatformType): ChatChannel[] {
@@ -135,13 +154,11 @@ export class DashboardFeedDataService {
   getMessagesForChannel(platform: PlatformType, channelId: string): ChatMessage[] {
     // For split feed, show all channels (no mixed filter)
     // Only return messages if channel is loaded (lazy loading)
-    if (!this.chatStorageService.isChannelLoaded(buildChannelRef(platform, channelId))) {
+    const channelRef = buildChannelRef(platform, channelId);
+    if (!this.chatStorageService.isChannelLoaded(channelRef)) {
       return [];
     }
-    const list = this.splitFeed()[platform].filter(
-      (message) => message.sourceChannelId === channelId
-    );
-    return sortMessagesChronological(list);
+    return this.channelMessagesChronologicalByRef()[channelRef] ?? [];
   }
 
   loadChannelMessages(platform: PlatformType, channelId: string): void {
@@ -153,26 +170,13 @@ export class DashboardFeedDataService {
   }
 
   scrollTokenForChannel(platform: PlatformType, channelId: string): string {
-    const msgs = this.splitFeed()[platform].filter(
-      (message) => message.sourceChannelId === channelId
-    );
-    const newest = msgs.length > 0 ? msgs[0] : undefined;
-    return `${platform}:${channelId}:${msgs.length}:${newest?.id ?? ""}`;
-  }
-
-  private mixedMessagesRaw(): ChatMessage[] {
-    const messages = this.chatStateService.messages();
-    const idsByPlatform = this.mixedFeedProviderChannelIdsByPlatform();
-    return messages.filter((m) => idsByPlatform[m.platform].has(m.sourceChannelId));
-  }
-
-  getMixedFeedChronological(): ChatMessage[] {
-    return sortMessagesChronological(this.mixedMessagesRaw());
+    return `${platform}:${channelId}`;
   }
 
   mixedScrollToken(): string {
-    const raw = this.mixedMessagesRaw();
-    const newest = raw.length > 0 ? raw[0] : undefined;
-    return `mixed:${raw.length}:${newest?.id ?? ""}`;
+    const channels = this.mixedFeedChannels()
+      .map((channel) => buildChannelRef(channel.platform, channel.channelId))
+      .join("|");
+    return `mixed:${channels}`;
   }
 }

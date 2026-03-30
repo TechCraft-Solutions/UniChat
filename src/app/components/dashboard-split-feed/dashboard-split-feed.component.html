@@ -1,4 +1,4 @@
-@if (feedData.platformsWithVisibleChannels().length === 0) {
+@if (visiblePlatforms().length === 0) {
   <div
     class="flex h-full w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center dark:border-white/15 dark:bg-slate-900/40"
   >
@@ -14,7 +14,7 @@
     <div
       #gridContainer
       cdkDropList
-      [cdkDropListData]="feedData.platformsWithVisibleChannels()"
+      [cdkDropListData]="visiblePlatforms()"
       cdkDropListOrientation="horizontal"
       (cdkDropListDropped)="onPlatformDrop($event)"
       class="relative flex h-full w-full flex-row items-stretch gap-1 overflow-hidden p-1"
@@ -28,7 +28,7 @@
       }
 
       @for (
-        platform of feedData.platformsWithVisibleChannels();
+        platform of visiblePlatforms();
         track platform;
         let last = $last;
         let i = $index
@@ -156,7 +156,7 @@
                 <app-chat-history-header #historyHeader (loadHistory)="onLoadHistory($event)" />
               }
               @if (activeChannelId(platform); as cid) {
-                @let colMsgs = feedData.getMessagesForChannel(platform, cid);
+                @let colMsgs = messagesForActiveChannel(platform);
                 <app-chat-scroll-region
                   [scrollToken]="feedData.scrollTokenForChannel(platform, cid)"
                   [messages]="colMsgs"

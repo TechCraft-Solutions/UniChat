@@ -178,6 +178,32 @@ export class DashboardPreferencesService {
     });
   }
 
+  getMixedDisabledChannelIds(): string[] {
+    return [...this.preferencesSignal().mixedDisabledChannelIds];
+  }
+
+  addMixedDisabledChannelId(channelRef: string): void {
+    const preferences = this.preferencesSignal();
+    const current = preferences.mixedDisabledChannelIds;
+    if (!current.includes(channelRef)) {
+      this.updatePreferences({
+        ...preferences,
+        mixedDisabledChannelIds: [...current, channelRef],
+      });
+    }
+  }
+
+  removeMixedDisabledChannelId(channelRef: string): void {
+    const preferences = this.preferencesSignal();
+    const current = preferences.mixedDisabledChannelIds;
+    if (current.includes(channelRef)) {
+      this.updatePreferences({
+        ...preferences,
+        mixedDisabledChannelIds: current.filter((id) => id !== channelRef),
+      });
+    }
+  }
+
   private readPreferences(): DashboardPreferences {
     const storedValue = localStorage.getItem(storageKey);
 
