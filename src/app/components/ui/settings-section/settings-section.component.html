@@ -19,11 +19,10 @@
       [attr.aria-label]="'Toggle ' + title() + ' section'"
     >
       <mat-icon
-        class="!h-5 !w-5 transition-transform duration-200"
+        [fontIcon]="'expand_more'"
+        class="h-5! w-5! transition-transform duration-200"
         [class.rotate-180]="collapsed()"
-      >
-        expand_more
-      </mat-icon>
+      />
     </button>
   </div>
 

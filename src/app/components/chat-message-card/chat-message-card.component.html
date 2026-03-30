@@ -92,7 +92,7 @@
             matTooltipPosition="above"
           >
             @if (getMessageTypeConfig().badgeIcon; as badgeIcon) {
-              <mat-icon class="!h-3 !w-3 !text-xs">{{ badgeIcon }}</mat-icon>
+              <mat-icon [fontIcon]="badgeIcon" class="h-3! w-3! text-xs!" />
             }
             {{ badgeLabel }}
           </span>
@@ -116,9 +116,11 @@
             [aria-label]="isPinned ? 'Unpin message' : 'Pin message'"
             [aria-pressed]="isPinned"
           >
-            <mat-icon class="!h-5 !w-5 !text-xl leading-none" [class.opacity-70]="!isPinned">
-              push_pin
-            </mat-icon>
+            <mat-icon
+              [fontIcon]="'push_pin'"
+              class="h-5! w-5! text-xl! leading-none"
+              [class.opacity-70]="!isPinned"
+            />
           </button>
           @if (message().actions.reply.status === "available") {
             <button
@@ -128,7 +130,7 @@
               title="Reply"
               aria-label="Reply to message"
             >
-              <mat-icon class="!h-5 !w-5 !text-xl leading-none">reply</mat-icon>
+              <mat-icon [fontIcon]="'reply'" class="h-5! w-5! text-xl! leading-none" />
             </button>
           }
           @if (message().actions.delete.status === "available") {
@@ -139,7 +141,7 @@
               title="Delete message"
               aria-label="Delete message"
             >
-              <mat-icon class="!h-5 !w-5 !text-xl leading-none">delete</mat-icon>
+              <mat-icon [fontIcon]="'delete'" class="h-5! w-5! text-xl! leading-none" />
             </button>
           }
         </div>
@@ -160,9 +162,10 @@
       <div
         class="flex gap-2 rounded-lg border border-slate-200/90 bg-slate-50/90 px-2.5 py-2 text-xs dark:border-white/10 dark:bg-white/5"
       >
-        <mat-icon class="shrink-0 !text-base text-emerald-600 dark:text-emerald-400"
-          >reply</mat-icon
-        >
+        <mat-icon
+          [fontIcon]="'reply'"
+          class="shrink-0 text-base! text-emerald-600 dark:text-emerald-400"
+        />
         <p class="min-w-0 flex-1 leading-relaxed text-slate-600 dark:text-slate-400">
           <span class="font-semibold text-slate-700 dark:text-slate-300">Replying to</span>
           {{ snippet }}

@@ -24,9 +24,10 @@
             {{ pendingNewCount() > 99 ? "99+" : pendingNewCount() }}
           </span>
         }
-        <mat-icon class="!h-5 !w-5 !text-xl leading-none text-violet-600 dark:text-violet-300"
-          >expand_more</mat-icon
-        >
+        <mat-icon
+          [fontIcon]="'expand_more'"
+          class="h-5! w-5! text-xl! leading-none text-violet-600 dark:text-violet-300"
+        />
         @if (showUnreadCount()) {
           <span class="hidden sm:inline">
             {{ pendingNewCount() === 1 ? "new message" : "new messages" }}

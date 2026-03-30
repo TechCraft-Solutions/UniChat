@@ -7,7 +7,7 @@
         [matTooltip]="'Slow mode: ' + (state.slowModeWaitTime ?? 0) + 's between messages'"
         matTooltipShowDelay="150"
       >
-        <mat-icon class="!h-3 !w-3">schedule</mat-icon>
+        <mat-icon [fontIcon]="'schedule'" class="h-3! w-3!" />
         <span>{{ state.slowModeWaitTime }}s</span>
       </span>
     }
@@ -19,7 +19,7 @@
         [matTooltip]="'Followers-only: ' + (state.followersOnlyMinutes ?? 0) + ' min required'"
         matTooltipShowDelay="150"
       >
-        <mat-icon class="!h-3 !w-3">favorite</mat-icon>
+        <mat-icon [fontIcon]="'favorite'" class="h-3! w-3!" />
         <span>{{ state.followersOnlyMinutes }}m</span>
       </span>
     }
@@ -31,7 +31,7 @@
         matTooltip="Subscribers-only mode"
         matTooltipShowDelay="150"
       >
-        <mat-icon class="!h-3 !w-3">star</mat-icon>
+        <mat-icon [fontIcon]="'star'" class="h-3! w-3!" />
       </span>
     }
 
@@ -42,7 +42,7 @@
         matTooltip="Emotes-only mode"
         matTooltipShowDelay="150"
       >
-        <mat-icon class="!h-3 !w-3">sentiment_satisfied_alt</mat-icon>
+        <mat-icon [fontIcon]="'sentiment_satisfied_alt'" class="h-3! w-3!" />
       </span>
     }
 
@@ -53,7 +53,7 @@
         matTooltip="Unique messages only (R9K)"
         matTooltipShowDelay="150"
       >
-        <mat-icon class="!h-3 !w-3">fingerprint</mat-icon>
+        <mat-icon [fontIcon]="'fingerprint'" class="h-3! w-3!" />
       </span>
     }
   </div>

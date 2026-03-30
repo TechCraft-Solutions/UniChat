@@ -24,7 +24,7 @@
           (click)="close()"
           class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10"
         >
-          <mat-icon class="size-5">close</mat-icon>
+          <mat-icon [fontIcon]="'close'" class="size-5" />
         </button>
       </div>
 
@@ -150,7 +150,7 @@
                 title="Clear emote cache and force refresh (24h TTL)"
               >
                 <div class="flex items-center gap-2">
-                  <mat-icon class="h-4 w-4">refresh</mat-icon>
+                  <mat-icon [fontIcon]="'refresh'" class="h-4 w-4" />
                   <span>Refresh Emote Cache</span>
                 </div>
               </button>
@@ -253,7 +253,7 @@
                         class="rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-500/20 dark:text-emerald-400"
                         title="Save"
                       >
-                        <mat-icon class="!h-4 !w-4">check</mat-icon>
+                        <mat-icon [fontIcon]="'check'" class="h-4! w-4!" />
                       </button>
                       <button
                         type="button"
@@ -261,7 +261,7 @@
                         class="rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-300 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20"
                         title="Cancel"
                       >
-                        <mat-icon class="!h-4 !w-4">close</mat-icon>
+                        <mat-icon [fontIcon]="'close'" class="h-4! w-4!" />
                       </button>
                     </div>
                   } @else {
@@ -321,7 +321,7 @@
                           "
                           title="Edit channel name"
                         >
-                          <mat-icon class="!h-4 !w-4">edit</mat-icon>
+                          <mat-icon [fontIcon]="'edit'" class="h-4! w-4!" />
                         </button>
                       }
                       <button

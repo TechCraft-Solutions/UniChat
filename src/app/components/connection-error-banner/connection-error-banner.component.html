@@ -10,10 +10,9 @@
   >
     <mat-icon
       class="shrink-0"
+      [fontIcon]="error()?.isRecoverable ? 'warning' : 'error'"
       [fontSet]="error()?.isRecoverable ? 'material-icons-outlined' : 'material-icons'"
-    >
-      {{ error()?.isRecoverable ? "warning" : "error" }}
-    </mat-icon>
+    />
     <div class="flex-1 text-sm">
       <p class="font-medium">{{ error()?.code | titlecase }}</p>
       <p class="text-xs opacity-80">{{ error()?.message }}</p>
@@ -35,7 +34,7 @@
       (click)="dismissError.emit()"
       aria-label="Dismiss error"
     >
-      <mat-icon>close</mat-icon>
+      <mat-icon [fontIcon]="'close'" />
     </button>
   </div>
 }

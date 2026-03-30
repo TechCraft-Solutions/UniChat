@@ -6,7 +6,7 @@
     class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-slate-900/50"
   >
     <div class="flex items-center gap-2">
-      <mat-icon class="!h-5 !w-5 text-amber-600 dark:text-amber-400">push_pin</mat-icon>
+      <mat-icon [fontIcon]="'push_pin'" class="h-5! w-5! text-amber-600 dark:text-amber-400" />
       <h3 class="text-sm font-semibold">Pinned Messages</h3>
       <span
         class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
@@ -22,7 +22,7 @@
           class="rounded-lg p-1 text-slate-500 transition hover:bg-slate-200 dark:hover:bg-white/10"
           title="Export pinned messages"
         >
-          <mat-icon class="!h-4 !w-4">download</mat-icon>
+          <mat-icon [fontIcon]="'download'" class="h-4! w-4!" />
         </button>
         <button
           type="button"
@@ -30,7 +30,7 @@
           class="rounded-lg p-1 text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/20"
           title="Unpin all"
         >
-          <mat-icon class="!h-4 !w-4">clear_all</mat-icon>
+          <mat-icon [fontIcon]="'clear_all'" class="h-4! w-4!" />
         </button>
       }
       <button
@@ -39,7 +39,7 @@
         class="rounded-lg p-1 text-slate-500 transition hover:bg-slate-200 dark:hover:bg-white/10"
         aria-label="Close"
       >
-        <mat-icon class="!h-4 !w-4">close</mat-icon>
+        <mat-icon [fontIcon]="'close'" class="h-4! w-4!" />
       </button>
     </div>
   </div>
@@ -76,7 +76,10 @@
     @if (!hasPinnedMessages()) {
       <div class="flex flex-1 items-center justify-center p-8">
         <div class="text-center">
-          <mat-icon class="!h-12 !w-12 text-slate-300 dark:text-slate-600">push_pin</mat-icon>
+          <mat-icon
+            [fontIcon]="'push_pin'"
+            class="h-12! w-12! text-slate-300 dark:text-slate-600"
+          />
           <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">No pinned messages yet</p>
           <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">
             Click the pin icon on any message to save it here
@@ -168,7 +171,7 @@
                   class="rounded-lg p-1 text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                   title="Unpin"
                 >
-                  <mat-icon class="!h-4 !w-4">push_pin</mat-icon>
+                  <mat-icon [fontIcon]="'push_pin'" class="h-4! w-4!" />
                 </button>
               </div>
             </div>

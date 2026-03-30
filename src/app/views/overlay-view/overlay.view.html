@@ -12,7 +12,7 @@
     @if (orderedMessages().length === 0) {
       <div class="flex h-64 items-center justify-center">
         <div class="text-center">
-          <mat-icon class="mx-auto h-16 w-16 text-slate-600">chat_bubble_outline</mat-icon>
+          <mat-icon [fontIcon]="'chat_bubble_outline'" class="mx-auto h-16 w-16 text-slate-600" />
           <p class="mt-4 text-sm uppercase tracking-[0.2em] text-slate-400">Waiting for messages</p>
         </div>
       </div>
@@ -77,9 +77,7 @@
                   @if (segment.type === "text") {
                     <span>{{ segment.value }}</span>
                   } @else if (
-                    segment.emote &&
-                    segment.emote.url &&
-                    !isEmoteUrlBroken(segment.emote.url)
+                    segment.emote && segment.emote.url && !isEmoteUrlBroken(segment.emote.url)
                   ) {
                     <img
                       [src]="segment.emote.url"

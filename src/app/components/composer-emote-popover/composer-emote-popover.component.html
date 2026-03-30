@@ -5,7 +5,7 @@
     (click)="toggle()"
     class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300 dark:hover:bg-white/10"
   >
-    <mat-icon class="!h-[18px] !w-[18px]">emoji_emotions</mat-icon>
+    <mat-icon [fontIcon]="'emoji_emotions'" class="h-[18px]! w-[18px]!" />
   </button>
 
   @if (isOpen()) {
@@ -23,7 +23,7 @@
           class="rounded p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
           aria-label="Close"
         >
-          <mat-icon class="!h-4 !w-4">close</mat-icon>
+          <mat-icon [fontIcon]="'close'" class="h-4! w-4!" />
         </button>
       </div>
 

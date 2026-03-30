@@ -19,7 +19,7 @@
         <div class="flex items-center gap-2">
           <!-- Drag indicator icon -->
           <div class="flex items-center justify-center text-slate-400 dark:text-slate-500">
-            <mat-icon class="!h-4 !w-4 !text-sm">drag_indicator</mat-icon>
+            <mat-icon [fontIcon]="'drag_indicator'" class="h-4! w-4! text-sm!" />
           </div>
           <div class="min-w-0 flex-1">
             @if (twitchUserInfo()) {
@@ -128,7 +128,7 @@
             (click)="popover.close()"
             title="Close"
           >
-            <mat-icon class="!text-xl">close</mat-icon>
+            <mat-icon [fontIcon]="'close'" class="text-xl!" />
           </button>
         </div>
       </div>

@@ -27,12 +27,7 @@
         ></div>
       }
 
-      @for (
-        platform of visiblePlatforms();
-        track platform;
-        let last = $last;
-        let i = $index
-      ) {
+      @for (platform of visiblePlatforms(); track platform; let last = $last; let i = $index) {
         <!-- Block -->
         <div
           cdkDrag
@@ -202,7 +197,7 @@
                       class="shrink-0 rounded-lg p-1 text-slate-500 transition hover:bg-emerald-100 dark:hover:bg-white/10"
                       title="Cancel reply"
                     >
-                      <mat-icon class="!text-lg">close</mat-icon>
+                      <mat-icon [fontIcon]="'close'" class="text-lg!" />
                     </button>
                   </div>
                 }

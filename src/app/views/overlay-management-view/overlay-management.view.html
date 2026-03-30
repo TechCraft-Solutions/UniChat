@@ -16,7 +16,7 @@
             (click)="openPreviewPopup()"
             class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
           >
-            <mat-icon class="text-base">visibility</mat-icon>
+            <mat-icon [fontIcon]="'visibility'" class="text-base" />
             Preview
           </button>
         </div>
@@ -259,7 +259,7 @@ h3 { font-size: 18px; } */"
             <div class="flex items-center justify-end gap-3">
               @if (saveSuccess()) {
                 <span class="text-sm text-emerald-600 dark:text-emerald-400">
-                  <mat-icon class="text-base align-middle">check_circle</mat-icon>
+                  <mat-icon [fontIcon]="'check_circle'" class="text-base align-middle" />
                   Saved successfully!
                 </span>
               }
@@ -268,7 +268,7 @@ h3 { font-size: 18px; } */"
                 (click)="saveConfig()"
                 class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-500"
               >
-                <mat-icon class="text-base">save</mat-icon>
+                <mat-icon [fontIcon]="'save'" class="text-base" />
                 Save Configuration
               </button>
             </div>

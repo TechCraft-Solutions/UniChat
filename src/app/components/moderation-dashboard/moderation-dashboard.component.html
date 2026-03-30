@@ -5,7 +5,7 @@
     <!-- Header -->
     <div class="mb-4 flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <mat-icon class="text-slate-500 dark:text-slate-400">gavel</mat-icon>
+        <mat-icon [fontIcon]="'gavel'" class="text-slate-500 dark:text-slate-400" />
         <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Moderation Tools</h3>
       </div>
       @if (!canModerate()) {
@@ -55,7 +55,7 @@
               matTooltipShowDelay="150"
               matTooltipPosition="above"
             >
-              <mat-icon class="!h-4 !w-4 !text-sm">{{ getMacroIcon(macro.action) }}</mat-icon>
+              <mat-icon [fontIcon]="getMacroIcon(macro.action)" class="h-4! w-4! text-sm!" />
               <span>{{ macro.name }}</span>
               @if (macro.duration) {
                 <span class="text-xs opacity-75">
@@ -89,21 +89,21 @@
               type="button"
               class="flex-1 rounded-lg bg-amber-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700"
             >
-              <mat-icon class="!h-4 !w-4 !text-sm align-middle">timer</mat-icon>
+              <mat-icon [fontIcon]="'timer'" class="h-4! w-4! text-sm! align-middle" />
               Timeout
             </button>
             <button
               type="button"
               class="flex-1 rounded-lg bg-red-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700"
             >
-              <mat-icon class="!h-4 !w-4 !text-sm align-middle">block</mat-icon>
+              <mat-icon [fontIcon]="'block'" class="h-4! w-4! text-sm! align-middle" />
               Ban
             </button>
             <button
               type="button"
               class="flex-1 rounded-lg bg-slate-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-700"
             >
-              <mat-icon class="!h-4 !w-4 !text-sm align-middle">delete</mat-icon>
+              <mat-icon [fontIcon]="'delete'" class="h-4! w-4! text-sm! align-middle" />
               Delete
             </button>
           </div>
@@ -114,7 +114,7 @@
       <div
         class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center dark:border-white/10 dark:bg-white/5"
       >
-        <mat-icon class="mb-2 h-8 w-8 text-slate-400 dark:text-slate-500">lock</mat-icon>
+        <mat-icon [fontIcon]="'lock'" class="mb-2 h-8! w-8! text-slate-400 dark:text-slate-500" />
         <p class="text-sm text-slate-600 dark:text-slate-400">
           You need moderator permissions to use moderation tools in this channel.
         </p>
