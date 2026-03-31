@@ -2,9 +2,20 @@
   class="flex h-screen min-h-0 w-screen flex-col overflow-hidden"
   [ngStyle]="{ 'background-color': backgroundColor() }"
   [style.background]="transparentBg() ? 'transparent !important' : ''"
+  [style.background-color]="'transparent'"
 >
   <style [textContent]="customCssText()"></style>
   <style [textContent]="animationCssText()"></style>
+  <style>
+    /* Force transparent background for overlay - required for OBS browser source */
+    html,
+    body {
+      background: transparent !important;
+    }
+    :root {
+      background: transparent !important;
+    }
+  </style>
 
   <!-- Messages Container -->
   @if (orderedMessages().length === 0) {

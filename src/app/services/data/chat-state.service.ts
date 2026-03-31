@@ -79,61 +79,14 @@ export class ChatStateService {
       return;
     }
 
-    if (message.actions.reply.status !== "available") {
-      this.updateMessageAction(messageId, "reply", {
-        status: "failed",
-        reason: message.actions.reply.reason ?? "Reply is unavailable.",
-      });
+    // Reply is currently disabled for all platforms (tmi.js limitation for Twitch)
+    // This method is kept for future implementation
+    console.warn("Reply functionality is currently unavailable for this platform.");
 
-      return;
-    }
-
-    const sent = await this.providerCoordinator.sendReply(
-      message.sourceChannelId,
-      message.platform,
-      message.sourceMessageId,
-      text.trim()
-    );
-    if (!sent) {
-      this.updateMessageAction(messageId, "reply", {
-        status: "failed",
-        reason: "Provider reply failed for this channel.",
-      });
-      return;
-    }
-
-    const replyMessage: ChatMessage = {
-      ...message,
-      id: `reply-${message.id}-${Date.now()}`,
-      sourceMessageId: `reply-${message.sourceMessageId}`,
-      author: "You",
-      text: text.trim(),
-      timestamp: new Date().toISOString(),
-      badges: ["operator"],
-      isSupporter: false,
-      isOutgoing: true,
-      isDeleted: false,
-      replyToMessageId: message.id,
-      actions: {
-        reply: createMessageActionState("reply", "disabled", "Outgoing reply"),
-        delete: createMessageActionState(
-          "delete",
-          message.actions.delete.status,
-          message.actions.delete.reason
-        ),
-      },
-      rawPayload: {
-        ...message.rawPayload,
-        providerEvent: "outgoing_reply",
-        preview: text.trim(),
-      },
-    };
-
-    this.chatStorageService.addMessage(
-      buildChannelRef(message.platform, message.sourceChannelId),
-      replyMessage
-    );
-    this.refreshMessageCapabilities();
+    this.updateMessageAction(messageId, "reply", {
+      status: "disabled",
+      reason: "Reply functionality is currently unavailable.",
+    });
   }
 
   async sendOutgoingChatMessage(

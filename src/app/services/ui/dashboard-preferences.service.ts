@@ -8,7 +8,7 @@ const storageKey = "unichat-dashboard-preferences";
 const defaultPreferences: DashboardPreferences = {
   feedMode: "mixed",
   densityMode: "comfortable",
-  mixedDisabledChannelIds: [],
+  mixedEnabledChannelIds: [],
   splitLayout: {
     orderedPlatforms: ["twitch", "kick", "youtube"],
     hiddenPlatforms: [],
@@ -170,36 +170,36 @@ export class DashboardPreferencesService {
     });
   }
 
-  setMixedDisabledChannelIds(channelIds: string[]): void {
+  setMixedEnabledChannelIds(channelIds: string[]): void {
     const preferences = this.preferencesSignal();
     this.updatePreferences({
       ...preferences,
-      mixedDisabledChannelIds: [...channelIds],
+      mixedEnabledChannelIds: [...channelIds],
     });
   }
 
-  getMixedDisabledChannelIds(): string[] {
-    return [...this.preferencesSignal().mixedDisabledChannelIds];
+  getMixedEnabledChannelIds(): string[] {
+    return [...this.preferencesSignal().mixedEnabledChannelIds];
   }
 
-  addMixedDisabledChannelId(channelRef: string): void {
+  addMixedEnabledChannelId(channelRef: string): void {
     const preferences = this.preferencesSignal();
-    const current = preferences.mixedDisabledChannelIds;
+    const current = preferences.mixedEnabledChannelIds;
     if (!current.includes(channelRef)) {
       this.updatePreferences({
         ...preferences,
-        mixedDisabledChannelIds: [...current, channelRef],
+        mixedEnabledChannelIds: [...current, channelRef],
       });
     }
   }
 
-  removeMixedDisabledChannelId(channelRef: string): void {
+  removeMixedEnabledChannelId(channelRef: string): void {
     const preferences = this.preferencesSignal();
-    const current = preferences.mixedDisabledChannelIds;
+    const current = preferences.mixedEnabledChannelIds;
     if (current.includes(channelRef)) {
       this.updatePreferences({
         ...preferences,
-        mixedDisabledChannelIds: current.filter((id) => id !== channelRef),
+        mixedEnabledChannelIds: current.filter((id) => id !== channelRef),
       });
     }
   }
@@ -221,17 +221,55 @@ export class DashboardPreferencesService {
         Array.isArray(parsed.splitLayout?.hiddenPlatforms) &&
         typeof parsed.splitLayout?.columnWidths === "object"
       ) {
-        const mixedDisabled =
-          Array.isArray(parsed.mixedDisabledChannelIds) &&
-          parsed.mixedDisabledChannelIds.every((id) => typeof id === "string")
-            ? [...parsed.mixedDisabledChannelIds]
+        const mixedEnabled =
+          Array.isArray(parsed.mixedEnabledChannelIds) &&
+          parsed.mixedEnabledChannelIds.every((id) => typeof id === "string")
+            ? [...parsed.mixedEnabledChannelIds]
             : [];
+
+        // Ensure hiddenPlatforms only contains valid platform types
+        const validPlatforms = new Set<PlatformType>(["twitch", "kick", "youtube"]);
+        let hiddenPlatforms = (parsed.splitLayout.hiddenPlatforms ?? []).filter((p: PlatformType) =>
+          validPlatforms.has(p)
+        );
+
+        // Migration: If kick or youtube are hidden but user has channels for them, unhide them
+        // This fixes the bug where split mode was hiding platforms without checking if channels exist
+        try {
+          const channelsRaw = localStorage.getItem("unichat-chat-channels");
+          if (channelsRaw) {
+            const channels = JSON.parse(channelsRaw) as Array<{
+              platform: PlatformType;
+              isVisible: boolean;
+            }>;
+            const hasVisibleKick = channels.some((ch) => ch.platform === "kick" && ch.isVisible);
+            const hasVisibleYoutube = channels.some(
+              (ch) => ch.platform === "youtube" && ch.isVisible
+            );
+
+            if (hasVisibleKick && hiddenPlatforms.includes("kick")) {
+              hiddenPlatforms = hiddenPlatforms.filter((p) => p !== "kick");
+              console.log(
+                "[DashboardPreferences] Migration: Unhid Kick platform (user has visible Kick channels)"
+              );
+            }
+            if (hasVisibleYoutube && hiddenPlatforms.includes("youtube")) {
+              hiddenPlatforms = hiddenPlatforms.filter((p) => p !== "youtube");
+              console.log(
+                "[DashboardPreferences] Migration: Unhid YouTube platform (user has visible YouTube channels)"
+              );
+            }
+          }
+        } catch {
+          // Ignore errors reading channels - continue with original hiddenPlatforms
+        }
 
         return {
           ...parsed,
-          mixedDisabledChannelIds: mixedDisabled,
+          mixedEnabledChannelIds: mixedEnabled,
           splitLayout: {
             ...parsed.splitLayout,
+            hiddenPlatforms,
             columnWidths: {
               twitch: parsed.splitLayout.columnWidths?.twitch ?? 320,
               kick: parsed.splitLayout.columnWidths?.kick ?? 320,

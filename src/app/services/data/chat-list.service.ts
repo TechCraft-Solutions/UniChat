@@ -97,11 +97,11 @@ export class ChatListService {
       return next;
     });
 
-    // Clean up: remove from mixedDisabledChannelIds and overlay configs
+    // Clean up: remove from enabled lists and overlay configs
     if (channel) {
       const channelRef = buildChannelRef(channel.platform, channel.channelId);
-      this.removeFromMixedDisabled(channelRef);
-      this.removeChannelFromAllOverlays(channelRef);
+      this.removeEnabledFromDashboard(channelRef);
+      this.removeEnabledFromAllOverlays(channelRef);
     }
   }
 
@@ -118,34 +118,24 @@ export class ChatListService {
     });
 
     if (willBeHidden && channel) {
-      // When hiding a channel: add to mixedDisabledChannelIds and remove from overlay configs
-      // Channel remains visible in UI but is disabled
+      // When hiding a channel: remove from all enabled lists (dashboard + overlay)
+      // Channel will be completely hidden from dashboard and overlay management
       const channelRef = buildChannelRef(channel.platform, channel.channelId);
-      this.addToMixedDisabledAndRemoveFromOverlays(channelRef);
-    } else if (channel) {
-      // When showing a channel: remove from mixedDisabledChannelIds
-      // Channel becomes enabled in dashboard and overlay
-      const channelRef = buildChannelRef(channel.platform, channel.channelId);
-      this.removeFromMixedDisabled(channelRef);
+      this.removeEnabledFromDashboard(channelRef);
+      this.removeEnabledFromAllOverlays(channelRef);
     }
+    // When showing a channel: no side effects
+    // Channel appears in settings/dashboard/overlay selector but user controls activation separately
   }
 
-  private addToMixedDisabledAndRemoveFromOverlays(channelRef: string): void {
-    // Add to mixedDisabledChannelIds (disables in dashboard)
-    this.dashboardPreferencesService.addMixedDisabledChannelId(channelRef);
-
-    // Remove from all overlay configurations (disables in overlay management)
-    this.removeChannelFromAllOverlays(channelRef);
+  private removeEnabledFromDashboard(channelRef: string): void {
+    // Remove from mixedEnabledChannelIds (disables in dashboard)
+    const mixedEnabled = this.dashboardPreferencesService.getMixedEnabledChannelIds();
+    const filtered = mixedEnabled.filter((id: string) => id !== channelRef);
+    this.dashboardPreferencesService.setMixedEnabledChannelIds(filtered);
   }
 
-  private removeFromMixedDisabled(channelRef: string): void {
-    // Remove from mixedDisabledChannelIds (enables in dashboard)
-    const mixedDisabled = this.dashboardPreferencesService.getMixedDisabledChannelIds();
-    const filtered = mixedDisabled.filter((id: string) => id !== channelRef);
-    this.dashboardPreferencesService.setMixedDisabledChannelIds(filtered);
-  }
-
-  private removeChannelFromAllOverlays(channelRef: string): void {
+  private removeEnabledFromAllOverlays(channelRef: string): void {
     // Iterate through all localStorage keys to find overlay channel configurations
     // Pattern: unichat-overlay-channel-ids:{widgetId}
     const overlayChannelIdsPattern = /^unichat-overlay-channel-ids:/;

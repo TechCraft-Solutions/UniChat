@@ -219,6 +219,26 @@ export class SettingsPageView {
     this.chatListService.toggleChannelVisibility(channelId);
   }
 
+  enableAllChannelsInSettings(): void {
+    // Enable all channels in settings (make them visible)
+    const channels = this.chatListService.channels();
+    for (const channel of channels) {
+      if (!channel.isVisible) {
+        this.chatListService.toggleChannelVisibility(channel.id);
+      }
+    }
+  }
+
+  disableAllChannelsInSettings(): void {
+    // Disable all channels in settings (hide them everywhere)
+    const channels = this.chatListService.channels();
+    for (const channel of channels) {
+      if (channel.isVisible) {
+        this.chatListService.toggleChannelVisibility(channel.id);
+      }
+    }
+  }
+
   updateChannelAccount(channelId: string, accountId: string): void {
     this.chatListService.updateChannelAccount(
       channelId,

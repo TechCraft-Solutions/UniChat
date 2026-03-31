@@ -195,7 +195,8 @@ export class OverlayView implements OnDestroy {
     const animationType = readOverlayAnimationType(widget.id) ?? "fade";
     const animationDirection = readOverlayAnimationDirection(widget.id) ?? "top";
     const maxMessages = readOverlayMaxMessages(widget.id) ?? 6;
-    const transparentBg = readOverlayTransparentBg(widget.id) ?? false;
+    // Default to transparent background for OBS compatibility
+    const transparentBg = readOverlayTransparentBg(widget.id) ?? true;
 
     this.customCssText.set(customCss);
     this.textSize.set(textSize);
@@ -211,7 +212,25 @@ export class OverlayView implements OnDestroy {
 
     try {
       // Try to fetch config from backend first (cross-window shared storage)
-      const config = await invoke<WidgetConfig>("getOverlayConfig", { widgetId: widget.id });
+      let config: WidgetConfig | null = null;
+
+      // Try Tauri invoke first (works in preview window)
+      try {
+        config = await invoke<WidgetConfig>("getOverlayConfig", { widgetId: widget.id });
+      } catch {
+        // Tauri invoke failed (e.g., in OBS browser source), try HTTP fallback
+        try {
+          const port = widget.port;
+          const response = await fetch(
+            `http://127.0.0.1:${port}/api/overlay/${encodeURIComponent(widget.id)}/config`
+          );
+          if (response.ok) {
+            config = await response.json();
+          }
+        } catch {
+          /* HTTP fallback unavailable */
+        }
+      }
 
       if (config) {
         // Use backend config if available
@@ -225,7 +244,8 @@ export class OverlayView implements OnDestroy {
         this.animationType.set((config.animationType as OverlayAnimationType) ?? "fade");
         this.animationDirection.set((config.animationDirection as OverlayDirection) ?? "top");
         this.maxMessages.set(config.maxMessages ?? 6);
-        this.transparentBg.set(config.transparentBg ?? false);
+        // Default to transparent background for OBS compatibility
+        this.transparentBg.set(config.transparentBg ?? true);
       } else {
         // Fallback to localStorage if no backend config
         this.loadAndApplyConfig();

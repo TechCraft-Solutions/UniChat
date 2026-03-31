@@ -25,7 +25,6 @@ import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { DashboardStateService } from "@services/features/dashboard-state.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
-import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
 import { findChannelByRef, migrateLegacyChannelRefs, toChannelRef } from "@utils/channel-ref.util";
 
 /* components */
@@ -75,7 +74,6 @@ export class OverlayManagementView {
   private readonly dashboardState = inject(DashboardStateService);
   private readonly chatList = inject(ChatListService);
   private readonly localStorageService = inject(LocalStorageService);
-  private readonly dashboardPreferences = inject(DashboardPreferencesService);
   readonly presentation = inject(ChatMessagePresentationService);
 
   readonly saveSuccess = signal<boolean>(false);
@@ -108,7 +106,9 @@ export class OverlayManagementView {
   readonly animationDirectionModel = signal<OverlayDirection>("top");
   readonly transparentBgModel = signal<boolean>(false);
 
-  readonly availableChannels = computed(() => this.chatList.channels());
+  readonly availableChannels = computed(() =>
+    this.chatList.channels().filter((ch) => ch.isVisible)
+  );
 
   constructor() {
     const w = this.widget;
@@ -128,18 +128,13 @@ export class OverlayManagementView {
     );
 
     // Convert undefined to explicit array of all visible channels
-    // This ensures we can properly filter by dashboard disabled and show correct count
+    // Overlay is independent - user manually selects which channels to show
     if (channelIdsToUse === undefined) {
-      channelIdsToUse = this.availableChannels().map((ch) => toChannelRef(ch));
+      channelIdsToUse = []; // Start with no channels selected - user must manually enable
     }
 
-    // Filter out channels that are disabled in dashboard mixed feed
-    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
-    if (channelIdsToUse.length > 0 && dashboardDisabled.length > 0) {
-      channelIdsToUse = channelIdsToUse.filter((id) => !dashboardDisabled.includes(id));
-    }
-
-    // If all channels were filtered out, keep empty array (means "no channels")
+    // Overlay only shows channels that are visible in settings (isVisible === true)
+    // No filtering by dashboard state - overlay is independent
     this.channelIdsModel.set(channelIdsToUse);
 
     // Load overlay appearance settings
@@ -323,9 +318,9 @@ export class OverlayManagementView {
 
   get selectedChannelIds(): string[] {
     const current = this.channelIdsModel() ?? [];
-    // Filter out dashboard-disabled channels for accurate count
-    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
-    return current.filter((id) => !dashboardDisabled.includes(id));
+    // Overlay is independent - return all selected channels
+    // Only channels visible in settings (isVisible === true) are available for selection
+    return current;
   }
 
   set selectedChannelIds(value: string[]) {
@@ -373,26 +368,25 @@ export class OverlayManagementView {
   }
 
   toggleChannel(channelId: string): void {
+    const channel = findChannelByRef(this.availableChannels(), channelId);
+
+    // If channel is hidden in settings, don't allow toggling
+    if (channel && !channel.isVisible) {
+      return;
+    }
+
     const current = this.channelIdsModel() ?? [];
-    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
     const index = current.indexOf(channelId);
 
     if (index === -1) {
-      // Enabling channel in overlay
-      if (dashboardDisabled.includes(channelId)) {
-        // Also enable in dashboard (remove from disabled list)
-        this.dashboardPreferences.removeMixedDisabledChannelId(channelId);
-      }
-      // Create new array to trigger signal update
+      // Enabling channel in overlay: add to overlay selection only
+      // Does NOT affect dashboard mixed disabled state
       if (!current.includes(channelId)) {
         this.channelIdsModel.set([...current, channelId]);
       }
     } else {
-      // Disabling channel in overlay
-      // Also disable in dashboard mixed feed
-      this.dashboardPreferences.addMixedDisabledChannelId(channelId);
-
-      // Create new array to trigger signal update
+      // Disabling channel in overlay: remove from overlay selection only
+      // Does NOT affect dashboard mixed disabled state
       this.channelIdsModel.set(current.filter((id) => id !== channelId));
     }
     // Auto-save removed - user must click Save button
@@ -402,11 +396,6 @@ export class OverlayManagementView {
     const current = this.channelIdsModel();
     // Always use arrays now - check if channel is in the list
     if (!current) {
-      return false;
-    }
-    // Also check if channel is disabled in dashboard
-    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
-    if (dashboardDisabled.includes(channelId)) {
       return false;
     }
     return current.includes(channelId);
@@ -419,23 +408,11 @@ export class OverlayManagementView {
   }
 
   selectAllChannels(): void {
-    // Select all channels that are not disabled in dashboard
-    const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
-    const enabledChannels = this.availableChannels()
-      .filter((ch) => !dashboardDisabled.includes(toChannelRef(ch)))
-      .map((ch) => toChannelRef(ch));
+    // Select all visible channels in overlay only
+    // Does NOT change dashboard mixed disabled state or settings visibility
+    const enabledChannels = this.availableChannels().map((ch) => toChannelRef(ch));
     this.channelIdsModel.set(enabledChannels);
-
-    // Also clear dashboard disabled list to enable all channels in dashboard
-    // And make all channels visible in settings
-    this.dashboardPreferences.setMixedDisabledChannelIds([]);
-
-    // Make all channels visible in settings
-    for (const channel of this.availableChannels()) {
-      if (!channel.isVisible) {
-        this.chatList.toggleChannelVisibility(channel.id);
-      }
-    }
+    // Auto-save removed - user must click Save button
   }
 
   clearChannelSelection(): void {

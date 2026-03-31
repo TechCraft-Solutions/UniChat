@@ -123,8 +123,8 @@ export interface DashboardPreferences {
   feedMode: FeedMode;
   densityMode: DensityMode;
   splitLayout: SplitLayout;
-  /** Canonical channel refs (`platform:providerChannelId`) hidden in mixed feed; others stay visible */
-  mixedDisabledChannelIds: string[];
+  /** Canonical channel refs (`platform:providerChannelId`) enabled in mixed feed; empty = none enabled */
+  mixedEnabledChannelIds: string[];
 }
 
 export interface WidgetConfig {

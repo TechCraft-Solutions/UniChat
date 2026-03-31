@@ -66,12 +66,17 @@ export class DashboardMixedFeedComponent {
     HTMLElement & { setLoadingComplete(success: boolean, hasMore: boolean): void }
   >("historyHeader");
 
-  readonly disabledChannels = computed(() => {
-    const saved = this.dashboardPreferences.preferences().mixedDisabledChannelIds;
-    // Use all channels (not just visible) to check if they're disabled in settings
-    const allChannels = new Set(this.chatListService.channels().map((c) => this.channelRefFor(c)));
-    // Only keep disabled IDs that still exist in channels
-    return new Set(saved.filter((id) => allChannels.has(id)));
+  readonly enabledChannels = computed(() => {
+    const saved = this.dashboardPreferences.preferences().mixedEnabledChannelIds;
+    // Only check against visible channels (channels enabled in settings)
+    const visible = new Set(
+      this.chatListService
+        .channels()
+        .filter((ch) => ch.isVisible)
+        .map((c) => this.channelRefFor(c))
+    );
+    // Only keep enabled IDs that still exist in visible channels
+    return new Set(saved.filter((id) => visible.has(id)));
   });
 
   private readonly mixedChannelOrderStorageKey = "unichat-mixed-channel-order";
@@ -86,22 +91,27 @@ export class DashboardMixedFeedComponent {
   private suppressNextClick = false;
 
   readonly enabledVisibleChannels = computed(() =>
-    this.orderedVisibleChannels().filter(
-      (ch) => ch.isVisible && !this.disabledChannels().has(this.channelRefFor(ch))
-    )
+    this.orderedVisibleChannels().filter((ch) => this.enabledChannels().has(this.channelRefFor(ch)))
   );
   readonly mixedMessages = this.feedData.mixedFeedChronological;
-  readonly visibleChannelCount = computed(() => this.chatListService.channels().length);
+  readonly visibleChannelCount = computed(
+    () => this.chatListService.channels().filter((ch) => ch.isVisible).length
+  );
 
-  private persistMixedDisabled(): void {
-    const all = new Set(this.chatListService.channels().map((c) => this.channelRefFor(c)));
-    const current = this.disabledChannels();
+  private persistMixedEnabled(): void {
+    const visible = new Set(
+      this.chatListService
+        .channels()
+        .filter((ch) => ch.isVisible)
+        .map((c) => this.channelRefFor(c))
+    );
+    const current = this.enabledChannels();
 
-    // Prune any disabled IDs that no longer exist in channels
-    const pruned = new Set([...current].filter((id) => all.has(id)));
+    // Prune any enabled IDs that no longer exist in visible channels
+    const pruned = new Set([...current].filter((id) => visible.has(id)));
 
     // Persist the pruned list to preferences
-    this.dashboardPreferences.setMixedDisabledChannelIds([...pruned]);
+    this.dashboardPreferences.setMixedEnabledChannelIds([...pruned]);
   }
 
   private hydrateMixedOrder(): string[] {
@@ -110,9 +120,14 @@ export class DashboardMixedFeedComponent {
       return [];
     }
 
-    // Use all channels (not just visible) for order persistence
-    const allChannelIds = new Set(this.chatListService.channels().map((c) => c.id));
-    return stored.filter((id) => allChannelIds.has(id));
+    // Only keep order for visible channels (channels enabled in settings)
+    const visibleIds = new Set(
+      this.chatListService
+        .channels()
+        .filter((ch) => ch.isVisible)
+        .map((c) => c.id)
+    );
+    return stored.filter((id) => visibleIds.has(id));
   }
 
   private persistMixedOrder(ids: string[]): void {
@@ -120,12 +135,12 @@ export class DashboardMixedFeedComponent {
   }
 
   private orderVisibleChannels(): ChatChannel[] {
-    // Use all channels (not just visible) so channels hidden in settings still appear
-    const all = this.chatListService.channels();
-    const byId = new Map(all.map((c) => [c.id, c]));
-    const allIdSet = new Set(all.map((c) => c.id));
+    // Only show channels that are visible in settings (isVisible === true)
+    const visible = this.chatListService.channels().filter((ch) => ch.isVisible);
+    const byId = new Map(visible.map((c) => [c.id, c]));
+    const visibleIdSet = new Set(visible.map((c) => c.id));
 
-    const orderedIds = this.channelOrder().filter((id) => allIdSet.has(id));
+    const orderedIds = this.channelOrder().filter((id) => visibleIdSet.has(id));
     const used = new Set<string>(orderedIds);
     const out: ChatChannel[] = [];
 
@@ -136,7 +151,7 @@ export class DashboardMixedFeedComponent {
       }
     }
 
-    for (const ch of all) {
+    for (const ch of visible) {
       if (!used.has(ch.id)) {
         out.push(ch);
       }
@@ -151,55 +166,16 @@ export class DashboardMixedFeedComponent {
       this.suppressNextClick = false;
       return;
     }
-    const current = this.disabledChannels();
-    const isDisabling = !current.has(channelRef);
+    const current = this.enabledChannels();
+    const isEnabled = current.has(channelRef);
 
-    if (isDisabling) {
-      // Disable channel: add to dashboard disabled and remove from overlays
-      this.dashboardPreferences.addMixedDisabledChannelId(channelRef);
-      this.removeChannelFromAllOverlays(channelRef);
+    if (isEnabled) {
+      // Disable channel: remove from dashboard enabled list only
+      // This only affects the mixed feed, not overlays or settings
+      this.dashboardPreferences.removeMixedEnabledChannelId(channelRef);
     } else {
-      // Enable channel: remove from dashboard disabled
-      this.dashboardPreferences.removeMixedDisabledChannelId(channelRef);
-    }
-  }
-
-  private removeChannelFromAllOverlays(channelRef: string): void {
-    // Get all widgets from dashboard state
-    const widgets = this.dashboardState.widgets();
-
-    for (const widget of widgets) {
-      const storageKey = `unichat-overlay-channel-ids:${widget.id}`;
-      const stored = this.localStorageService.get<string[] | null>(storageKey, null);
-
-      if (stored && Array.isArray(stored)) {
-        // Filter out the disabled channel
-        const filtered = stored.filter((id) => id !== channelRef);
-
-        if (filtered.length === 0) {
-          // If no channels left, remove the key (undefined = all channels)
-          this.localStorageService.remove(storageKey);
-        } else {
-          this.localStorageService.set(storageKey, filtered);
-        }
-      }
-    }
-
-    // Also update the featured widget if it exists
-    const featuredWidget = this.dashboardState.featuredWidget();
-    if (featuredWidget) {
-      const storageKey = `unichat-overlay-channel-ids:${featuredWidget.id}`;
-      const stored = this.localStorageService.get<string[] | null>(storageKey, null);
-
-      if (stored && Array.isArray(stored)) {
-        const filtered = stored.filter((id) => id !== channelRef);
-
-        if (filtered.length === 0) {
-          this.localStorageService.remove(storageKey);
-        } else {
-          this.localStorageService.set(storageKey, filtered);
-        }
-      }
+      // Enable channel: add to dashboard enabled list
+      this.dashboardPreferences.addMixedEnabledChannelId(channelRef);
     }
   }
 
@@ -223,65 +199,28 @@ export class DashboardMixedFeedComponent {
   }
 
   isChannelDisabled(channelRef: string): boolean {
-    return this.disabledChannels().has(channelRef);
+    // Channel is disabled if it's NOT in the enabled list
+    // (Channels hidden in settings don't appear in the filter at all)
+    return !this.enabledChannels().has(channelRef);
   }
 
   enableAllChannels(): void {
-    // Enable all channels: clear dashboard disabled list AND make all channels visible in settings
-    this.dashboardPreferences.setMixedDisabledChannelIds([]);
-
-    // Also make all channels visible in settings (toggle isVisible to true)
+    // Enable all visible channels in mixed feed only
+    // Add all visible channels to dashboard enabled list
+    // Does NOT change channel visibility in settings or overlay configurations
     const channels = this.chatListService.channels();
-    for (const channel of channels) {
-      if (!channel.isVisible) {
-        this.chatListService.toggleChannelVisibility(channel.id);
-      }
-    }
+    const allChannelRefs = channels
+      .filter((ch) => ch.isVisible)
+      .map((ch) => this.channelRefFor(ch));
 
-    // Also add all channels to all overlay configurations
-    const allChannelRefs = channels.map((ch) => this.channelRefFor(ch));
-
-    // Get all widgets from dashboard state
-    const widgets = this.dashboardState.widgets();
-
-    for (const widget of widgets) {
-      const storageKey = `unichat-overlay-channel-ids:${widget.id}`;
-      const stored = this.localStorageService.get<string[] | null>(storageKey, null);
-
-      // Set to all channels (or merge with existing if stored)
-      if (stored && Array.isArray(stored)) {
-        // Merge with existing, avoiding duplicates
-        const merged = [...new Set([...stored, ...allChannelRefs])];
-        this.localStorageService.set(storageKey, merged);
-      } else {
-        // No existing config, set to all channels
-        this.localStorageService.set(storageKey, allChannelRefs);
-      }
-    }
-
-    // Also update the featured widget if it exists
-    const featuredWidget = this.dashboardState.featuredWidget();
-    if (featuredWidget) {
-      const storageKey = `unichat-overlay-channel-ids:${featuredWidget.id}`;
-      const stored = this.localStorageService.get<string[] | null>(storageKey, null);
-
-      if (stored && Array.isArray(stored)) {
-        const merged = [...new Set([...stored, ...allChannelRefs])];
-        this.localStorageService.set(storageKey, merged);
-      } else {
-        this.localStorageService.set(storageKey, allChannelRefs);
-      }
-    }
+    this.dashboardPreferences.setMixedEnabledChannelIds(allChannelRefs);
   }
 
   disableAllChannels(): void {
-    const channels = this.chatListService.channels();
-    const allChannelRefs = channels.map((ch) => this.channelRefFor(ch));
-    // Disable all channels: add all to dashboard disabled and remove from overlays
-    this.dashboardPreferences.setMixedDisabledChannelIds(allChannelRefs);
-    for (const channelRef of allChannelRefs) {
-      this.removeChannelFromAllOverlays(channelRef);
-    }
+    // Disable all channels in mixed feed only
+    // Clear dashboard enabled list
+    // Does NOT change channel visibility in settings or overlay configurations
+    this.dashboardPreferences.setMixedEnabledChannelIds([]);
   }
 
   channelRefFor(channel: ChatChannel): string {

@@ -105,9 +105,10 @@ export class DashboardSplitFeedComponent {
     this.feedData.channelsByPlatform();
     this.dashboardPreferencesService.preferences();
     const activeChannelIds = this.splitUi.activeChannelIdByPlatform();
+    const visiblePlats = this.visiblePlatforms();
     const viewModels: Partial<Record<PlatformType, SplitPlatformViewModel>> = {};
 
-    for (const platform of this.visiblePlatforms()) {
+    for (const platform of visiblePlats) {
       const orderedChannels = this.feedData.orderedChannelsForPlatform(platform);
       const draggableOrderedChannels = orderedChannels.filter((channel) => {
         const id = channel.channelId;

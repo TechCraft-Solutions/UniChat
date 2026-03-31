@@ -1,5 +1,6 @@
 /* sys lib */
 import { Injectable, inject } from "@angular/core";
+import { invoke } from "@tauri-apps/api/core";
 import tmi from "tmi.js";
 
 /* models */
@@ -50,14 +51,23 @@ export class TwitchChatService extends BaseChatProviderService {
   private readonly viewerCard = inject(TwitchViewerCardService);
 
   override connect(channelId: string): void {
+    void this.connectAsync(channelId);
+  }
+
+  private async connectAsync(channelId: string): Promise<void> {
     void this.iconsCatalog.ensureGlobalLoaded();
     const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
     if (!normalizedChannel || this.clientsByChannel.has(normalizedChannel)) {
       return;
     }
+
+    // Wait for accounts to be loaded before connecting
+    await this.authorizationService.waitForAccounts(3000);
+
     this.emitStatus(normalizedChannel, "connecting");
 
     const account = this.resolveAccountForChannel(normalizedChannel);
+
     const client = new tmi.Client({
       options: {
         skipUpdatingEmotesets: true,
@@ -65,10 +75,10 @@ export class TwitchChatService extends BaseChatProviderService {
       channels: [normalizedChannel],
       connection: { reconnect: true, secure: true },
       identity:
-        account?.authStatus === "authorized"
+        account?.authStatus === "authorized" && account.accessToken
           ? {
               username: account.username.toLowerCase(),
-              password: account.accessToken ? `oauth:${account.accessToken}` : undefined,
+              password: `oauth:${account.accessToken}`,
             }
           : undefined,
     });
@@ -176,8 +186,17 @@ export class TwitchChatService extends BaseChatProviderService {
       !!account.username?.trim() &&
       !!account.accessToken?.trim();
     if (!hasAuthIdentity) {
-      this.errorService.reportAuthFailed(normalizedChannel);
-      return false;
+      // Try to refresh if account exists but token is expired
+      if (account && (account.authStatus === "tokenExpired" || account.authStatus === "revoked")) {
+        const refreshed = await this.ensureValidAccount(account.id);
+        if (!refreshed) {
+          this.errorService.reportAuthFailed(normalizedChannel);
+          return false;
+        }
+      } else {
+        this.errorService.reportAuthFailed(normalizedChannel);
+        return false;
+      }
     }
 
     if (!this.clientsByChannel.has(normalizedChannel)) {
@@ -226,48 +245,26 @@ export class TwitchChatService extends BaseChatProviderService {
     }
   }
 
-  async sendReplyAsync(channelId: string, sourceMessageId: string, text: string): Promise<boolean> {
+  /**
+   * Delete a message from chat (requires moderator/broadcaster permissions)
+   */
+  async deleteMessageAsync(channelId: string, messageId: string): Promise<boolean> {
     const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
-    const trimmed = text.trim();
-    if (!trimmed || !sourceMessageId) {
-      return false;
-    }
 
     const account = this.resolveAccountForChannel(normalizedChannel);
-    const hasAuthIdentity =
-      account?.authStatus === "authorized" &&
-      !!account.username?.trim() &&
-      !!account.accessToken?.trim();
-    if (!hasAuthIdentity) {
-      this.errorService.reportAuthFailed(normalizedChannel);
+    if (!account || account.authStatus !== "authorized" || !account.accessToken) {
       return false;
     }
 
-    if (!this.clientsByChannel.has(normalizedChannel)) {
-      this.connect(normalizedChannel);
-      await this.delay(700);
-    }
-
-    const client = this.clientsByChannel.get(normalizedChannel);
-    if (!client) {
-      return false;
-    }
-
+    // Delete via Twitch Helix API through Tauri backend
     try {
-      const replyCapable = client as tmi.Client & {
-        reply?: (channel: string, message: string, parentId: string) => Promise<unknown>;
-      };
-      if (typeof replyCapable.reply === "function") {
-        await replyCapable.reply(normalizedChannel, trimmed, sourceMessageId);
-      } else {
-        await client.say(normalizedChannel, trimmed);
-      }
-      return true;
+      return await invoke<boolean>("twitchDeleteMessage", {
+        channelId: normalizedChannel,
+        messageId,
+        accessToken: account.accessToken,
+      });
     } catch (error) {
-      this.errorService.reportNetworkError(
-        normalizedChannel,
-        `Reply failed: ${String(error ?? "unknown error")}`
-      );
+      console.error("Twitch delete message error:", error);
       return false;
     }
   }
@@ -358,8 +355,16 @@ export class TwitchChatService extends BaseChatProviderService {
 
   protected override getActionStates() {
     return {
-      reply: createMessageActionState("reply", "disabled"),
-      delete: createMessageActionState("delete", "disabled"),
+      reply: createMessageActionState(
+        "reply",
+        "disabled",
+        "Reply requires Twitch API integration (coming soon). tmi.js doesn't support replies."
+      ),
+      delete: createMessageActionState(
+        "delete",
+        "disabled",
+        "This channel cannot delete messages."
+      ),
     };
   }
 
@@ -426,10 +431,8 @@ export class TwitchChatService extends BaseChatProviderService {
       actions: {
         reply: createMessageActionState(
           "reply",
-          account?.authStatus === "authorized" ? "available" : "disabled",
-          account?.authStatus === "authorized"
-            ? undefined
-            : "Need linked Twitch account authorized to reply."
+          "disabled",
+          "Reply requires Twitch API integration (coming soon)."
         ),
         delete: createMessageActionState(
           "delete",
@@ -566,7 +569,70 @@ export class TwitchChatService extends BaseChatProviderService {
           entry.channelId.toLowerCase() === normalizedChannel ||
           entry.channelName.toLowerCase() === normalizedChannel
       );
-    return this.authorizationService.getAccountById(channel?.accountId);
+
+    console.log("[TwitchChat] Resolving account for channel:", channelName);
+    console.log(
+      "[TwitchChat] Channel entry:",
+      channel
+        ? {
+            id: channel.id,
+            channelId: channel.channelId,
+            channelName: channel.channelName,
+            accountId: channel.accountId,
+            isAuthorized: channel.isAuthorized,
+          }
+        : "Channel not found in list"
+    );
+
+    const account = this.authorizationService.getAccountById(channel?.accountId);
+    console.log(
+      "[TwitchChat] Account from ID:",
+      account
+        ? {
+            id: account.id,
+            username: account.username,
+            authStatus: account.authStatus,
+          }
+        : "No account found"
+    );
+
+    return account;
+  }
+
+  /**
+   * Check if account token is expired and try to refresh
+   */
+  private async ensureValidAccount(accountId: string | undefined): Promise<boolean> {
+    if (!accountId) {
+      return false;
+    }
+
+    const account = this.authorizationService.getAccountById(accountId);
+    if (!account) {
+      return false;
+    }
+
+    // Check if token is expired
+    if (account.authStatus === "tokenExpired" || account.authStatus === "revoked") {
+      // Try to refresh the token
+      const refreshed = await this.authorizationService.refreshAccountToken(account.id, "twitch");
+      return refreshed;
+    }
+
+    // Check if token is about to expire (within 5 minutes)
+    if (account.tokenExpiresAt) {
+      const expiresAt = new Date(account.tokenExpiresAt);
+      const now = new Date();
+      const fiveMinutes = 5 * 60 * 1000;
+      if (expiresAt.getTime() - now.getTime() < fiveMinutes) {
+        // Try to refresh proactively
+        await this.authorizationService.refreshAccountToken(account.id, "twitch").catch(() => {
+          // Ignore refresh errors, will fail gracefully
+        });
+      }
+    }
+
+    return account.authStatus === "authorized";
   }
 
   private emitStatus(channelId: string, status: TwitchConnectionStatus): void {

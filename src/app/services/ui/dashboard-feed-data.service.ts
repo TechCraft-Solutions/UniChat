@@ -33,18 +33,17 @@ export class DashboardFeedDataService {
   });
 
   /**
-   * Channels filtered for mixed feed (excludes disabled channels).
-   * mixedDisabledChannelIds stores which channels are toggled off in mixed feed.
+   * Channels filtered for mixed feed (only includes enabled channels).
+   * mixedEnabledChannelIds stores which channels are toggled on in mixed feed.
    */
   readonly mixedFeedChannels = computed(() => {
     const visible = this.chatListService.getVisibleChannels();
-    const disabled = new Set(
-      this.dashboardPreferencesService.preferences().mixedDisabledChannelIds
-    );
-    if (disabled.size === 0) {
-      return visible;
+    const enabled = new Set(this.dashboardPreferencesService.preferences().mixedEnabledChannelIds);
+    // If no enabled channels set, show none (user must manually enable)
+    if (enabled.size === 0) {
+      return [];
     }
-    return visible.filter((ch) => !disabled.has(buildChannelRef(ch.platform, ch.channelId)));
+    return visible.filter((ch) => enabled.has(buildChannelRef(ch.platform, ch.channelId)));
   });
 
   readonly channelsByPlatform = computed(() => groupChannelsByPlatform(this.allVisibleChannels()));
@@ -64,6 +63,7 @@ export class DashboardFeedDataService {
   readonly platformsWithVisibleChannels = computed(() => {
     const ordered = this.orderedPlatforms();
     const byPlatform = this.channelsByPlatform();
+    // Only include platforms that have visible channels
     return ordered.filter((p) => (byPlatform[p]?.length ?? 0) > 0);
   });
 

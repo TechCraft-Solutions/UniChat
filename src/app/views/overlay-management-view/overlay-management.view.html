@@ -199,11 +199,15 @@
               } @else {
                 <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   @for (channel of availableChannels(); track channel.id) {
+                    @let isHiddenInSettings = !channel.isVisible;
                     <label
                       class="group flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 transition hover:bg-slate-100 dark:border-white/10 dark:bg-black/20 dark:hover:bg-black/30"
+                      [class.opacity-50]="isHiddenInSettings"
+                      [class.cursor-not-allowed]="isHiddenInSettings"
                     >
                       <app-checkbox
                         [checked]="isChannelSelected(channelSelectionValue(channel))"
+                        [disabled]="isHiddenInSettings"
                         (checkedChange)="toggleChannel(channelSelectionValue(channel))"
                         inputClass="sr-only"
                       />

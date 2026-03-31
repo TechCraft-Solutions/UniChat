@@ -16,6 +16,7 @@ export const ConnectionErrorCode = {
   AUTH_TOKEN_INVALID: "auth_token_invalid",
   AUTH_SCOPE_MISSING: "auth_scope_missing",
   AUTH_FAILED: "auth_failed",
+  AUTH_CREDENTIALS_MISSING: "auth_credentials_missing",
 
   // Network errors
   NETWORK_OFFLINE: "network_offline",
@@ -57,18 +58,27 @@ const USER_FRIENDLY_MESSAGES: Record<
   },
   [ConnectionErrorCode.AUTH_TOKEN_INVALID]: {
     title: "Invalid Authentication",
-    message: "Your authentication token is no longer valid.",
+    message:
+      "Your authentication token is no longer valid. This may happen if you changed your password or revoked access.",
     action: "Reconnect in Settings",
   },
   [ConnectionErrorCode.AUTH_SCOPE_MISSING]: {
     title: "Missing Permissions",
-    message: "Required permissions are missing from your account.",
+    message:
+      "Required permissions are missing from your account. The OAuth token doesn't have all required scopes.",
     action: "Reconnect with Full Permissions",
   },
   [ConnectionErrorCode.AUTH_FAILED]: {
     title: "Authentication Failed",
-    message: "Unable to authenticate with the platform.",
+    message:
+      "Unable to authenticate with the platform. Check your credentials and ensure the OAuth app is properly configured.",
     action: "Check Credentials and Reconnect",
+  },
+  [ConnectionErrorCode.AUTH_CREDENTIALS_MISSING]: {
+    title: "OAuth Credentials Missing",
+    message:
+      "The application is missing OAuth credentials for this platform. Please configure the credentials in the .env file or environment variables.",
+    action: "Configure OAuth Credentials",
   },
 
   // Network errors
@@ -223,6 +233,17 @@ export class ConnectionErrorService {
     this.reportError(channelId, {
       code: ConnectionErrorCode.AUTH_FAILED,
       message: USER_FRIENDLY_MESSAGES[ConnectionErrorCode.AUTH_FAILED].message,
+      isRecoverable: false,
+    });
+  }
+
+  /**
+   * Report authentication credentials missing error
+   */
+  reportAuthCredentialsMissing(platform: PlatformType): void {
+    this.reportError(platform, {
+      code: ConnectionErrorCode.AUTH_CREDENTIALS_MISSING,
+      message: USER_FRIENDLY_MESSAGES[ConnectionErrorCode.AUTH_CREDENTIALS_MISSING].message,
       isRecoverable: false,
     });
   }

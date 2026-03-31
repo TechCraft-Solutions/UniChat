@@ -150,44 +150,16 @@ export class ChatProviderCoordinatorService {
     }
   }
 
-  async sendReply(
-    channelId: string,
-    platform: PlatformType,
-    sourceMessageId: string,
-    text: string
-  ): Promise<boolean> {
-    const channel = this.resolveChannel(channelId, platform);
-
-    switch (platform) {
-      case "twitch":
-        return this.twitchService.sendReplyAsync(
-          channel?.channelName ?? channelId,
-          sourceMessageId,
-          text
-        );
-      case "kick":
-        return this.kickService.sendMessage(
-          channel?.channelId ?? channelId,
-          text,
-          channel?.accountId
-        );
-      case "youtube":
-        return this.youtubeService.sendMessage(
-          channel?.channelId ?? channelId,
-          text,
-          channel?.accountId
-        );
-      default:
-        return false;
-    }
-  }
-
   async deleteMessage(
     channelId: string,
     platform: PlatformType,
     messageId: string
   ): Promise<boolean> {
+    const channel = this.resolveChannel(channelId, platform);
+
     switch (platform) {
+      case "twitch":
+        return this.twitchService.deleteMessageAsync(channel?.channelName ?? channelId, messageId);
       case "youtube": {
         const channel = this.resolveChannel(channelId, platform);
         return this.youtubeService.deleteMessage(
