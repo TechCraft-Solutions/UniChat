@@ -64,10 +64,12 @@ pub fn get_oauth_provider_config(
           "KICK_REVOKE_URL",
           "https://id.kick.com/oauth/revoke".to_string(),
         )),
-        scopes: vec![read_or_default(
-          "KICK_SCOPES",
-          "chat:read chat:write".to_string(),
-        )],
+        scopes: vec![
+          "user:read".to_string(),
+          "chat:read".to_string(),
+          "chat:write".to_string(),
+          "moderation:chat_message:manage".to_string(),
+        ],
         redirect_uri: read_or_default(
           "UNICHAT_OAUTH_REDIRECT_URI",
           "http://localhost:3456/callback".to_string(),
