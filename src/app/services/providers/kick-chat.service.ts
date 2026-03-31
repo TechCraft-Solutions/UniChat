@@ -233,6 +233,7 @@ export class KickChatService extends BaseChatProviderService {
 
     console.log("[Kick WebSocket] Processing chat event payload:", payload);
     this.ingestKickChatEventPayload(channelSlug, payload);
+    console.log("[Kick WebSocket] Message processing complete");
   }
 
   private ingestKickChatEventPayload(channelSlug: string, payload: Record<string, unknown>): void {
@@ -242,10 +243,14 @@ export class KickChatService extends BaseChatProviderService {
       return;
     }
 
+    console.log("[Kick Chat] Processing message:", mapped.sourceMessageId, mapped.content);
+
     // Check if this is a WebSocket echo of a recently sent message
     // Match by username + content + timestamp (within 5 seconds)
     const messageKey = `${mapped.author}:${mapped.content}`;
     const sentInfo = this.recentlySentMessages.get(`${channelSlug}:${messageKey}`);
+
+    console.log("[Kick Chat] Sent info check:", sentInfo ? "FOUND" : "NOT FOUND");
 
     if (sentInfo) {
       const now = Date.now();
@@ -261,23 +266,9 @@ export class KickChatService extends BaseChatProviderService {
             m.sourceUserId === `kick-${mapped.sourceUserId}`
         );
 
-        console.log(
-          "[Kick Chat] Found outgoing message:",
-          outgoingMessage
-            ? {
-                id: outgoingMessage.id,
-                author: outgoingMessage.author,
-                text: outgoingMessage.text,
-                isOutgoing: outgoingMessage.isOutgoing,
-              }
-            : "NOT FOUND"
-        );
+        console.log("[Kick Chat] Echo detected - updating existing message, skipping add");
 
         if (outgoingMessage) {
-          console.log(
-            "[Kick Chat] Updating message with Kick message ID:",
-            `msg-${mapped.sourceMessageId}`
-          );
           // Update the message with the real Kick message ID
           this.chatStorageService.updateMessage(channelSlug, outgoingMessage.id, {
             id: `msg-${mapped.sourceMessageId}`,
@@ -294,11 +285,7 @@ export class KickChatService extends BaseChatProviderService {
       this.recentlySentMessages.delete(`${channelSlug}:${messageKey}`);
     }
 
-    console.log("[Kick Chat] Adding message to chat storage:", {
-      author: mapped.author,
-      content: mapped.content,
-      channel: channelSlug,
-    });
+    console.log("[Kick Chat] Adding new message to storage:", mapped.sourceMessageId);
 
     this.chatStorageService.addMessage(
       channelSlug,
