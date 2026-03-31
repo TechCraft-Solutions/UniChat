@@ -1,106 +1,106 @@
 <section
-  class="flex h-screen min-h-0 w-screen flex-col overflow-hidden"
+  class="flex flex-col min-h-0 w-screen h-screen overflow-hidden"
   [ngStyle]="{ 'background-color': backgroundColor() }"
   [style.background]="transparentBg() ? 'transparent !important' : ''"
 >
   <style [textContent]="customCssText()"></style>
   <style [textContent]="animationCssText()"></style>
 
-  <!-- Main Content Block - Centered, Full Width -->
-  <div class="flex flex-1 items-center justify-center">
-    <!-- Messages Container -->
-    @if (orderedMessages().length === 0) {
-      <div class="text-center">
-        <mat-icon [fontIcon]="'chat_bubble_outline'" class="mx-auto h-16 w-16 opacity-50" />
-        <p class="mt-4 text-sm uppercase tracking-[0.2em] opacity-50">Waiting for messages</p>
-      </div>
-    } @else {
-      <div class="flex flex-col gap-2" [class]="messagesContainerClasses()">
-        @for (message of orderedMessages(); track message.id) {
-          @let channelImg = getChannelImageUrl(message);
-          @let userImg = getUserImageUrl(message);
-          <article class="flex items-center gap-2 message-item">
-            <!-- Platform Icon (show when multiple channels are selected) -->
-            @if (shouldShowPlatformIcon()) {
-              <img
-                [src]="presentation.platformIconUrl(message.platform)"
-                [alt]="platformLabel(message.platform)"
-                [title]="platformLabel(message.platform)"
-                class="h-5 w-5 shrink-0 rounded-sm object-contain"
-              />
-            }
+  <!-- Messages Container -->
+  @if (orderedMessages().length === 0) {
+    <div class="flex flex-col items-center justify-center h-screen">
+      <mat-icon
+        [fontIcon]="'chat_bubble_outline'"
+        class="mx-auto w-16! h-16! text-6xl! opacity-50"
+      />
+      <p class="mt-4 text-sm uppercase tracking-[0.2em] opacity-50">Waiting for messages</p>
+    </div>
+  } @else {
+    <div class="flex flex-col gap-2 items-start justify-start" [class]="messagesContainerClasses()">
+      @for (message of orderedMessages(); track message.id) {
+        @let channelImg = getChannelImageUrl(message);
+        @let userImg = getUserImageUrl(message);
+        <article class="flex items-center gap-2 message-item">
+          <!-- Platform Icon (show when multiple channels are selected) -->
+          @if (shouldShowPlatformIcon()) {
+            <img
+              [src]="presentation.platformIconUrl(message.platform)"
+              [alt]="platformLabel(message.platform)"
+              [title]="platformLabel(message.platform)"
+              class="h-5 w-5 shrink-0 rounded-sm object-contain"
+            />
+          }
 
-            <!-- Channel Profile Image (show when widget follows 2+ channels) -->
-            @if (hasMultipleChannels() && channelImg) {
-              <img
-                [src]="channelImg"
-                [alt]="channelTitle(message)"
-                [title]="channelTitle(message)"
-                class="h-6 w-6 shrink-0 rounded-full object-cover"
-                loading="lazy"
-              />
-            }
+          <!-- Channel Profile Image (show when widget follows 2+ channels) -->
+          @if (hasMultipleChannels() && channelImg) {
+            <img
+              [src]="channelImg"
+              [alt]="channelTitle(message)"
+              [title]="channelTitle(message)"
+              class="h-6 w-6 shrink-0 rounded-full object-cover"
+              loading="lazy"
+            />
+          }
 
-            <!-- User Avatar -->
-            @if (userImg) {
-              <img
-                [src]="userImg"
-                [alt]="message.author"
-                [title]="message.author"
-                class="h-6 w-6 shrink-0 rounded-full object-cover"
-                loading="lazy"
-              />
-            } @else {
-              <div
-                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-[9px] font-bold uppercase"
-                [title]="message.author"
-              >
-                {{ message.author.charAt(0) }}
-              </div>
-            }
-
-            <!-- Username and Message -->
-            <div class="flex min-w-0 flex-1 items-baseline gap-1">
-              <span
-                class="shrink-0 font-semibold text-white"
-                [ngStyle]="{ 'font-size.px': textSize() - 2 }"
-              >
-                {{ message.author }}
-              </span>
-              <span class="shrink-0 text-white/50" [ngStyle]="{ 'font-size.px': textSize() - 2 }"
-                >:</span
-              >
-              <p class="min-w-0 flex-1 text-white" [ngStyle]="{ 'font-size.px': textSize() }">
-                @for (segment of getMessageSegments(message); track $index) {
-                  @if (segment.type === "text") {
-                    <span>{{ segment.value }}</span>
-                  } @else if (
-                    segment.emote && segment.emote.url && !isEmoteUrlBroken(segment.emote.url)
-                  ) {
-                    <img
-                      [src]="segment.emote.url"
-                      [alt]="segment.emote.code"
-                      [title]="segment.emote.code"
-                      class="mx-0.5 inline align-middle overlay-emote"
-                      [class.overlay-emote-dynamic]="
-                        !segment.emote.url.includes('static-cdn.jtvnw.net')
-                      "
-                      loading="lazy"
-                      (error)="onEmoteImageError(segment.emote!.url)"
-                    />
-                  } @else if (segment.emote) {
-                    <span
-                      class="mx-0.5 inline align-middle text-xs text-white/50"
-                      [title]="segment.emote.code"
-                      >{{ segment.emote.code }}</span
-                    >
-                  }
-                }
-              </p>
+          <!-- User Avatar -->
+          @if (userImg) {
+            <img
+              [src]="userImg"
+              [alt]="message.author"
+              [title]="message.author"
+              class="h-6 w-6 shrink-0 rounded-full object-cover"
+              loading="lazy"
+            />
+          } @else {
+            <div
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-[9px] font-bold uppercase"
+              [title]="message.author"
+            >
+              {{ message.author.charAt(0) }}
             </div>
-          </article>
-        }
-      </div>
-    }
-  </div>
+          }
+
+          <!-- Username and Message -->
+          <div class="flex min-w-0 flex-1 items-baseline gap-1">
+            <span
+              class="shrink-0 font-semibold text-white"
+              [ngStyle]="{ 'font-size.px': textSize() - 2 }"
+            >
+              {{ message.author }}
+            </span>
+            <span class="shrink-0 text-white/50" [ngStyle]="{ 'font-size.px': textSize() - 2 }"
+              >:</span
+            >
+            <p class="min-w-0 flex-1 text-white" [ngStyle]="{ 'font-size.px': textSize() }">
+              @for (segment of getMessageSegments(message); track $index) {
+                @if (segment.type === "text") {
+                  <span>{{ segment.value }}</span>
+                } @else if (
+                  segment.emote && segment.emote.url && !isEmoteUrlBroken(segment.emote.url)
+                ) {
+                  <img
+                    [src]="segment.emote.url"
+                    [alt]="segment.emote.code"
+                    [title]="segment.emote.code"
+                    class="mx-0.5 inline align-middle overlay-emote"
+                    [class.overlay-emote-dynamic]="
+                      !segment.emote.url.includes('static-cdn.jtvnw.net')
+                    "
+                    loading="lazy"
+                    (error)="onEmoteImageError(segment.emote!.url)"
+                  />
+                } @else if (segment.emote) {
+                  <span
+                    class="mx-0.5 inline align-middle text-xs text-white/50"
+                    [title]="segment.emote.code"
+                    >{{ segment.emote.code }}</span
+                  >
+                }
+              }
+            </p>
+          </div>
+        </article>
+      }
+    </div>
+  }
 </section>

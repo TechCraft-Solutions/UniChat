@@ -65,11 +65,24 @@ pub async fn openOverlayWindow(
     return Err("widgetId required".to_string());
   }
 
-  // Pass widgetId in URL for overlay to read
-  let overlay_url = format!(
-    "http://127.0.0.1:{port}/overlay?widgetId={}",
-    widget_id.trim()
-  );
+  // In dev mode, load from Angular dev server for live reload support
+  // In production, load from overlay HTTP server
+  let is_dev = app.config().build.dev_url.is_some();
+
+  let overlay_url = if is_dev {
+    // Load from Angular dev server with route hash
+    format!(
+      "http://localhost:1420/overlay?widgetId={}",
+      widget_id.trim()
+    )
+  } else {
+    // Load from overlay HTTP server (production)
+    format!(
+      "http://127.0.0.1:{port}/overlay?widgetId={}",
+      widget_id.trim()
+    )
+  };
+
   let window_label = format!("overlay-{}", widget_id.trim());
 
   // Check if window already exists

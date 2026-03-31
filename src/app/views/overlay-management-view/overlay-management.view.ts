@@ -108,7 +108,7 @@ export class OverlayManagementView {
   readonly animationDirectionModel = signal<OverlayDirection>("top");
   readonly transparentBgModel = signal<boolean>(false);
 
-  readonly availableChannels = computed(() => this.chatList.getVisibleChannels());
+  readonly availableChannels = computed(() => this.chatList.channels());
 
   constructor() {
     const w = this.widget;
@@ -412,14 +412,30 @@ export class OverlayManagementView {
     return current.includes(channelId);
   }
 
+  /** Check if a channel is disabled (hidden in settings) */
+  isChannelDisabledBySettings(channelId: string): boolean {
+    const channel = findChannelByRef(this.availableChannels(), channelId);
+    return channel ? !channel.isVisible : false;
+  }
+
   selectAllChannels(): void {
-    // Select all visible channels that are not disabled in dashboard
+    // Select all channels that are not disabled in dashboard
     const dashboardDisabled = this.dashboardPreferences.getMixedDisabledChannelIds();
     const enabledChannels = this.availableChannels()
       .filter((ch) => !dashboardDisabled.includes(toChannelRef(ch)))
       .map((ch) => toChannelRef(ch));
     this.channelIdsModel.set(enabledChannels);
-    // Auto-save removed - user must click Save button
+
+    // Also clear dashboard disabled list to enable all channels in dashboard
+    // And make all channels visible in settings
+    this.dashboardPreferences.setMixedDisabledChannelIds([]);
+
+    // Make all channels visible in settings
+    for (const channel of this.availableChannels()) {
+      if (!channel.isVisible) {
+        this.chatList.toggleChannelVisibility(channel.id);
+      }
+    }
   }
 
   clearChannelSelection(): void {

@@ -6,6 +6,9 @@ import { ChannelAccountCapabilities, ChatChannel, PlatformType } from "@models/c
 
 /* helpers */
 import { normalizeYouTubeProviderInput } from "@helpers/chat.helper";
+import { buildChannelRef } from "@utils/channel-ref.util";
+import { LocalStorageService } from "../core/local-storage.service";
+import { DashboardPreferencesService } from "../ui/dashboard-preferences.service";
 const storageKey = "unichat-chat-channels";
 
 @Injectable({
@@ -15,6 +18,11 @@ export class ChatListService {
   private readonly channelsSignal = signal<ChatChannel[]>(this.loadChannels());
 
   readonly channels = this.channelsSignal.asReadonly();
+
+  constructor(
+    private readonly localStorageService: LocalStorageService,
+    private readonly dashboardPreferencesService: DashboardPreferencesService
+  ) {}
 
   getChannels(platform?: PlatformType): ChatChannel[] {
     const allChannels = this.channelsSignal();
@@ -81,14 +89,26 @@ export class ChatListService {
   }
 
   removeChannel(channelId: string): void {
+    const channel = this.channelsSignal().find((ch) => ch.id === channelId);
+
     this.channelsSignal.update((channels) => {
       const next = channels.filter((ch) => ch.id !== channelId);
       this.saveChannels(next);
       return next;
     });
+
+    // Clean up: remove from mixedDisabledChannelIds and overlay configs
+    if (channel) {
+      const channelRef = buildChannelRef(channel.platform, channel.channelId);
+      this.removeFromMixedDisabled(channelRef);
+      this.removeChannelFromAllOverlays(channelRef);
+    }
   }
 
   toggleChannelVisibility(channelId: string): void {
+    const channel = this.channelsSignal().find((ch) => ch.id === channelId);
+    const willBeHidden = !(channel?.isVisible ?? true);
+
     this.channelsSignal.update((channels) => {
       const next = channels.map((ch) =>
         ch.id === channelId ? { ...ch, isVisible: !ch.isVisible } : ch
@@ -96,6 +116,54 @@ export class ChatListService {
       this.saveChannels(next);
       return next;
     });
+
+    if (willBeHidden && channel) {
+      // When hiding a channel: add to mixedDisabledChannelIds and remove from overlay configs
+      // Channel remains visible in UI but is disabled
+      const channelRef = buildChannelRef(channel.platform, channel.channelId);
+      this.addToMixedDisabledAndRemoveFromOverlays(channelRef);
+    } else if (channel) {
+      // When showing a channel: remove from mixedDisabledChannelIds
+      // Channel becomes enabled in dashboard and overlay
+      const channelRef = buildChannelRef(channel.platform, channel.channelId);
+      this.removeFromMixedDisabled(channelRef);
+    }
+  }
+
+  private addToMixedDisabledAndRemoveFromOverlays(channelRef: string): void {
+    // Add to mixedDisabledChannelIds (disables in dashboard)
+    this.dashboardPreferencesService.addMixedDisabledChannelId(channelRef);
+
+    // Remove from all overlay configurations (disables in overlay management)
+    this.removeChannelFromAllOverlays(channelRef);
+  }
+
+  private removeFromMixedDisabled(channelRef: string): void {
+    // Remove from mixedDisabledChannelIds (enables in dashboard)
+    const mixedDisabled = this.dashboardPreferencesService.getMixedDisabledChannelIds();
+    const filtered = mixedDisabled.filter((id: string) => id !== channelRef);
+    this.dashboardPreferencesService.setMixedDisabledChannelIds(filtered);
+  }
+
+  private removeChannelFromAllOverlays(channelRef: string): void {
+    // Iterate through all localStorage keys to find overlay channel configurations
+    // Pattern: unichat-overlay-channel-ids:{widgetId}
+    const overlayChannelIdsPattern = /^unichat-overlay-channel-ids:/;
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && overlayChannelIdsPattern.test(key)) {
+        const stored = this.localStorageService.get<string[] | null>(key, null);
+        if (stored && Array.isArray(stored)) {
+          const filtered = stored.filter((id) => id !== channelRef);
+          if (filtered.length === 0) {
+            this.localStorageService.remove(key);
+          } else {
+            this.localStorageService.set(key, filtered);
+          }
+        }
+      }
+    }
   }
 
   updateChannelName(channelId: string, newName: string): void {

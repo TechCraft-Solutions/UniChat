@@ -68,11 +68,10 @@ export class DashboardMixedFeedComponent {
 
   readonly disabledChannels = computed(() => {
     const saved = this.dashboardPreferences.preferences().mixedDisabledChannelIds;
-    const visible = new Set(
-      this.chatListService.getVisibleChannels().map((c) => this.channelRefFor(c))
-    );
-    // Only keep disabled IDs that still exist in visible channels
-    return new Set(saved.filter((id) => visible.has(id)));
+    // Use all channels (not just visible) to check if they're disabled in settings
+    const allChannels = new Set(this.chatListService.channels().map((c) => this.channelRefFor(c)));
+    // Only keep disabled IDs that still exist in channels
+    return new Set(saved.filter((id) => allChannels.has(id)));
   });
 
   private readonly mixedChannelOrderStorageKey = "unichat-mixed-channel-order";
@@ -88,20 +87,18 @@ export class DashboardMixedFeedComponent {
 
   readonly enabledVisibleChannels = computed(() =>
     this.orderedVisibleChannels().filter(
-      (ch) => !this.disabledChannels().has(this.channelRefFor(ch))
+      (ch) => ch.isVisible && !this.disabledChannels().has(this.channelRefFor(ch))
     )
   );
   readonly mixedMessages = this.feedData.mixedFeedChronological;
-  readonly visibleChannelCount = computed(() => this.chatListService.getVisibleChannels().length);
+  readonly visibleChannelCount = computed(() => this.chatListService.channels().length);
 
   private persistMixedDisabled(): void {
-    const visible = new Set(
-      this.chatListService.getVisibleChannels().map((c) => this.channelRefFor(c))
-    );
+    const all = new Set(this.chatListService.channels().map((c) => this.channelRefFor(c)));
     const current = this.disabledChannels();
 
-    // Prune any disabled IDs that no longer exist in visible channels
-    const pruned = new Set([...current].filter((id) => visible.has(id)));
+    // Prune any disabled IDs that no longer exist in channels
+    const pruned = new Set([...current].filter((id) => all.has(id)));
 
     // Persist the pruned list to preferences
     this.dashboardPreferences.setMixedDisabledChannelIds([...pruned]);
@@ -113,8 +110,9 @@ export class DashboardMixedFeedComponent {
       return [];
     }
 
-    const visibleIds = new Set(this.chatListService.getVisibleChannels().map((c) => c.id));
-    return stored.filter((id) => visibleIds.has(id));
+    // Use all channels (not just visible) for order persistence
+    const allChannelIds = new Set(this.chatListService.channels().map((c) => c.id));
+    return stored.filter((id) => allChannelIds.has(id));
   }
 
   private persistMixedOrder(ids: string[]): void {
@@ -122,11 +120,12 @@ export class DashboardMixedFeedComponent {
   }
 
   private orderVisibleChannels(): ChatChannel[] {
-    const visible = this.chatListService.getVisibleChannels();
-    const byId = new Map(visible.map((c) => [c.id, c]));
-    const visibleIdSet = new Set(visible.map((c) => c.id));
+    // Use all channels (not just visible) so channels hidden in settings still appear
+    const all = this.chatListService.channels();
+    const byId = new Map(all.map((c) => [c.id, c]));
+    const allIdSet = new Set(all.map((c) => c.id));
 
-    const orderedIds = this.channelOrder().filter((id) => visibleIdSet.has(id));
+    const orderedIds = this.channelOrder().filter((id) => allIdSet.has(id));
     const used = new Set<string>(orderedIds);
     const out: ChatChannel[] = [];
 
@@ -137,7 +136,7 @@ export class DashboardMixedFeedComponent {
       }
     }
 
-    for (const ch of visible) {
+    for (const ch of all) {
       if (!used.has(ch.id)) {
         out.push(ch);
       }
@@ -228,13 +227,55 @@ export class DashboardMixedFeedComponent {
   }
 
   enableAllChannels(): void {
-    // Enable all channels: clear dashboard disabled list
+    // Enable all channels: clear dashboard disabled list AND make all channels visible in settings
     this.dashboardPreferences.setMixedDisabledChannelIds([]);
-    // When enabling all channels, do NOT auto-enable in overlay (keep overlay selection explicit)
+
+    // Also make all channels visible in settings (toggle isVisible to true)
+    const channels = this.chatListService.channels();
+    for (const channel of channels) {
+      if (!channel.isVisible) {
+        this.chatListService.toggleChannelVisibility(channel.id);
+      }
+    }
+
+    // Also add all channels to all overlay configurations
+    const allChannelRefs = channels.map((ch) => this.channelRefFor(ch));
+
+    // Get all widgets from dashboard state
+    const widgets = this.dashboardState.widgets();
+
+    for (const widget of widgets) {
+      const storageKey = `unichat-overlay-channel-ids:${widget.id}`;
+      const stored = this.localStorageService.get<string[] | null>(storageKey, null);
+
+      // Set to all channels (or merge with existing if stored)
+      if (stored && Array.isArray(stored)) {
+        // Merge with existing, avoiding duplicates
+        const merged = [...new Set([...stored, ...allChannelRefs])];
+        this.localStorageService.set(storageKey, merged);
+      } else {
+        // No existing config, set to all channels
+        this.localStorageService.set(storageKey, allChannelRefs);
+      }
+    }
+
+    // Also update the featured widget if it exists
+    const featuredWidget = this.dashboardState.featuredWidget();
+    if (featuredWidget) {
+      const storageKey = `unichat-overlay-channel-ids:${featuredWidget.id}`;
+      const stored = this.localStorageService.get<string[] | null>(storageKey, null);
+
+      if (stored && Array.isArray(stored)) {
+        const merged = [...new Set([...stored, ...allChannelRefs])];
+        this.localStorageService.set(storageKey, merged);
+      } else {
+        this.localStorageService.set(storageKey, allChannelRefs);
+      }
+    }
   }
 
   disableAllChannels(): void {
-    const channels = this.chatListService.getVisibleChannels();
+    const channels = this.chatListService.channels();
     const allChannelRefs = channels.map((ch) => this.channelRefFor(ch));
     // Disable all channels: add all to dashboard disabled and remove from overlays
     this.dashboardPreferences.setMixedDisabledChannelIds(allChannelRefs);
