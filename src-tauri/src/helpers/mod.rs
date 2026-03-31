@@ -9,4 +9,7 @@ pub mod oauth_config_helper;
 #[path = "sanitizer.helper.rs"]
 pub mod sanitizer_helper;
 
+#[path = "youtube.api.helper.rs"]
+pub mod youtube_api_helper;
+
 pub mod http_client;
