@@ -11,6 +11,7 @@ import {
 } from "@models/chat.model";
 
 /* services */
+import { LoggerService } from "@services/core/logger.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { ChatStorageService } from "@services/data/chat-storage.service";
 import { AuthorizationService } from "@services/features/authorization.service";
@@ -43,6 +44,7 @@ import { buildChannelRef } from "@utils/channel-ref.util";
   providedIn: "root",
 })
 export class ChatStateService {
+  private readonly logger = inject(LoggerService);
   private readonly chatListService = inject(ChatListService);
   private readonly authorizationService = inject(AuthorizationService);
   private readonly chatStorageService = inject(ChatStorageService);
@@ -81,7 +83,7 @@ export class ChatStateService {
 
     // Reply is currently disabled for all platforms (tmi.js limitation for Twitch)
     // This method is kept for future implementation
-    console.warn("Reply functionality is currently unavailable for this platform.");
+    this.logger.warn("ChatStateService", "Reply functionality is currently unavailable for this platform.");
 
     this.updateMessageAction(messageId, "reply", {
       status: "disabled",

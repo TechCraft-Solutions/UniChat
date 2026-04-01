@@ -3,6 +3,8 @@
  * Provides consistent error detection and handling across the application
  */
 
+import { APP_CONFIG } from "@config/app.constants";
+
 /**
  * Base error class for service-level errors
  */
@@ -152,7 +154,10 @@ export async function safeAsync<T>(
   try {
     return await fn();
   } catch (error) {
-    console.warn(`[safeAsync] ${context || "Operation"} failed:`, error);
+    // Log in development only
+    if (!APP_CONFIG.production) {
+      console.warn(`[safeAsync] ${context || "Operation"} failed:`, error);
+    }
     return defaultValue;
   }
 }

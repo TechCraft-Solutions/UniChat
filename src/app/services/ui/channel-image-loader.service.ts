@@ -3,6 +3,7 @@ import { Injectable, inject } from "@angular/core";
 import { invoke } from "@tauri-apps/api/core";
 
 /* services */
+import { LoggerService } from "@services/core/logger.service";
 import { AvatarCacheService } from "@services/core/avatar-cache.service";
 import { LocalStorageService } from "@services/core/local-storage.service";
 import { TwitchChatService } from "@services/providers/twitch-chat.service";
@@ -40,6 +41,7 @@ export class ChannelImageLoaderService {
   private readonly avatarCache = inject(AvatarCacheService);
   private readonly localStorage = inject(LocalStorageService);
   private readonly twitchChat = inject(TwitchChatService);
+  private readonly logger = inject(LoggerService);
 
   /**
    * Load channel profile image for any platform
@@ -89,7 +91,7 @@ export class ChannelImageLoaderService {
         return imageUrl;
       }
     } catch (error) {
-      console.warn(`[ChannelImage] Failed to load Twitch channel image for ${channelName}:`, error);
+      this.logger.warn("ChannelImageLoaderService", "Failed to load Twitch channel image for", channelName, error);
     }
     return null;
   }
@@ -112,7 +114,7 @@ export class ChannelImageLoaderService {
         return result.profilePicUrl;
       }
     } catch (error) {
-      console.warn(`[ChannelImage] Failed to load Kick channel image for ${channelName}:`, error);
+      this.logger.warn("ChannelImageLoaderService", "Failed to load Kick channel image for", channelName, error);
     }
     return null;
   }
@@ -139,10 +141,7 @@ export class ChannelImageLoaderService {
           return result.profileImageUrl;
         }
       } catch (error) {
-        console.warn(
-          `[ChannelImage] Failed to load YouTube channel image (API key) for ${channelName}:`,
-          error
-        );
+        this.logger.warn("ChannelImageLoaderService", "Failed to load YouTube channel image (API key) for", channelName, error);
       }
     }
 

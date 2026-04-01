@@ -1,8 +1,12 @@
 /* sys lib */
-import { Injectable, signal } from "@angular/core";
+import { Injectable, inject, signal } from "@angular/core";
 
 /* models */
 import { DashboardPreferences, DensityMode, FeedMode, PlatformType } from "@models/chat.model";
+
+/* services */
+import { LoggerService } from "@services/core/logger.service";
+import { LocalStorageService } from "@services/core/local-storage.service";
 const storageKey = "unichat-dashboard-preferences";
 
 const defaultPreferences: DashboardPreferences = {
@@ -25,6 +29,8 @@ const defaultPreferences: DashboardPreferences = {
   providedIn: "root",
 })
 export class DashboardPreferencesService {
+  private readonly localStorage = inject(LocalStorageService);
+  private readonly logger = inject(LoggerService);
   private readonly preferencesSignal = signal<DashboardPreferences>(this.readPreferences());
 
   readonly preferences = this.preferencesSignal.asReadonly();
@@ -249,15 +255,11 @@ export class DashboardPreferencesService {
 
             if (hasVisibleKick && hiddenPlatforms.includes("kick")) {
               hiddenPlatforms = hiddenPlatforms.filter((p) => p !== "kick");
-              console.log(
-                "[DashboardPreferences] Migration: Unhid Kick platform (user has visible Kick channels)"
-              );
+              this.logger.info("DashboardPreferencesService", "Migration: Unhid Kick platform (user has visible Kick channels)");
             }
             if (hasVisibleYoutube && hiddenPlatforms.includes("youtube")) {
               hiddenPlatforms = hiddenPlatforms.filter((p) => p !== "youtube");
-              console.log(
-                "[DashboardPreferences] Migration: Unhid YouTube platform (user has visible YouTube channels)"
-              );
+              this.logger.info("DashboardPreferencesService", "Migration: Unhid YouTube platform (user has visible YouTube channels)");
             }
           }
         } catch {

@@ -5,6 +5,9 @@ import { invoke } from "@tauri-apps/api/core";
 /* models */
 import { ChatMessageEmote } from "@models/chat.model";
 
+/* services */
+import { LoggerService } from "@services/core/logger.service";
+
 export interface KickEmoteInfo {
   id: number;
   name: string;
@@ -23,6 +26,7 @@ export class KickEmoteLoaderService {
     { emotes: ChatMessageEmote[]; timestamp: number }
   >();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  private readonly logger = inject(LoggerService);
 
   /**
    * Fetch emotes for a Kick channel
@@ -58,11 +62,11 @@ export class KickEmoteLoaderService {
         timestamp: Date.now(),
       });
 
-      console.log(`[Kick Emotes] Loaded ${emotes.length} emotes for ${channelSlug}`);
+      this.logger.info("KickEmoteLoaderService", "Loaded", emotes.length, "emotes for", channelSlug);
 
       return emotes;
     } catch (error) {
-      console.error(`[Kick Emotes] Failed to fetch emotes for ${channelSlug}:`, error);
+      this.logger.warn("KickEmoteLoaderService", "Failed to fetch emotes for", channelSlug, error);
       return [];
     }
   }
