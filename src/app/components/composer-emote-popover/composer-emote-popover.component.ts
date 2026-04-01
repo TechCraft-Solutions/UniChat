@@ -4,7 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { MatIconModule } from "@angular/material/icon";
 
 /* models */
-import { ChatChannel, PlatformType } from "@models/chat.model";
+import { ChatChannel, ChatMessageEmote, PlatformType } from "@models/chat.model";
 
 /* services */
 import {
@@ -13,6 +13,7 @@ import {
 } from "@services/features/custom-emote-manager.service";
 import { TwitchViewerCardService } from "@services/providers/twitch-viewer-card.service";
 import { IconsCatalogService, PickableIconsEmote } from "@services/ui/icons-catalog.service";
+import { KickEmoteLoaderService } from "@services/providers/kick-emote-loader.service";
 
 @Component({
   selector: "app-composer-emote-popover",
@@ -25,6 +26,7 @@ export class ComposerEmotePopoverComponent {
   private readonly customEmotes = inject(CustomEmoteManagerService);
   private readonly iconsCatalog = inject(IconsCatalogService);
   private readonly twitchViewerCard = inject(TwitchViewerCardService);
+  private readonly kickEmoteLoader = inject(KickEmoteLoaderService);
 
   readonly platform = input.required<PlatformType>();
   readonly channel = input<ChatChannel | null>(null);
@@ -34,8 +36,10 @@ export class ComposerEmotePopoverComponent {
   readonly loading = signal(false);
   readonly searchQuery = signal("");
   readonly twitchIconsError = signal<string | null>(null);
+  readonly kickEmotesError = signal<string | null>(null);
 
   private readonly twitchPickable = signal<PickableIconsEmote[]>([]);
+  private readonly kickEmotes = signal<ChatMessageEmote[]>([]);
 
   readonly customList = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
@@ -49,6 +53,15 @@ export class ComposerEmotePopoverComponent {
   readonly twitchList = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
     const list = this.twitchPickable();
+    if (!q) {
+      return list;
+    }
+    return list.filter((e) => e.code.toLowerCase().includes(q));
+  });
+
+  readonly kickList = computed(() => {
+    const q = this.searchQuery().trim().toLowerCase();
+    const list = this.kickEmotes();
     if (!q) {
       return list;
     }
@@ -74,7 +87,9 @@ export class ComposerEmotePopoverComponent {
   private async loadEmotesForOpen(): Promise<void> {
     this.loading.set(true);
     this.twitchPickable.set([]);
+    this.kickEmotes.set([]);
     this.twitchIconsError.set(null);
+    this.kickEmotesError.set(null);
 
     try {
       if (this.platform() === "twitch") {
@@ -95,6 +110,18 @@ export class ComposerEmotePopoverComponent {
           const globalsOnly = await this.iconsCatalog.listPickableIconsEmotes(null);
           this.twitchPickable.set(globalsOnly);
         }
+      } else if (this.platform() === "kick") {
+        const ch = this.channel();
+        const channelSlug = ch?.channelName?.trim();
+        if (channelSlug) {
+          try {
+            const emotes = await this.kickEmoteLoader.fetchChannelEmotes(channelSlug);
+            this.kickEmotes.set(emotes);
+          } catch (error) {
+            this.kickEmotesError.set("Could not load Kick emotes.");
+            console.error("[Kick Emotes] Failed to load:", error);
+          }
+        }
       }
     } finally {
       this.loading.set(false);
@@ -107,6 +134,12 @@ export class ComposerEmotePopoverComponent {
 
   pickTwitch(emote: PickableIconsEmote): void {
     this.appendCode(emote.code);
+  }
+
+  pickKick(emote: ChatMessageEmote): void {
+    // Insert Kick emote in bracket format: [emote:id:name]
+    const bracketCode = `[emote:${emote.id}:${emote.code}]`;
+    this.appendCode(bracketCode);
   }
 
   private appendCode(code: string): void {
