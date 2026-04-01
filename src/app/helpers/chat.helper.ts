@@ -154,7 +154,8 @@ export function getDensityTextClasses(densityMode: DensityMode): string {
 }
 
 export function buildOverlayUrl(port: number, widgetId: string): string {
-  return `http://127.0.0.1:${port}/overlay?widgetId=${widgetId}`;
+  const encodedWidgetId = encodeURIComponent(widgetId);
+  return `http://127.0.0.1:${port}/overlay?widgetId=${encodedWidgetId}`;
 }
 
 export function getProviderCapabilities(

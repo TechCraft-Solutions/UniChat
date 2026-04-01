@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::helpers::http_client::shared_client;
+use crate::utils::validation::{validate_channel_slug, validate_message_id, validate_oauth_token};
 
 #[derive(Debug, Deserialize)]
 pub struct KickChannelResponse {
@@ -37,6 +38,14 @@ pub async fn kickFetchChatroomId(
   channelSlug: String,
   accessToken: Option<String>,
 ) -> Result<KickChannelInfo, String> {
+  // Validate channel slug to prevent injection attacks
+  validate_channel_slug(&channelSlug).map_err(|e| format!("Invalid channel slug: {}", e))?;
+
+  // Validate access token if provided
+  if let Some(ref token) = accessToken {
+    validate_oauth_token(token).map_err(|e| format!("Invalid access token: {}", e))?;
+  }
+
   let client = shared_client();
 
   let url = format!("https://kick.com/api/v2/channels/{}", channelSlug);
@@ -90,8 +99,10 @@ pub async fn kickFetchChatroomId(
     .and_then(|u| u.id)
     .ok_or("User ID not found in response".to_string())?;
 
-  println!("[Kick API] Fetched channel info: chatroomId={}, broadcasterUserId={}", 
-           chatroom_id, broadcaster_user_id);
+  println!(
+    "[Kick API] Fetched channel info: chatroomId={}, broadcasterUserId={}",
+    chatroom_id, broadcaster_user_id
+  );
 
   Ok(KickChannelInfo {
     chatroomId: chatroom_id,
@@ -146,8 +157,11 @@ pub async fn kickFetchRecentMessages(
   let client = shared_client();
 
   // Try official Kick API first
-  let url = format!("https://api.kick.com/public/v1/chatrooms/{}/messages", chatroomId);
-  
+  let url = format!(
+    "https://api.kick.com/public/v1/chatrooms/{}/messages",
+    chatroomId
+  );
+
   let response = client
     .get(&url)
     .header("Accept", "application/json")
@@ -241,8 +255,10 @@ pub async fn kickSendChatMessage(
     reply_to_message_id,
   };
 
-  println!("[Kick API] Sending message to chatroom {} with broadcaster_user_id {}",
-           chatroom_id, broadcaster_user_id);
+  println!(
+    "[Kick API] Sending message to chatroom {} with broadcaster_user_id {}",
+    chatroom_id, broadcaster_user_id
+  );
 
   let response = client
     .post("https://api.kick.com/public/v1/chat")
@@ -261,7 +277,10 @@ pub async fn kickSendChatMessage(
 
   if !status.is_success() {
     let error_text = response.text().await.unwrap_or_default();
-    println!("[Kick API] Send failed with status {}: {}", status, error_text);
+    println!(
+      "[Kick API] Send failed with status {}: {}",
+      status, error_text
+    );
     return Err(format!("Kick API error {}: {}", status, error_text));
   }
 
@@ -270,7 +289,10 @@ pub async fn kickSendChatMessage(
     .await
     .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-  println!("[Kick API] Message sent successfully! message_id={}", data.data.message_id);
+  println!(
+    "[Kick API] Message sent successfully! message_id={}",
+    data.data.message_id
+  );
 
   Ok(KickSendMessageResponseData {
     is_sent: data.data.is_sent,
@@ -292,10 +314,19 @@ pub async fn kickDeleteChatMessage(
   message_id: String,
   access_token: String,
 ) -> Result<KickDeleteMessageResponseData, String> {
+  // Validate message ID to prevent injection attacks
+  validate_message_id(&message_id).map_err(|e| format!("Invalid message ID: {}", e))?;
+
+  // Validate access token
+  validate_oauth_token(&access_token).map_err(|e| format!("Invalid access token: {}", e))?;
+
   let client = shared_client();
 
   let response = client
-    .delete(&format!("https://api.kick.com/public/v1/chat/{}", message_id))
+    .delete(&format!(
+      "https://api.kick.com/public/v1/chat/{}",
+      message_id
+    ))
     .bearer_auth(&access_token)
     .send()
     .await
@@ -326,10 +357,189 @@ pub struct KickDeleteMessageResponseData {
   pub message_id: String,
 }
 
+/// Kick emote response structure
+#[derive(Debug, Deserialize)]
+struct KickEmoteResponse {
+  data: Option<Vec<KickEmoteData>>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct KickEmoteData {
+  id: Option<i64>,
+  name: Option<String>,
+}
+
+/// Alternative response structure - some Kick API endpoints return emotes directly
+#[derive(Debug, Deserialize)]
+struct KickEmoteArrayResponse {
+  id: Option<i64>,
+  name: Option<String>,
+  channel_id: Option<i64>,
+}
+
+/// Public emote info returned to frontend
+#[derive(Debug, Clone, Serialize)]
+pub struct KickEmoteInfo {
+  pub id: i64,
+  pub name: String,
+}
+
+/// Fetch channel emotes from Kick API
+/// Returns list of emotes available for the channel
+#[tauri::command]
+pub async fn kickFetchChannelEmotes(channelSlug: String) -> Result<Vec<KickEmoteInfo>, String> {
+  let client = shared_client();
+
+  // Try multiple Kick API endpoints for emotes
+  let urls = [
+    // Unofficial API that's commonly used
+    format!("https://kick.com/api/v2/channels/{}/emotes", channelSlug),
+    // Alternative endpoint
+    format!("https://kick.com/api/v1/channels/{}/emotes", channelSlug),
+  ];
+
+  for url in urls {
+    let response = client
+      .get(&url)
+      .header("Accept", "application/json")
+      .header("User-Agent", "UniChat/1.0 (https://github.com/uni-chat)")
+      .send()
+      .await;
+
+    if let Ok(response) = response {
+      if response.status().is_success() {
+        // Get response text first, then try to parse
+        let text = response.text().await.unwrap_or_default();
+
+        // Try to parse as array of emotes directly
+        if let Ok(emotes_data) = serde_json::from_str::<Vec<KickEmoteArrayResponse>>(&text) {
+          let emotes: Vec<KickEmoteInfo> = emotes_data
+            .into_iter()
+            .filter_map(|e| {
+              e.id
+                .and_then(|id| e.name.map(|name| KickEmoteInfo { id, name }))
+            })
+            .collect();
+
+          if !emotes.is_empty() {
+            println!(
+              "[Kick API] Fetched {} emotes for channel {} (array format)",
+              emotes.len(),
+              channelSlug
+            );
+            return Ok(emotes);
+          }
+        }
+
+        // Try to parse as { data: [...] } structure
+        if let Ok(data_response) = serde_json::from_str::<KickEmoteResponse>(&text) {
+          let emotes: Vec<KickEmoteInfo> = data_response
+            .data
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|e| {
+              e.id
+                .and_then(|id| e.name.map(|name| KickEmoteInfo { id, name }))
+            })
+            .collect();
+
+          if !emotes.is_empty() {
+            println!(
+              "[Kick API] Fetched {} emotes for channel {} (object format)",
+              emotes.len(),
+              channelSlug
+            );
+            return Ok(emotes);
+          }
+        }
+
+        // If we got a successful response but couldn't parse emotes, return empty
+        println!(
+          "[Kick API] Got successful response but no emotes for {}",
+          channelSlug
+        );
+        return Ok(vec![]);
+      }
+    }
+  }
+
+  // If all endpoints fail, return empty list (not an error)
+  println!(
+    "[Kick API] All emote endpoints failed for {}, returning empty",
+    channelSlug
+  );
+  Ok(vec![])
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct KickUserInfo {
   pub id: String,
   pub username: String,
   pub bio: String,
   pub profile_pic_url: String,
+}
+
+/// Response structure for kickFetchChannelInfo
+#[derive(Debug, serde::Serialize)]
+pub struct KickChannelInfoWithImage {
+  pub id: i64,
+  pub user_id: i64,
+  pub username: String,
+  pub profile_pic_url: Option<String>,
+}
+
+/// Fetch channel info including profile image URL
+#[tauri::command]
+pub async fn kickFetchChannelInfo(channelSlug: String) -> Result<KickChannelInfoWithImage, String> {
+  let client = shared_client();
+
+  let url = format!("https://kick.com/api/v1/channels/{}", channelSlug);
+
+  let response = client
+    .get(&url)
+    .header("Accept", "application/json")
+    .send()
+    .await
+    .map_err(|e| format!("Network error: {}", e))?;
+
+  let status = response.status();
+
+  if status == 404 {
+    return Err(format!("Channel '{}' not found on Kick", channelSlug));
+  } else if !status.is_success() {
+    return Err(format!("Kick API error: {}", status));
+  }
+
+  let data = response
+    .json::<KickChannelResponse>()
+    .await
+    .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+  // Extract user info
+  let user = data.user.ok_or("User info not found in response")?;
+  let user_id = user.id.ok_or("User ID not found")?;
+  let username = user.username.unwrap_or_else(|| channelSlug.clone());
+  let profile_pic_url = user.profile_pic;
+
+  // Get channel ID
+  let channel_id = data
+    .chatroom
+    .and_then(|c| c.id)
+    .or(data.id)
+    .ok_or("Channel ID not found in response")?;
+
+  println!(
+    "[Kick API] Fetched channel info: id={}, user_id={}, username={}, profile_pic={}",
+    channel_id,
+    user_id,
+    username,
+    profile_pic_url.as_deref().unwrap_or("none")
+  );
+
+  Ok(KickChannelInfoWithImage {
+    id: channel_id,
+    user_id,
+    username,
+    profile_pic_url,
+  })
 }

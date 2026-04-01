@@ -3,6 +3,7 @@ pub mod helpers;
 pub mod models;
 pub mod routes;
 pub mod services;
+pub mod utils;
 
 use std::sync::Arc;
 use tauri::Manager;
@@ -11,14 +12,18 @@ use crate::routes::auth_provider_route::{
   authAwaitCallback, authComplete, authDisconnect, authRefresh, authStart, authStatus, authValidate,
 };
 use crate::routes::icons_route::{twitchFetchChannelIcons, twitchFetchGlobalIcons};
-use crate::routes::kick_route::{kickDeleteChatMessage, kickFetchChatroomId, kickFetchRecentMessages, kickFetchUserInfo, kickSendChatMessage};
+use crate::routes::kick_route::{
+  kickDeleteChatMessage, kickFetchChannelEmotes, kickFetchChannelInfo, kickFetchChatroomId,
+  kickFetchRecentMessages, kickFetchUserInfo, kickSendChatMessage,
+};
 use crate::routes::overlay_route::{
   emitOverlayConfigChanged, getOverlayConfig, getOverlayMessages, initOverlayConfigFromStorage,
   openOverlayWindow, startOverlayServer, stopOverlayServer,
 };
 use crate::routes::twitch_route::twitchDeleteMessage;
 use crate::routes::youtube_route::{
-  youtubeDeleteMessage, youtubeFetchChatMessages, youtubeFetchLiveChatId, youtubeFetchLiveVideoId,
+  youtubeDeleteMessage, youtubeFetchChannelInfo, youtubeFetchChannelInfoByApiKey,
+  youtubeFetchChatMessages, youtubeFetchLiveChatId, youtubeFetchLiveVideoId,
   youtubeFetchLiveVideoIdByApiKey, youtubeSendMessage,
 };
 use crate::services::auth::oauth_provider_service::OAuthProviderService;
@@ -79,8 +84,12 @@ pub fn run() {
       kickFetchChatroomId,
       kickFetchRecentMessages,
       kickFetchUserInfo,
+      kickFetchChannelEmotes,
+      kickFetchChannelInfo,
       kickSendChatMessage,
       kickDeleteChatMessage,
+      youtubeFetchChannelInfoByApiKey,
+      youtubeFetchChannelInfo,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
