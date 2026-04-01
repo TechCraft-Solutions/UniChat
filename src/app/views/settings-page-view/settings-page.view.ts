@@ -205,7 +205,7 @@ export class SettingsPageView {
       this.newChannelName.trim(),
       undefined,
       this.selectedAccountId || undefined,
-      this.authorizationService.getAccountById(this.selectedAccountId)?.username
+      this.authorizationService.getAccountByIdSync(this.selectedAccountId)?.username
     );
     this.newChannelName = "";
   }
@@ -244,7 +244,7 @@ export class SettingsPageView {
     this.chatListService.updateChannelAccount(
       channelId,
       accountId || undefined,
-      this.authorizationService.getAccountById(accountId)?.username
+      this.authorizationService.getAccountByIdSync(accountId)?.username
     );
   }
 
@@ -294,8 +294,10 @@ export class SettingsPageView {
     if (!account) {
       return "";
     }
-    // Return a default avatar or profile image URL if available
-    // For now, return a placeholder based on username
+    // Return account avatar URL if available, otherwise use UI Avatars placeholder
+    if (account.avatarUrl && account.avatarUrl.trim()) {
+      return account.avatarUrl;
+    }
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(account.username)}&background=random&size=32`;
   }
 

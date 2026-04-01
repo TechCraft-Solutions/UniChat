@@ -12,14 +12,14 @@
     <div class="flex gap-4">
       <app-radio
         [value]="format()"
-        (valueChange)="format.set($event)"
+        (valueChange)="format.set($any($event))"
         radioValue="'json'"
         label="JSON"
         labelClass="text-sm"
       />
       <app-radio
         [value]="format()"
-        (valueChange)="format.set($event)"
+        (valueChange)="format.set($any($event))"
         radioValue="'csv'"
         label="CSV"
         labelClass="text-sm"

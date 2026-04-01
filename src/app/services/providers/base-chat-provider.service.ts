@@ -60,7 +60,8 @@ export abstract class BaseChatProviderService {
     const channel = this.chatListService
       .getChannels(this.platform)
       .find((entry) => entry.channelId === channelId);
-    const account = this.authorizationService.getAccountById(channel?.accountId);
+    // Note: Uses sync version - accounts are loaded when channels are connected
+    const account = this.authorizationService.getAccountByIdSync(channel?.accountId);
     const capabilities = channel ? getChannelAccountCapabilities(channel, account) : undefined;
 
     const baseMessage: ChatMessage = {

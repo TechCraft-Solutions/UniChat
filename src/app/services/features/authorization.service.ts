@@ -7,6 +7,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { AuthStatus, ChatAccount, PlatformType } from "@models/chat.model";
 
 /* services */
+import { LoggerService } from "@services/core/logger.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
 interface AuthAccountPayload {
@@ -14,6 +15,7 @@ interface AuthAccountPayload {
   platform: PlatformType;
   username: string;
   userId: string;
+  avatarUrl?: string;
   authStatus: AuthStatus;
   accessToken?: string;
   refreshToken?: string;
@@ -36,6 +38,7 @@ export class AuthorizationService {
   private readonly accountsSignal = signal<ChatAccount[]>([]);
   private readonly chatListService = inject(ChatListService);
   private readonly feedData = inject(DashboardFeedDataService);
+  private readonly logger = inject(LoggerService);
   private accountsLoaded = false;
 
   readonly accounts = this.accountsSignal.asReadonly();
@@ -72,24 +75,40 @@ export class AuthorizationService {
     return this.accountsSignal().find((acc) => acc.platform === platform);
   }
 
-  getAccountById(accountId: string | undefined): ChatAccount | undefined {
+  /**
+   * Get account by ID. Waits for accounts to load if needed.
+   * @param accountId - The account ID to find
+   * @param timeoutMs - Maximum time to wait for accounts to load (default 5 seconds)
+   * @returns The account or undefined if not found
+   */
+  async getAccountById(
+    accountId: string | undefined,
+    timeoutMs: number = 5000
+  ): Promise<ChatAccount | undefined> {
     if (!accountId) {
       return undefined;
     }
 
-    const account = this.accountsSignal().find((acc) => acc.id === accountId);
-
-    // If account not found and accounts aren't loaded yet, wait a bit
-    if (!account && !this.accountsLoaded) {
-      console.warn(
-        "[Authorization] Account not found but accounts not loaded yet, waiting...",
-        accountId
-      );
-      // Note: We can't await here since this is a synchronous method
-      // The caller should use waitForAccounts() first if needed
+    // Wait for accounts to load if needed
+    if (!this.accountsLoaded) {
+      const loaded = await this.waitForAccounts(timeoutMs);
+      if (!loaded) {
+        this.logger.warn("AuthorizationService", "Timeout waiting for accounts to load");
+        return undefined;
+      }
     }
 
-    return account;
+    return this.accountsSignal().find((acc) => acc.id === accountId);
+  }
+
+  /**
+   * Synchronous version of getAccountById - use only when accounts are guaranteed to be loaded
+   */
+  getAccountByIdSync(accountId: string | undefined): ChatAccount | undefined {
+    if (!accountId) {
+      return undefined;
+    }
+    return this.accountsSignal().find((acc) => acc.id === accountId);
   }
 
   isAuthorized(platform: PlatformType): boolean {
@@ -103,12 +122,20 @@ export class AuthorizationService {
       const completed = await invoke<AuthCommandResultPayload>("authAwaitCallback", { platform });
 
       if (completed.account) {
-        console.log("[Kick OAuth] Initial account from backend:", completed.account);
+        this.logger.info(
+          "AuthorizationService",
+          "Initial account from backend",
+          completed.account.username
+        );
 
         // For Kick, the backend now fetches the real username from the OAuth identity
         // No need to prompt user for username anymore
         if (platform === "kick") {
-          console.log("[Kick OAuth] Account created with username:", completed.account.username);
+          this.logger.info(
+            "AuthorizationService",
+            "Kick account created with username",
+            completed.account.username
+          );
         }
 
         this.upsertAccount(completed.account);
@@ -128,9 +155,14 @@ export class AuthorizationService {
         return; // Silently fail - not critical
       }
 
-      const data = (await response.json()) as any;
-      const username = data.user?.username || data.username;
-      const userId = String(data.user?.id || data.id || "");
+      const data = await response.json();
+      const kickData = data as {
+        user?: { username?: string; id?: number };
+        username?: string;
+        id?: number;
+      };
+      const username = kickData.user?.username || kickData.username;
+      const userId = String(kickData.user?.id || kickData.id || "");
 
       if (username && userId) {
         // Update account in memory
@@ -143,10 +175,14 @@ export class AuthorizationService {
           newAccounts[accountIndex] = updatedAccount;
           this.accountsSignal.set(newAccounts);
 
-          console.log("[Kick OAuth] Updated username from channel:", username);
+          this.logger.info(
+            "AuthorizationService",
+            "Kick OAuth updated username from channel",
+            username
+          );
         }
       }
-    } catch (error) {
+    } catch {
       // Silently fail - username update is nice-to-have
     }
   }
@@ -203,7 +239,7 @@ export class AuthorizationService {
 
     // Mark accounts as loaded
     this.accountsLoaded = true;
-    console.log("[Authorization] Accounts loaded:", loaded.length, "accounts");
+    this.logger.info("AuthorizationService", "Accounts loaded", loaded.length, "accounts");
 
     // Then validate tokens in background (async, non-blocking)
     void this.validateAllPlatforms();
@@ -214,10 +250,10 @@ export class AuthorizationService {
 
   /**
    * Link all channels to their corresponding authorized accounts
-   * This fixes the issue where channels were added before authorization
+   * Links all channels for authorized platforms (not just owned channels)
    */
   private async linkAllChannelsToAccounts(): Promise<void> {
-    const platforms: PlatformType[] = ["twitch", "youtube"];
+    const platforms: PlatformType[] = ["twitch", "kick", "youtube"];
 
     for (const platform of platforms) {
       const account = this.getPrimaryAccount(platform);
@@ -227,18 +263,15 @@ export class AuthorizationService {
 
       const channels = this.chatListService.getChannels(platform);
       for (const channel of channels) {
-        // Link channel to account if they match by username but channel has no account
-        if (
-          !channel.accountId &&
-          channel.channelName.toLowerCase() === account.username.toLowerCase()
-        ) {
-          console.log("[Authorization] Auto-linking channel to account:", {
-            platform,
-            channelId: channel.id,
-            channelName: channel.channelName,
-            accountId: account.id,
-            username: account.username,
-          });
+        // Link channel to account if it doesn't have one yet
+        // This allows sending to any channel, not just your own
+        if (!channel.accountId) {
+          this.logger.debug(
+            "AuthorizationService",
+            "Linking channel to account",
+            channel.channelName,
+            account.username
+          );
           this.chatListService.updateChannelAccount(channel.id, account.id);
         }
       }
@@ -260,9 +293,8 @@ export class AuthorizationService {
             this.upsertAccount(account);
           }
         }
-      } catch (error) {
-        // Validation errors are logged but don't break the flow
-        console.warn(`Failed to validate ${platform} auth:`, error);
+      } catch {
+        // Validation errors are silently ignored to keep flow working
       }
     }
   }
@@ -280,8 +312,7 @@ export class AuthorizationService {
         return account.authStatus === "authorized";
       }
       return false;
-    } catch (error) {
-      console.warn(`Failed to validate ${platform} auth:`, error);
+    } catch {
       return false;
     }
   }
@@ -302,7 +333,7 @@ export class AuthorizationService {
       }
       return false;
     } catch (error) {
-      console.error(`Failed to refresh token for ${platform}:`, error);
+      this.logger.error("AuthorizationService", "Failed to refresh token for", platform, error);
       return false;
     }
   }
@@ -372,7 +403,7 @@ export class AuthorizationService {
       platform: account.platform,
       username: account.username,
       userId: account.userId,
-      avatarUrl: undefined,
+      avatarUrl: account.avatarUrl,
       authStatus: account.authStatus,
       accessToken: account.accessToken,
       refreshToken: account.refreshToken,
@@ -395,34 +426,36 @@ export class AuthorizationService {
       (channel) => channel.channelName.toLowerCase() === account.username.toLowerCase()
     );
 
-    console.log("[Authorization] ensureChannelForAuthorizedAccount:", {
-      platform: account.platform,
-      username: account.username,
-      accountId: account.id,
-      hasMatchingChannel: !!matchingChannel,
-      matchingChannelAccountId: matchingChannel?.accountId,
-    });
+    this.logger.debug(
+      "AuthorizationService",
+      "ensureChannelForAuthorizedAccount",
+      account.username
+    );
 
     if (matchingChannel) {
       // Channel exists but might not have the account linked - update it!
       if (matchingChannel.accountId !== account.id) {
-        console.log("[Authorization] Linking existing channel to account:", {
-          channelId: matchingChannel.id,
-          channelName: matchingChannel.channelName,
-          accountId: account.id,
-          username: account.username,
-        });
+        this.logger.debug(
+          "AuthorizationService",
+          "Linking existing channel to account",
+          matchingChannel.channelName
+        );
         this.chatListService.updateChannelAccount(matchingChannel.id, account.id);
       }
       // Ensure channel messages are loaded
-      console.log(
-        "[Authorization] Loading messages for existing channel:",
+      this.logger.debug(
+        "AuthorizationService",
+        "Loading messages for existing channel",
         matchingChannel.channelId
       );
       this.feedData.loadChannelMessages(account.platform, matchingChannel.channelId);
     } else {
       // No channel exists, create a new one
-      console.log("[Authorization] Creating new channel for account:", account.username);
+      this.logger.debug(
+        "AuthorizationService",
+        "Creating new channel for account",
+        account.username
+      );
       const providerChannelId = account.username.toLowerCase();
       this.chatListService.addChannel(
         account.platform,
@@ -432,7 +465,11 @@ export class AuthorizationService {
         account.username
       );
       // Ensure new channel messages are loaded
-      console.log("[Authorization] Loading messages for new channel:", providerChannelId);
+      this.logger.debug(
+        "AuthorizationService",
+        "Loading messages for new channel",
+        providerChannelId
+      );
       this.feedData.loadChannelMessages(account.platform, providerChannelId);
     }
   }

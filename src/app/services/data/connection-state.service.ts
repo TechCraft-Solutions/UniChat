@@ -159,7 +159,8 @@ export class ConnectionStateService {
       return;
     }
 
-    const account = this.authorizationService.getAccountById(channel.accountId);
+    // Note: Uses sync version - accounts are loaded when channels are connected
+    const account = this.authorizationService.getAccountByIdSync(channel.accountId);
     const capabilities = getChannelAccountCapabilities(channel, account);
 
     this.updateConnection(channelId, {
@@ -197,7 +198,8 @@ export class ConnectionStateService {
         return;
       }
 
-      const account = this.authorizationService.getAccountById(channel.accountId);
+      // Note: Uses sync version - accounts are loaded when channels are connected
+      const account = this.authorizationService.getAccountByIdSync(channel.accountId);
       const capabilities = getChannelAccountCapabilities(channel, account);
 
       this.updateConnection(channelId, {

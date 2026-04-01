@@ -9,19 +9,19 @@ import { FormsModule } from "@angular/forms";
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RadioComponent {
-  @Input() value: any;
-  @Input() radioValue: any;
+  @Input() value: unknown;
+  @Input() radioValue: unknown;
   @Input() disabled: boolean = false;
   @Input() label: string = "";
   @Input() labelClass: string = "";
   @Input() inputClass: string = "";
   @Input() labelTextClass: string = "";
 
-  @Output() valueChange = new EventEmitter<any>();
+  @Output() valueChange = new EventEmitter<unknown>();
   @Output() change = new EventEmitter<Event>();
   @Output() click = new EventEmitter<Event>();
 
-  onModelChange(value: any): void {
+  onModelChange(value: unknown): void {
     this.valueChange.emit(value);
   }
 

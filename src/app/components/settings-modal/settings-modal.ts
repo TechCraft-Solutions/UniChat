@@ -109,7 +109,7 @@ export class SettingsModal {
       this.newChannelName.trim(),
       undefined,
       this.selectedAccountId || undefined,
-      this.authorizationService.getAccountById(this.selectedAccountId)?.username
+      this.authorizationService.getAccountByIdSync(this.selectedAccountId)?.username
     );
     this.newChannelName = "";
   }
@@ -126,7 +126,7 @@ export class SettingsModal {
     this.chatListService.updateChannelAccount(
       channelId,
       accountId || undefined,
-      this.authorizationService.getAccountById(accountId)?.username
+      this.authorizationService.getAccountByIdSync(accountId)?.username
     );
   }
 

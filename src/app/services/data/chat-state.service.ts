@@ -92,7 +92,8 @@ export class ChatStateService {
   async sendOutgoingChatMessage(
     channelId: string,
     platform: PlatformType,
-    text: string
+    text: string,
+    optimistic: boolean = true
   ): Promise<void> {
     const trimmed = text.trim();
 
@@ -107,12 +108,61 @@ export class ChatStateService {
       return;
     }
 
-    const sentToProvider = await this.providerCoordinator.sendMessage(channelId, platform, trimmed);
-    if (platform === "twitch" && sentToProvider) {
-      // Twitch IRC echoes own message back; avoid duplicate local synthetic message.
-      return;
-    }
+    // Fire-and-forget: send to provider without blocking
+    // For Twitch, we skip creating a synthetic message since Twitch echoes back
+    if (platform === "twitch") {
+      // Create optimistic message immediately if requested
+      if (optimistic) {
+        this.createOptimisticMessage(platform, channelId, trimmed);
+      }
 
+      void this.providerCoordinator
+        .sendMessage(channelId, platform, trimmed)
+        .then((sentToProvider) => {
+          if (!sentToProvider) {
+            // Mark as failed if send failed (only if we created optimistic message)
+            if (optimistic) {
+              // Find and update the optimistic message
+              this.markOptimisticMessageFailed(platform, channelId, trimmed, "Send failed");
+            }
+          }
+          // If sentToProvider is true, Twitch will echo the message back
+          // The echo will be handled by the message listener
+        })
+        .catch((error) => {
+          if (optimistic) {
+            this.markOptimisticMessageFailed(platform, channelId, trimmed, error);
+          }
+        });
+    } else {
+      // For Kick and YouTube
+      if (optimistic) {
+        // Create optimistic message immediately
+        this.createOptimisticMessage(platform, channelId, trimmed);
+      }
+
+      // Fire-and-forget send to provider
+      void this.providerCoordinator
+        .sendMessage(channelId, platform, trimmed)
+        .then((sentToProvider) => {
+          if (optimistic) {
+            // Update the optimistic message status
+            this.updateOptimisticMessageStatus(platform, channelId, trimmed, sentToProvider);
+          }
+          // If not optimistic, the echo will be handled by the message listener
+        })
+        .catch((error) => {
+          if (optimistic) {
+            this.updateOptimisticMessageStatus(platform, channelId, trimmed, false, error);
+          }
+        });
+    }
+  }
+
+  /**
+   * Create an optimistic outgoing message for instant UI feedback
+   */
+  private createOptimisticMessage(platform: PlatformType, channelId: string, text: string): void {
     const id = `out-${platform}-${channelId}-${Date.now()}`;
     const outgoing: ChatMessage = {
       id,
@@ -121,7 +171,7 @@ export class ChatStateService {
       sourceChannelId: channelId,
       sourceUserId: "local-user",
       author: "You",
-      text: trimmed,
+      text: text,
       timestamp: new Date().toISOString(),
       badges: ["operator"],
       isSupporter: false,
@@ -129,23 +179,96 @@ export class ChatStateService {
       isDeleted: false,
       canRenderInOverlay: true,
       actions: {
-        reply: createMessageActionState("reply", "disabled", "Cannot reply to own message"),
-        delete: createMessageActionState(
-          "delete",
-          sentToProvider ? "available" : "disabled",
-          sentToProvider ? undefined : "Provider send failed or channel is not connected."
-        ),
+        reply: createMessageActionState("reply", "pending"),
+        delete: createMessageActionState("delete", "pending"),
       },
       rawPayload: {
-        providerEvent: sentToProvider ? "outgoing_send" : "outgoing_send_failed",
+        providerEvent: "outgoing_sending",
         providerChannelId: channelId,
         providerUserId: "local-user",
-        preview: trimmed.slice(0, 120),
+        preview: text.slice(0, 120),
       },
     };
 
     this.chatStorageService.addMessage(buildChannelRef(platform, channelId), outgoing);
     this.refreshMessageCapabilities();
+  }
+
+  /**
+   * Mark optimistic message as failed
+   */
+  private markOptimisticMessageFailed(
+    platform: PlatformType,
+    channelId: string,
+    text: string,
+    error: unknown
+  ): void {
+    const channelRef = buildChannelRef(platform, channelId);
+    const messages = this.chatStorageService.getMessagesByChannel(channelRef);
+
+    const optimisticMessage = messages.find((msg) => {
+      if (!msg.isOutgoing || msg.isDeleted) return false;
+      if (msg.author !== "You") return false;
+      if (msg.text !== text) return false;
+      const messageTime = new Date(msg.timestamp).getTime();
+      return Date.now() - messageTime < 5000;
+    });
+
+    if (optimisticMessage) {
+      this.chatStorageService.updateMessage(channelRef, optimisticMessage.id, {
+        actions: {
+          reply: createMessageActionState("reply", "disabled", "Cannot reply - message not sent"),
+          delete: createMessageActionState("delete", "failed", `Send failed: ${error}`),
+        },
+        rawPayload: {
+          ...optimisticMessage.rawPayload,
+          providerEvent: "outgoing_send_failed",
+        },
+      });
+    }
+  }
+
+  /**
+   * Update optimistic message status after send completes
+   */
+  private updateOptimisticMessageStatus(
+    platform: PlatformType,
+    channelId: string,
+    text: string,
+    sentToProvider: boolean,
+    error?: unknown
+  ): void {
+    const channelRef = buildChannelRef(platform, channelId);
+    const messages = this.chatStorageService.getMessagesByChannel(channelRef);
+
+    const optimisticMessage = messages.find((msg) => {
+      if (!msg.isOutgoing || msg.isDeleted) return false;
+      if (msg.author !== "You") return false;
+      if (msg.text !== text) return false;
+      const messageTime = new Date(msg.timestamp).getTime();
+      return Date.now() - messageTime < 5000;
+    });
+
+    if (optimisticMessage) {
+      this.chatStorageService.updateMessage(channelRef, optimisticMessage.id, {
+        actions: {
+          reply: createMessageActionState(
+            "reply",
+            sentToProvider ? "available" : "disabled",
+            sentToProvider ? undefined : "Cannot reply - message not sent"
+          ),
+          delete: createMessageActionState(
+            "delete",
+            sentToProvider ? "available" : "failed",
+            sentToProvider ? undefined : `Send failed: ${error}`
+          ),
+        },
+        rawPayload: {
+          ...optimisticMessage.rawPayload,
+          providerEvent: sentToProvider ? "outgoing_sent" : "outgoing_send_failed",
+        },
+      });
+    }
   }
 
   async deleteMessage(messageId: string): Promise<void> {
@@ -214,7 +337,8 @@ export class ChatStateService {
         continue;
       }
 
-      const account = this.authorizationService.getAccountById(channel.accountId);
+      // Note: Uses sync version - accounts are loaded when channels are connected
+      const account = this.authorizationService.getAccountByIdSync(channel.accountId);
       const capabilities = getChannelAccountCapabilities(channel, account);
 
       this.chatStorageService.updateMessage(

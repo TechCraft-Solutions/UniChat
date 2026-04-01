@@ -124,7 +124,8 @@ export class ModerationService {
       }
 
       // Check if user is authorized to moderate
-      const account = this.authorization.getAccountById(channel.accountId);
+      // Note: Uses sync version - accounts are loaded when channels are connected
+      const account = this.authorization.getAccountByIdSync(channel.accountId);
       if (!account || account.authStatus !== "authorized") {
         return {
           success: false,
@@ -197,10 +198,10 @@ export class ModerationService {
   ): Promise<ModerationResult> {
     // Handle delete message action
     if (action === "delete" && options?.messageId) {
-      const account = this.authorization.accounts().find(
-        acc => acc.platform === "kick" && acc.authStatus === "authorized"
-      );
-      
+      const account = this.authorization
+        .accounts()
+        .find((acc) => acc.platform === "kick" && acc.authStatus === "authorized");
+
       if (!account) {
         return {
           success: false,
@@ -213,7 +214,7 @@ export class ModerationService {
       }
 
       const deleted = await this.kickChat.deleteMessage(options.messageId, account.id);
-      
+
       return {
         success: deleted,
         action,
@@ -300,7 +301,8 @@ export class ModerationService {
     const channel = this.chatList.getChannels(platform).find((ch) => ch.channelId === channelId);
     if (!channel) return false;
 
-    const account = this.authorization.getAccountById(channel.accountId);
+    // Note: Uses sync version - accounts are loaded when channels are connected
+    const account = this.authorization.getAccountByIdSync(channel.accountId);
     if (!account || account.authStatus !== "authorized") return false;
 
     return channel.accountCapabilities?.canModerate ?? false;
