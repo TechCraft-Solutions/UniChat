@@ -42,8 +42,8 @@
             />
           }
 
-          <!-- Channel Profile Image (show when widget follows 2+ channels) -->
-          @if (hasMultipleChannels() && channelImg) {
+          <!-- Channel Profile Image (show when widget follows 2+ channels AND no user avatar) -->
+          @if (hasMultipleChannels() && channelImg && !userImg) {
             <img
               [src]="channelImg"
               [alt]="channelTitle(message)"
@@ -53,7 +53,7 @@
             />
           }
 
-          <!-- User Avatar -->
+          <!-- User Avatar (preferred over channel avatar) -->
           @if (userImg) {
             <img
               [src]="userImg"
@@ -62,7 +62,8 @@
               class="h-6 w-6 shrink-0 rounded-full object-cover"
               loading="lazy"
             />
-          } @else {
+          } @else if (!hasMultipleChannels()) {
+            <!-- Show initials only if no user avatar AND not showing channel avatar -->
             <div
               class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-[9px] font-bold uppercase"
               [title]="message.author"

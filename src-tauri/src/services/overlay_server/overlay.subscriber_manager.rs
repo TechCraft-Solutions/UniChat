@@ -78,6 +78,9 @@ impl OverlayServerState {
     let mut _filtered_supporter = 0;
     let mut _filtered_channel = 0;
 
+    // Build the channel reference for this message
+    let message_channel_ref = build_channel_ref(&message.platform, &message.source_channel_id);
+
     for sub in snapshot {
       // Apply supporter filter
       let filter: OverlayWidgetFilterModel = sub.filter.read().await.clone();
@@ -93,12 +96,13 @@ impl OverlayServerState {
       // Apply channel filter
       let channel_ids = sub.channel_ids.read().await;
       let _channel_allowed = match &*channel_ids {
-        None => true,
+        None => {
+          // No channel filter - allow all
+          true
+        }
         Some(ids) => {
-          let is_allowed = ids.contains(&build_channel_ref(
-            &message.platform,
-            &message.source_channel_id,
-          ));
+          // Check if message channel is in the allowed list
+          let is_allowed = ids.contains(&message_channel_ref);
           if !is_allowed {
             _filtered_channel += 1;
             continue;
