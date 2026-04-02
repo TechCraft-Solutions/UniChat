@@ -5,6 +5,7 @@ import { Injectable, signal, computed, inject, effect } from "@angular/core";
 import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { migrateLegacyChannelRefs } from "@utils/channel-ref.util";
+import { RegexCompilationService, RegexRule } from "@services/ui/regex-compilation.service";
 export interface BlockedWordRule {
   id: string;
   pattern: string;
@@ -31,6 +32,7 @@ const BLOCKED_WORDS_STORAGE_KEY = "unichat.blockedWords.v1";
 export class BlockedWordsService {
   private readonly localStorageService = inject(LocalStorageService);
   private readonly chatListService = inject(ChatListService);
+  private readonly regexCompiler = inject(RegexCompilationService);
 
   private readonly rulesSignal = signal<BlockedWordRule[]>([]);
   private readonly compiledRegexByRuleId = new Map<string, RegExp | null>();
@@ -85,26 +87,20 @@ export class BlockedWordsService {
   }
 
   private rebuildCompiledRegexes(): void {
+    const rules: RegexRule[] = this.rulesSignal().map((rule) => ({
+      id: rule.id,
+      pattern: rule.pattern,
+      isRegex: rule.isRegex,
+    }));
     this.compiledRegexByRuleId.clear();
-
-    for (const rule of this.rulesSignal()) {
-      const pattern = rule.pattern?.trim() ?? "";
-      if (!pattern) {
-        this.compiledRegexByRuleId.set(rule.id, null);
-        continue;
-      }
-
-      try {
-        if (rule.isRegex) {
-          this.compiledRegexByRuleId.set(rule.id, new RegExp(pattern, "gi"));
-        } else {
-          const escapedPattern = this.escapeRegExp(pattern);
-          this.compiledRegexByRuleId.set(rule.id, new RegExp(escapedPattern, "gi"));
-        }
-      } catch {
-        this.compiledRegexByRuleId.set(rule.id, null);
-      }
+    const compiled = this.regexCompiler.compileRules(rules);
+    for (const [id, regex] of compiled.entries()) {
+      this.compiledRegexByRuleId.set(id, regex);
     }
+  }
+
+  private escapeRegExp(pattern: string): string {
+    return pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   /**

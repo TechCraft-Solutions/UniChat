@@ -189,7 +189,9 @@ export class OverlaySourceBridgeService {
       }
       // Attempt reconnection on send failure
       if (this.connectedPort) {
-        this.attemptReconnect(this.connectedPort).catch(() => {});
+        this.attemptReconnect(this.connectedPort).catch((error) => {
+          console.warn("[OverlaySourceBridge] Reconnection attempt failed:", error);
+        });
       }
     }
   }

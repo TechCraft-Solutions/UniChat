@@ -5,6 +5,7 @@ import { Injectable, signal, computed, inject, effect } from "@angular/core";
 import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { migrateLegacyChannelRefs } from "@utils/channel-ref.util";
+import { RegexCompilationService, RegexRule } from "@services/ui/regex-compilation.service";
 export interface HighlightRule {
   id: string;
   pattern: string;
@@ -31,6 +32,7 @@ const HIGHLIGHT_RULES_STORAGE_KEY = "unichat.highlightRules.v1";
 export class HighlightRulesService {
   private readonly localStorageService = inject(LocalStorageService);
   private readonly chatListService = inject(ChatListService);
+  private readonly regexCompiler = inject(RegexCompilationService);
 
   private readonly rulesSignal = signal<HighlightRule[]>([]);
   private readonly compiledRegexByRuleId = new Map<string, RegExp | null>();
@@ -84,20 +86,15 @@ export class HighlightRulesService {
   }
 
   private rebuildCompiledRegexes(): void {
+    const rules: RegexRule[] = this.rulesSignal().map((rule) => ({
+      id: rule.id,
+      pattern: rule.pattern,
+      isRegex: rule.isRegex,
+    }));
     this.compiledRegexByRuleId.clear();
-
-    for (const rule of this.rulesSignal()) {
-      const pattern = rule.pattern?.trim() ?? "";
-      if (!rule.isRegex || !pattern) {
-        this.compiledRegexByRuleId.set(rule.id, null);
-        continue;
-      }
-
-      try {
-        this.compiledRegexByRuleId.set(rule.id, new RegExp(pattern, "i"));
-      } catch {
-        this.compiledRegexByRuleId.set(rule.id, null);
-      }
+    const compiled = this.regexCompiler.compileRules(rules);
+    for (const [id, regex] of compiled.entries()) {
+      this.compiledRegexByRuleId.set(id, regex);
     }
   }
 

@@ -10,24 +10,10 @@ import { TwitchChatService } from "@services/providers/twitch-chat.service";
 
 /* models */
 import { PlatformType } from "@models/chat.model";
+import { KickChannelInfoWithImage, YouTubeChannelInfo } from "@models/platform-api.model";
 
 /* helpers */
 import { YOUTUBE_DATA_API_KEY_STORAGE_KEY } from "@helpers/chat.helper";
-
-export interface KickChannelInfoResult {
-  id: number;
-  userId: number;
-  username: string;
-  profilePicUrl: string | null;
-}
-
-export interface YouTubeChannelInfoResult {
-  id: string;
-  title: string;
-  customUrl: string | null;
-  profileImageUrl: string | null;
-  bannerImageUrl: string | null;
-}
 
 /**
  * Channel Image Loader Service
@@ -105,13 +91,13 @@ export class ChannelImageLoaderService {
     cacheKey: string
   ): Promise<string | null> {
     try {
-      const result = await invoke<KickChannelInfoResult>("kickFetchChannelInfo", {
+      const result = await invoke<KickChannelInfoWithImage>("kickFetchChannelInfo", {
         channelSlug: channelName,
       });
 
-      if (result.profilePicUrl) {
-        this.avatarCache.setChannelAvatar(cacheKey, result.profilePicUrl);
-        return result.profilePicUrl;
+      if (result.profile_pic_url) {
+        this.avatarCache.setChannelAvatar(cacheKey, result.profile_pic_url);
+        return result.profile_pic_url;
       }
     } catch (error) {
       this.logger.warn("ChannelImageLoaderService", "Failed to load Kick channel image for", channelName, error);
@@ -131,14 +117,14 @@ export class ChannelImageLoaderService {
     const apiKey = this.localStorage.get<string>(YOUTUBE_DATA_API_KEY_STORAGE_KEY, "");
     if (apiKey && apiKey.trim()) {
       try {
-        const result = await invoke<YouTubeChannelInfoResult>("youtubeFetchChannelInfoByApiKey", {
+        const result = await invoke<YouTubeChannelInfo>("youtubeFetchChannelInfoByApiKey", {
           channel_name: channelName,
           api_key: apiKey,
         });
 
-        if (result.profileImageUrl) {
-          this.avatarCache.setChannelAvatar(cacheKey, result.profileImageUrl);
-          return result.profileImageUrl;
+        if (result.thumbnailUrl) {
+          this.avatarCache.setChannelAvatar(cacheKey, result.thumbnailUrl);
+          return result.thumbnailUrl;
         }
       } catch (error) {
         this.logger.warn("ChannelImageLoaderService", "Failed to load YouTube channel image (API key) for", channelName, error);
