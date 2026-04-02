@@ -226,6 +226,7 @@ struct KickSendMessageRequest {
 #[derive(Debug, Deserialize)]
 struct KickSendMessageResponse {
   data: KickSendMessageData,
+  #[allow(dead_code)]
   message: String,
 }
 
@@ -323,14 +324,11 @@ pub async fn kickDeleteChatMessage(
   let client = shared_client();
 
   let response = client
-    .delete(&format!(
-      "https://api.kick.com/public/v1/chat/{}",
-      message_id
-    ))
+    .delete(&format!("https://api.kick.com/public/v1/chat/{message_id}"))
     .bearer_auth(&access_token)
     .send()
     .await
-    .map_err(|e| format!("Network error: {}", e))?;
+    .map_err(|e| format!("Network error: {e}"))?;
 
   let status = response.status();
 
@@ -374,6 +372,7 @@ struct KickEmoteData {
 struct KickEmoteArrayResponse {
   id: Option<i64>,
   name: Option<String>,
+  #[allow(dead_code)]
   channel_id: Option<i64>,
 }
 

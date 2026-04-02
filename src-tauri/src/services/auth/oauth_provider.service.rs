@@ -126,7 +126,7 @@ impl OAuthProviderService {
       } else {
         "***"
       },
-      if token.refresh_token.as_ref().map_or(true, |s| s.is_empty()) {
+      if token.refresh_token.as_ref().is_none_or(|s| s.is_empty()) {
         "none"
       } else {
         "***"
