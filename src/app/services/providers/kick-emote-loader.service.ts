@@ -4,14 +4,11 @@ import { invoke } from "@tauri-apps/api/core";
 
 /* models */
 import { ChatMessageEmote } from "@models/chat.model";
+import { KickEmoteInfo } from "@models/platform-api.model";
 
 /* services */
 import { LoggerService } from "@services/core/logger.service";
-
-export interface KickEmoteInfo {
-  id: number;
-  name: string;
-}
+import { normalizeChannelId } from "@utils/channel-normalization.util";
 
 /**
  * Kick Emote Loader Service
@@ -34,7 +31,7 @@ export class KickEmoteLoaderService {
    * @returns Array of emotes
    */
   async fetchChannelEmotes(channelSlug: string): Promise<ChatMessageEmote[]> {
-    const normalizedSlug = channelSlug.trim().toLowerCase();
+    const normalizedSlug = normalizeChannelId("kick", channelSlug);
     const cached = this.emotesCache.get(normalizedSlug);
 
     // Return cached emotes if still valid
@@ -75,7 +72,7 @@ export class KickEmoteLoaderService {
    * Clear cache for a specific channel
    */
   clearCache(channelSlug: string): void {
-    this.emotesCache.delete(channelSlug.trim().toLowerCase());
+    this.emotesCache.delete(normalizeChannelId("kick", channelSlug));
   }
 
   /**

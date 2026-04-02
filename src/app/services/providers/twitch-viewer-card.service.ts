@@ -3,17 +3,7 @@ import { Injectable } from "@angular/core";
 
 /* models */
 import { ChatBadgeIcon } from "@models/chat.model";
-
-export interface TwitchUserInfo {
-  id: string;
-  login: string;
-  display_name: string;
-  description: string;
-  profile_image_url: string;
-  offline_image_url: string;
-  banner?: string | null;
-  created_at: string;
-}
+import { TwitchUserInfo } from "@models/platform-api.model";
 
 export type TwitchViewerCardUser = TwitchUserInfo & {
   chatColor?: string;

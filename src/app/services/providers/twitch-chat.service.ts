@@ -16,6 +16,7 @@ import { TwitchEmotesService } from "@services/providers/twitch-emotes.service";
 import { ReconnectionService } from "@services/core/reconnection.service";
 import { TwitchViewerCardService } from "@services/providers/twitch-viewer-card.service";
 import { buildChannelRef } from "@utils/channel-ref.util";
+import { normalizeChannelId } from "@utils/channel-normalization.util";
 
 import {
   extractIrcTagMapFromLine,
@@ -71,7 +72,7 @@ export class TwitchChatService extends BaseChatProviderService {
 
   private async connectAsync(channelId: string): Promise<void> {
     void this.iconsCatalog.ensureGlobalLoaded();
-    const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
+    const normalizedChannel = normalizeChannelId("twitch", channelId);
     if (!normalizedChannel || this.clientsByChannel.has(normalizedChannel)) {
       return;
     }
@@ -192,7 +193,7 @@ export class TwitchChatService extends BaseChatProviderService {
   }
 
   override disconnect(channelId: string): void {
-    const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
+    const normalizedChannel = normalizeChannelId("twitch", channelId);
     const client = this.clientsByChannel.get(normalizedChannel);
 
     if (client) {
@@ -239,13 +240,13 @@ export class TwitchChatService extends BaseChatProviderService {
   }
 
   sendMessage(channelId: string, text: string): boolean {
-    const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
+    const normalizedChannel = normalizeChannelId("twitch", channelId);
     void this.sendMessageAsync(normalizedChannel, text);
     return true;
   }
 
   async sendMessageAsync(channelId: string, text: string): Promise<boolean> {
-    const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
+    const normalizedChannel = normalizeChannelId("twitch", channelId);
     const trimmed = text.trim();
     if (!trimmed) {
       return false;
@@ -320,7 +321,7 @@ export class TwitchChatService extends BaseChatProviderService {
    * Delete a message from chat (requires moderator/broadcaster permissions)
    */
   async deleteMessageAsync(channelId: string, messageId: string): Promise<boolean> {
-    const normalizedChannel = channelId.replace(/^#/, "").toLowerCase();
+    const normalizedChannel = normalizeChannelId("twitch", channelId);
 
     const account = this.resolveAccountForChannel(normalizedChannel);
     if (!account || account.authStatus !== "authorized" || !account.accessToken) {
@@ -358,7 +359,7 @@ export class TwitchChatService extends BaseChatProviderService {
   }
 
   async loadChannelHistory(channelName: string, count: number = 100): Promise<ChatMessage[]> {
-    const normalized = channelName.replace(/^#/, "").toLowerCase();
+    const normalized = normalizeChannelId("twitch", channelName);
     const channelRef = buildChannelRef("twitch", normalized);
 
     try {
@@ -579,7 +580,7 @@ export class TwitchChatService extends BaseChatProviderService {
     channelLogin: string,
     maxPages?: number
   ): Promise<ChatMessage[]> {
-    const normalized = channelLogin.replace(/^#/, "").toLowerCase();
+    const normalized = normalizeChannelId("twitch", channelLogin);
     const merged: ChatMessage[] = [];
     const seenIds = new Set<string>();
     let beforeCursor: string | undefined;
@@ -680,7 +681,7 @@ export class TwitchChatService extends BaseChatProviderService {
   }
 
   private resolveAccountForChannel(channelName: string) {
-    const normalizedChannel = channelName.replace(/^#/, "").toLowerCase();
+    const normalizedChannel = normalizeChannelId("twitch", channelName);
     const channel = this.chatListService
       .getChannels("twitch")
       .find(

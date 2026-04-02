@@ -1,4 +1,5 @@
 import tmi from "tmi.js";
+import { normalizeChannelId } from "@utils/channel-normalization.util";
 
 /**
  * Parser for Robotty recent-messages IRC lines (PRIVMSG with Twitch IRC tags).
@@ -66,7 +67,7 @@ export function rawIrcTagsToUserstate(
 
   const displayName = raw["display-name"];
   const login =
-    raw["login"]?.trim() || fallbackNick.trim().toLowerCase() || displayName?.toLowerCase();
+    raw["login"]?.trim() || normalizeChannelId("twitch", fallbackNick) || displayName?.toLowerCase();
 
   return {
     "display-name": displayName,
@@ -109,8 +110,8 @@ export function parseRecentMessagesPrivmsg(
   if (spaceAfterChan === -1) {
     return null;
   }
-  const chan = afterPriv.slice(1, spaceAfterChan).toLowerCase();
-  if (chan !== expectedChannel.toLowerCase()) {
+  const chan = normalizeChannelId("twitch", afterPriv.slice(1, spaceAfterChan));
+  if (chan !== normalizeChannelId("twitch", expectedChannel)) {
     return null;
   }
   let message = afterPriv.slice(spaceAfterChan + 1);

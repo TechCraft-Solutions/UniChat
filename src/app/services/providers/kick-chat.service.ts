@@ -7,27 +7,13 @@ import { LoggerService } from "@services/core/logger.service";
 import { ConnectionErrorService } from "@services/core/connection-error.service";
 import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
 import { KickChatEventMapper } from "@services/providers/kick-chat-event.mapper";
-import { AuthorizationService } from "@services/features/authorization.service";
+import { normalizeChannelId } from "@utils/channel-normalization.util";
+
+/* models */
+import { RecentlySentMessage, KickUserInfo, KickChannelInfo } from "@models/platform-api.model";
 
 /* helpers */
 import { createMessageActionState } from "@helpers/chat.helper";
-export interface KickUserInfo {
-  id: string;
-  username: string;
-  bio: string;
-  profile_pic_url: string;
-}
-
-export interface KickChannelInfo {
-  chatroomId: number;
-  broadcasterUserId: number;
-}
-
-interface RecentlySentMessage {
-  username: string;
-  content: string;
-  timestamp: number;
-}
 
 @Injectable({
   providedIn: "root",
@@ -46,7 +32,7 @@ export class KickChatService extends BaseChatProviderService {
   private readonly kickChatEventMapper = inject(KickChatEventMapper);
 
   override connect(channelId: string): void {
-    const normalizedChannel = channelId.trim().toLowerCase();
+    const normalizedChannel = normalizeChannelId("kick", channelId);
     if (!normalizedChannel || this.connectedChannels.has(normalizedChannel)) {
       return;
     }
@@ -56,7 +42,7 @@ export class KickChatService extends BaseChatProviderService {
   }
 
   override disconnect(channelId: string): void {
-    const normalizedChannel = channelId.trim().toLowerCase();
+    const normalizedChannel = normalizeChannelId("kick", channelId);
     this.connectedChannels.delete(normalizedChannel);
     const socket = this.socketByChannel.get(normalizedChannel);
     if (socket) {
@@ -411,7 +397,7 @@ export class KickChatService extends BaseChatProviderService {
     text: string,
     account: { username: string; userId: string; accessToken?: string }
   ): Promise<boolean> {
-    const normalizedChannel = channelId.trim().toLowerCase();
+    const normalizedChannel = normalizeChannelId("kick", channelId);
     const trimmed = text.trim();
     if (!trimmed) {
       return false;
