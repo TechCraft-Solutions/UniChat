@@ -377,17 +377,38 @@ export class KickChatService extends BaseChatProviderService {
     this.logger.debug("KickChatService", "sendMessage called", { channelId, text, accountId });
 
     // Note: Uses sync version - assumes accounts are loaded by the time user sends messages
-    const account = this.authorizationService.getAccountByIdSync(accountId);
+    let account = this.authorizationService.getAccountByIdSync(accountId);
     this.logger.debug(
       "KickChatService",
       "Account lookup",
       account ? { id: account.id, username: account.username } : "No account"
     );
 
-    if (account?.authStatus !== "authorized" || !account.accessToken) {
+    // Check if token needs refresh
+    if (!account || account.authStatus !== "authorized" || !account.accessToken) {
+      if (account && (account.authStatus === "tokenExpired" || account.authStatus === "revoked")) {
+        this.logger.info("KickChatService", "Token expired, attempting refresh before send");
+        // Refresh token synchronously to ensure it completes before send
+        void this.authorizationService.refreshAndReconnect(account.id, "kick").then((success) => {
+          if (success) {
+            // Reload account after refresh
+            const refreshed = this.authorizationService.getAccountByIdSync(account.id);
+            if (refreshed && refreshed.authStatus === "authorized" && refreshed.accessToken) {
+              this.logger.info("KickChatService", "Token refreshed, sending message");
+              void this.sendMessageAsync(channelId, text, refreshed);
+            } else {
+              this.logger.warn("KickChatService", "Cannot send - refresh failed");
+            }
+          } else {
+            this.logger.warn("KickChatService", "Token refresh failed");
+          }
+        });
+        return true; // Return true, message will be sent after refresh
+      }
       this.logger.warn("KickChatService", "Cannot send - not authorized or no token");
       return false;
     }
+
     void this.sendMessageAsync(channelId, text, account);
     return true;
   }

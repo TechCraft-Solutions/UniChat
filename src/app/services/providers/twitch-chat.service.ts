@@ -26,7 +26,7 @@ import {
 /* helpers */
 import { createMessageActionState } from "@helpers/chat.helper";
 
-export type { TwitchUserInfo } from "@services/providers/twitch-viewer-card.service";
+export type { TwitchUserInfo } from "@models/platform-api.model";
 
 @Injectable({
   providedIn: "root",
@@ -257,15 +257,26 @@ export class TwitchChatService extends BaseChatProviderService {
       account?.authStatus === "authorized" &&
       !!account.username?.trim() &&
       !!account.accessToken?.trim();
+
+    // If not authorized, try to refresh token first
     if (!hasAuthIdentity) {
-      // Try to refresh if account exists but token is expired
       if (account && (account.authStatus === "tokenExpired" || account.authStatus === "revoked")) {
-        const refreshed = await this.ensureValidAccount(account.id);
+        this.logger.info("TwitchChatService", "Token expired, attempting refresh before send");
+        const refreshed = await this.authorizationService.refreshAndReconnect(account.id, "twitch");
         if (!refreshed) {
+          this.logger.warn("TwitchChatService", "Token refresh failed");
           this.errorService.reportAuthFailed(normalizedChannel);
           return false;
         }
+        // Reload account after refresh
+        const refreshedAccount = this.authorizationService.getAccountByIdSync(account.id);
+        if (!refreshedAccount || refreshedAccount.authStatus !== "authorized") {
+          this.logger.warn("TwitchChatService", "Refreshed account not authorized");
+          return false;
+        }
+        this.logger.info("TwitchChatService", "Token refreshed successfully, proceeding with send");
       } else {
+        this.logger.warn("TwitchChatService", "No valid auth identity for", normalizedChannel);
         this.errorService.reportAuthFailed(normalizedChannel);
         return false;
       }

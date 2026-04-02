@@ -59,7 +59,13 @@ export class KickEmoteLoaderService {
         timestamp: Date.now(),
       });
 
-      this.logger.info("KickEmoteLoaderService", "Loaded", emotes.length, "emotes for", channelSlug);
+      this.logger.info(
+        "KickEmoteLoaderService",
+        "Loaded",
+        emotes.length,
+        "emotes for",
+        channelSlug
+      );
 
       return emotes;
     } catch (error) {
