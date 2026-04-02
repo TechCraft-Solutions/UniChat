@@ -148,7 +148,9 @@ export class OverlayManagementView {
     void this.initBackendConfigFromStorage(w.id);
 
     // Ensure overlay server is started so OBS can load the URL immediately.
-    void invoke("startOverlayServer", { port: w.port }).catch(() => {});
+    void invoke("startOverlayServer", { port: w.port }).catch((error) => {
+      console.warn("[OverlayManagement] Failed to start overlay server:", error);
+    });
   }
 
   private async initBackendConfigFromStorage(widgetId: string): Promise<void> {

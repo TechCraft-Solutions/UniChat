@@ -7,6 +7,7 @@ import { ChannelAccountCapabilities, ChatChannel, PlatformType } from "@models/c
 /* helpers */
 import { normalizeYouTubeProviderInput } from "@helpers/chat.helper";
 import { buildChannelRef } from "@utils/channel-ref.util";
+import { normalizeChannelId } from "@utils/channel-normalization.util";
 import { LocalStorageService } from "../core/local-storage.service";
 import { DashboardPreferencesService } from "../ui/dashboard-preferences.service";
 const storageKey = "unichat-chat-channels";
@@ -289,13 +290,7 @@ export class ChatListService {
   }
 
   private resolveProviderChannelId(platform: PlatformType, channelName: string): string {
-    switch (platform) {
-      case "twitch":
-      case "kick":
-        return channelName.replace(/^#/, "").toLowerCase();
-      case "youtube":
-        return normalizeYouTubeProviderInput(channelName);
-    }
+    return normalizeChannelId(platform, channelName);
   }
 
   private createInitialAccountCapabilities(
@@ -303,8 +298,10 @@ export class ChatListService {
     channelName: string,
     accountUsername?: string
   ): ChannelAccountCapabilities {
-    const normalizedChannel = channelName.trim().toLowerCase();
-    const normalizedAccount = accountUsername?.trim().toLowerCase();
+    const normalizedChannel = normalizeChannelId(platform, channelName);
+    const normalizedAccount = accountUsername
+      ? normalizeChannelId(platform, accountUsername)
+      : undefined;
     const isVerifiedOwner =
       platform === "twitch" && !!normalizedAccount && normalizedAccount === normalizedChannel;
 
