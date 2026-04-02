@@ -329,6 +329,15 @@ export class AuthorizationService {
       });
       if (result.account) {
         this.upsertAccount(result.account);
+
+        // Notify services to reconnect with new token
+        this.logger.info(
+          "AuthorizationService",
+          "Token refreshed for",
+          platform,
+          result.account.username
+        );
+
         return result.account.authStatus === "authorized";
       }
       return false;
@@ -336,6 +345,21 @@ export class AuthorizationService {
       this.logger.error("AuthorizationService", "Failed to refresh token for", platform, error);
       return false;
     }
+  }
+
+  /**
+   * Refresh token and notify services to reconnect
+   * Called by platform services when they detect expired tokens
+   */
+  async refreshAndReconnect(accountId: string, platform: PlatformType): Promise<boolean> {
+    const success = await this.refreshAccountToken(accountId, platform);
+    if (success) {
+      this.logger.info(
+        "AuthorizationService",
+        "Token refreshed successfully, services should reconnect"
+      );
+    }
+    return success;
   }
 
   /**
@@ -442,7 +466,9 @@ export class AuthorizationService {
         );
         this.chatListService.updateChannelAccount(matchingChannel.id, account.id);
       }
+
       // Ensure channel messages are loaded
+      // This will trigger the coordinator to connect the channel if needed
       this.logger.debug(
         "AuthorizationService",
         "Loading messages for existing channel",
