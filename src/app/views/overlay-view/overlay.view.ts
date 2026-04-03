@@ -24,11 +24,13 @@ import {
   OverlayDirection,
   ChatMessage,
 } from "@models/chat.model";
+import { YouTubeChannelInfo } from "@models/platform-api.model";
 
 /* services */
 import { AvatarCacheService } from "@services/core/avatar-cache.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { DashboardStateService } from "@services/features/dashboard-state.service";
+import { AuthorizationService } from "@services/features/authorization.service";
 import { KickChatService } from "@services/providers/kick-chat.service";
 import { TwitchChatService } from "@services/providers/twitch-chat.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
@@ -65,6 +67,7 @@ export class OverlayView implements OnDestroy {
   readonly presentation = inject(ChatMessagePresentationService);
   readonly richText = inject(ChatRichTextService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly authService = inject(AuthorizationService);
   private readonly twitchChat = inject(TwitchChatService);
   private readonly kickChat = inject(KickChatService);
   private readonly chatList = inject(ChatListService);
@@ -658,6 +661,27 @@ export class OverlayView implements OnDestroy {
       // Ignore errors - author avatars are optional
     } finally {
       this.pendingUserAvatarLoads.delete(cacheKey);
+      this.cdr.markForCheck();
+    }
+  }
+
+  private async fetchYouTubeChannelImage(channelName: string, cacheKey: string): Promise<void> {
+    try {
+      // Try to get channel image via YouTube Data API
+      const account = this.authService.getPrimaryAccount("youtube");
+      if (account?.accessToken) {
+        const info = await invoke<YouTubeChannelInfo>("youtubeFetchChannelInfo", {
+          channelName,
+          accessToken: account.accessToken,
+        });
+        if (info?.thumbnailUrl) {
+          this.avatarCache.setChannelAvatar(cacheKey, info.thumbnailUrl);
+        }
+      }
+    } catch {
+      // Ignore errors - channel images are optional
+    } finally {
+      this.pendingChannelAvatarLoads.delete(cacheKey);
       this.cdr.markForCheck();
     }
   }

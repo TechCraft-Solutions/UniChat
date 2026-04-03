@@ -103,6 +103,7 @@ export interface ChatMessage {
   actions: Record<MessageActionKind, MessageAction>;
   rawPayload: RawPayloadMetadata;
   authorAvatarUrl?: string;
+  channelImageUrl?: string;
   messageType?: MessageType;
   messageTypeReason?: string;
   /** Sequence number for detecting message gaps during reconnection */
