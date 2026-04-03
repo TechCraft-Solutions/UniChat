@@ -286,6 +286,26 @@ export class KickChatService extends BaseChatProviderService {
     );
   }
 
+  /**
+   * Reconnect a channel with fresh token
+   * Called after token refresh to re-establish WebSocket connection with new credentials
+   */
+  reconnectChannel(channelId: string): void {
+    const normalizedChannel = normalizeChannelId("kick", channelId);
+    if (!this.connectedChannels.has(normalizedChannel)) {
+      return;
+    }
+
+    this.logger.info("KickChatService", "Reconnecting channel", normalizedChannel, "with new token");
+    // Clear cached channel info so it gets re-fetched with new token
+    this.channelInfoByChannel.delete(normalizedChannel);
+    // Reset reconnect attempts for clean reconnect
+    this.reconnectAttempts.delete(normalizedChannel);
+    // Disconnect and reconnect
+    this.disconnect(normalizedChannel);
+    this.connect(normalizedChannel);
+  }
+
   private async fetchKickRecentMessagesRest(
     channelSlug: string,
     chatroomId: number

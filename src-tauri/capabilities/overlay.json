@@ -3,5 +3,6 @@
   "identifier": "overlay",
   "description": "Capability for overlay preview windows",
   "windows": ["overlay-*", "overlay-widget-main"],
+  "url": ["http://localhost:*", "http://127.0.0.1:*"],
   "permissions": ["core:default", "core:event:default", "core:event:allow-listen"]
 }

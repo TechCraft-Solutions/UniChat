@@ -15,6 +15,7 @@ type OverlaySourcePayload = {
     isSupporter: boolean;
     sourceChannelId: string;
     authorAvatarUrl?: string;
+    channelImageUrl?: string;
   };
 };
 
@@ -175,6 +176,7 @@ export class OverlaySourceBridgeService {
         isSupporter: message.isSupporter,
         sourceChannelId: message.sourceChannelId,
         authorAvatarUrl: message.authorAvatarUrl,
+        channelImageUrl: message.channelImageUrl,
       },
     };
 

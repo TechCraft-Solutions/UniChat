@@ -63,10 +63,10 @@ export class ChatStorageService {
 
   // Cache version for allMessages to avoid recalculation on every change
   private readonly allMessagesVersion = signal(0);
-  private readonly allMessagesCache = signal<{ version: number; messages: ChatMessage[] }>({
+  private _allMessagesCache: { version: number; messages: ChatMessage[] } = {
     version: 0,
     messages: [],
-  });
+  };
 
   readonly channelMessages = this.channelMessagesSignal.asReadonly();
   readonly loadedChannelsSet = this.loadedChannels.asReadonly();
@@ -85,11 +85,10 @@ export class ChatStorageService {
 
   readonly allMessages = computed(() => {
     const currentVersion = this.allMessagesVersion();
-    const cached = this.allMessagesCache();
 
     // Return cached version if still valid
-    if (cached.version === currentVersion) {
-      return cached.messages;
+    if (this._allMessagesCache.version === currentVersion) {
+      return this._allMessagesCache.messages;
     }
 
     // Recalculate only when version changes
@@ -102,8 +101,8 @@ export class ChatStorageService {
 
     const sorted = sortMessagesChronological(allMessages);
 
-    // Update cache
-    this.allMessagesCache.set({ version: currentVersion, messages: sorted });
+    // Update cache (plain property, not a signal)
+    this._allMessagesCache = { version: currentVersion, messages: sorted };
     return sorted;
   });
 
@@ -250,9 +249,13 @@ export class ChatStorageService {
       const sortedMessages = sortMessagesChronological(Array.from(messageMap.values()));
       return {
         ...store,
-        [storageKey]: this.limitMessages(sortedMessages),
+        [storageKey]: sortedMessages,
       };
     });
+
+    // Enforce global message cap
+    this.enforceGlobalCap();
+
     this.persistChannelMessages();
 
     // Update last message times after adding (in chronological order)
@@ -356,13 +359,14 @@ export class ChatStorageService {
         }
         next = {
           ...next,
-          [channelId]: this.limitMessages(
-            sortMessagesChronological(Array.from(messageMap.values()))
-          ),
+          [channelId]: sortMessagesChronological(Array.from(messageMap.values())),
         };
       }
       return next;
     });
+
+    // Enforce global message cap
+    this.enforceGlobalCap();
 
     // Increment version to invalidate allMessages cache
     this.incrementMessageVersion();
@@ -393,66 +397,74 @@ export class ChatStorageService {
     return {};
   }
 
-  private limitMessages(messages: ChatMessage[]): ChatMessage[] {
-    if (messages.length <= APP_CONFIG.MAX_MESSAGES_PER_CHANNEL) {
-      return messages;
+  /**
+   * Enforce global message cap across ALL channels.
+   * Removes oldest messages until total <= MAX_MESSAGES_TOTAL.
+   */
+  private enforceGlobalCap(): void {
+    const maxTotal = APP_CONFIG.MAX_MESSAGES_TOTAL;
+    const store = this.channelMessagesSignal();
+
+    // Count total messages
+    let totalCount = 0;
+    for (const messages of Object.values(store)) {
+      totalCount += messages.length;
     }
-    return messages.slice(0, APP_CONFIG.MAX_MESSAGES_PER_CHANNEL);
+
+    if (totalCount <= maxTotal) {
+      return; // Under cap, nothing to do
+    }
+
+    // Collect all messages with their channel, sort by timestamp
+    const allWithChannel: { channelId: string; msg: ChatMessage }[] = [];
+    for (const [channelId, messages] of Object.entries(store)) {
+      for (const msg of messages) {
+        allWithChannel.push({ channelId, msg });
+      }
+    }
+
+    // Sort by timestamp (newest last)
+    allWithChannel.sort(
+      (a, b) => new Date(a.msg.timestamp).getTime() - new Date(b.msg.timestamp).getTime()
+    );
+
+    // Keep only the newest maxTotal messages
+    const toRemove = allWithChannel.slice(0, allWithChannel.length - maxTotal);
+    const toKeep = allWithChannel.slice(allWithChannel.length - maxTotal);
+
+    // Rebuild store with trimmed channels
+    const newStore: Record<string, ChatMessage[]> = {};
+    for (const entry of toKeep) {
+      if (!newStore[entry.channelId]) {
+        newStore[entry.channelId] = [];
+      }
+      newStore[entry.channelId].push(entry.msg);
+    }
+
+    // Re-sort each channel
+    for (const channelId of Object.keys(newStore)) {
+      newStore[channelId] = sortMessagesChronological(newStore[channelId]);
+    }
+
+    this.channelMessagesSignal.set(newStore);
   }
 
   /**
-   * Prune old messages across all channels to prevent memory growth
-   * Called periodically to maintain healthy memory usage
+   * Export all current messages as JSON string.
+   * Useful for debugging, archiving, or analysis.
+   */
+  exportMessages(): string {
+    const store = this.channelMessagesSignal();
+    return JSON.stringify(store, null, 2);
+  }
+
+  /**
+   * Prune old messages across all channels to prevent memory growth.
+   * Trims to MAX_MESSAGES_TOTAL by removing oldest messages first.
    */
   pruneOldMessages(): void {
     this.flushPendingBatchesNow();
-    const now = Date.now();
-    const maxAge = APP_CONFIG.OLD_MESSAGE_AGE_MS;
-    const maxPerChannel = APP_CONFIG.MAX_MESSAGES_PER_CHANNEL;
-    const maxTotal = APP_CONFIG.MAX_MESSAGES_TOTAL;
-
-    this.channelMessagesSignal.update((store) => {
-      const newStore: Record<string, ChatMessage[]> = {};
-      let totalMessages = 0;
-
-      // First pass: remove old messages and limit per channel
-      for (const [channelId, messages] of Object.entries(store)) {
-        const filtered = messages.filter((msg) => {
-          const msgTime = new Date(msg.timestamp).getTime();
-          return now - msgTime < maxAge;
-        });
-
-        // Keep only the most recent messages
-        const limited = filtered.slice(0, maxPerChannel);
-
-        if (limited.length > 0) {
-          newStore[channelId] = limited;
-          totalMessages += limited.length;
-        }
-      }
-
-      // Second pass: if still over total limit, remove from oldest channels
-      if (totalMessages > maxTotal) {
-        const channelsByOldest = Object.entries(newStore).sort((a, b) => {
-          const aTime = a[1][0] ? new Date(a[1][0].timestamp).getTime() : 0;
-          const bTime = b[1][0] ? new Date(b[1][0].timestamp).getTime() : 0;
-          return aTime - bTime;
-        });
-
-        let removed = 0;
-        for (const [channelId, messages] of channelsByOldest) {
-          if (totalMessages - removed <= maxTotal) break;
-
-          const toRemove = Math.min(messages.length, Math.ceil((totalMessages - maxTotal) * 0.2));
-          newStore[channelId] = messages.slice(toRemove);
-          removed += toRemove;
-        }
-      }
-
-      return newStore;
-    });
-
-    this.persistChannelMessages();
+    this.enforceGlobalCap();
   }
 
   /**

@@ -71,6 +71,22 @@ export class YouTubeChatService extends BaseChatProviderService {
     this.nextPageTokenByChannel.delete(key);
   }
 
+  /**
+   * Reconnect a channel with fresh token
+   * Called after token refresh to restart the polling session with new credentials
+   */
+  reconnectChannel(channelId: string): void {
+    const key = channelId.trim();
+    if (!this.connectedChannels.has(key)) {
+      return;
+    }
+
+    this.logger.info("YouTubeChatService", "Reconnecting channel", key, "with new token");
+    // Abort current polling session and restart
+    this.disconnect(key);
+    this.connect(key);
+  }
+
   protected override getActionStates() {
     return {
       reply: createMessageActionState(

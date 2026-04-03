@@ -77,7 +77,7 @@ export class DashboardSplitFeedComponent {
   private readonly chatListService = inject(ChatListService);
   private readonly dashboardPreferencesService = inject(DashboardPreferencesService);
   private readonly twitchChat = inject(TwitchChatService);
-  private readonly chatStorage = inject(ChatStorageService);
+  readonly chatStorage = inject(ChatStorageService);
   private readonly avatarCache = inject(AvatarCacheService);
   private readonly keyboardShortcutsService = inject(KeyboardShortcutsService);
   private readonly authorizationService = inject(AuthorizationService);
@@ -110,26 +110,22 @@ export class DashboardSplitFeedComponent {
     return (platform: PlatformType) => this.authorizationService.isAuthorized(platform);
   });
 
-  // Signal-based messages for each platform - directly reads from storage to ensure reactivity
-  readonly platformMessages = computed(() => {
-    this.feedData.messageVersion();
-    this.feedData.channelsByPlatform();
-
-    const messagesByPlatform: Partial<Record<PlatformType, ChatMessage[]>> = {};
-    for (const platform of this.visiblePlatforms()) {
-      const activeChannelId = this.activeChannelId(platform);
-      if (activeChannelId) {
-        const channelRef = buildChannelRef(platform, activeChannelId.toLowerCase());
-        if (this.chatStorage.isChannelLoaded(channelRef)) {
-          const allMessages = this.chatStorage.channelMessages();
-          messagesByPlatform[platform] = allMessages[channelRef] ?? [];
-        } else {
-          messagesByPlatform[platform] = [];
-        }
-      }
+  /**
+   * Get messages for a specific platform's active channel
+   * Called from template to avoid computed signal write issues
+   */
+  getMessagesForPlatform(platform: PlatformType): ChatMessage[] {
+    const activeChannelId = this.activeChannelId(platform);
+    if (!activeChannelId) {
+      return [];
     }
-    return messagesByPlatform;
-  });
+    const channelRef = buildChannelRef(platform, activeChannelId.toLowerCase());
+    if (!this.chatStorage.isChannelLoaded(channelRef)) {
+      return [];
+    }
+    const allMessages = this.chatStorage.channelMessages();
+    return allMessages[channelRef] ?? [];
+  }
 
   private readonly platformViewModels = computed(() => {
     // Force dependency on message changes via feedData's messageVersion computed

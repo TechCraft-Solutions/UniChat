@@ -35,21 +35,21 @@ impl OverlayServerService {
       return Ok(());
     }
 
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let listener = tokio::net::TcpListener::bind(addr)
+      .await
+      .map_err(|e| format!("Failed to bind overlay server to port {port}: {e}"))?;
+
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let state = self.state.clone();
     let dist_dir = self.frontend_dist_dir.clone();
 
     tokio::task::spawn(async move {
       let router = build_overlay_router(dist_dir, state);
-      let addr = SocketAddr::from(([127, 0, 0, 1], port));
-      let listener = tokio::net::TcpListener::bind(addr).await;
-
-      if let Ok(listener) = listener {
-        let server = axum::serve(listener, router).with_graceful_shutdown(async move {
-          let _ = shutdown_rx.await;
-        });
-        let _ = server.await;
-      }
+      let server = axum::serve(listener, router).with_graceful_shutdown(async move {
+        let _ = shutdown_rx.await;
+      });
+      let _ = server.await;
     });
 
     *guard = Some(OverlayServerInstance { shutdown_tx });

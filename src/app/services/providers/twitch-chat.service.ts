@@ -707,6 +707,22 @@ export class TwitchChatService extends BaseChatProviderService {
   }
 
   /**
+   * Reconnect a channel with fresh token
+   * Called after token refresh to re-establish tmi.js connection with new credentials
+   */
+  reconnectChannel(channelId: string): void {
+    const normalizedChannel = normalizeChannelId("twitch", channelId);
+    if (!this.clientsByChannel.has(normalizedChannel)) {
+      return;
+    }
+
+    this.logger.info("TwitchChatService", "Reconnecting channel", normalizedChannel, "with new token");
+    this.disconnect(normalizedChannel);
+    // Reconnect will pick up the new token from resolveAccountForChannel()
+    this.connect(normalizedChannel);
+  }
+
+  /**
    * Check if account token is expired and try to refresh
    */
   private async ensureValidAccount(accountId: string | undefined): Promise<boolean> {

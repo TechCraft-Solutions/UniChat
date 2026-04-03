@@ -157,13 +157,12 @@
                   <app-chat-history-header #historyHeader (loadHistory)="onLoadHistory($event)" />
                 }
                 @if (activeChannelId(platform); as cid) {
-                  @let colMsgs = platformMessages()[platform];
                   <app-chat-scroll-region
                     [scrollToken]="feedData.scrollTokenForChannel(platform, cid)"
-                    [messages]="colMsgs ?? []"
+                    [messages]="getMessagesForPlatform(platform)"
                   >
                     <div class="flex flex-col gap-y-2 px-2 py-2">
-                      @for (message of colMsgs ?? []; track message.id) {
+                      @for (message of getMessagesForPlatform(platform); track message.id) {
                         <app-chat-message-card
                           [message]="message"
                           [highlighted]="interactions.isHighlightedMessage(message.id)"

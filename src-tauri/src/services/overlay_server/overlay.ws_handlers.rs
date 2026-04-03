@@ -164,7 +164,7 @@ async fn handle_overlay_source(ws: WebSocket, state: OverlayServerState) {
                 is_supporter: message.is_supporter,
                 source_channel_id: message.source_channel_id,
                 author_avatar_url: message.author_avatar_url,
-                channel_image_url: None,
+                channel_image_url: message.channel_image_url,
                 emotes: message.emotes,
               };
               persist_overlay_message(overlay_message.clone()).await;

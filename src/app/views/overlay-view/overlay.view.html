@@ -29,8 +29,6 @@
   } @else {
     <div class="flex flex-col items-start justify-start gap-2" [class]="messagesContainerClasses()">
       @for (message of orderedMessages(); track message.id) {
-        @let channelImg = getChannelImageUrl(message);
-        @let userImg = getUserImageUrl(message);
         <article class="message-item flex items-center gap-2">
           <!-- Platform Icon (show when multiple channels are selected) -->
           @if (shouldShowPlatformIcon()) {
@@ -43,9 +41,9 @@
           }
 
           <!-- Channel Profile Image (show when widget follows 2+ channels AND no user avatar) -->
-          @if (hasMultipleChannels() && channelImg && !userImg) {
+          @if (hasMultipleChannels() && getChannelImageUrl(message) && !getUserImageUrl(message)) {
             <img
-              [src]="channelImg"
+              [src]="getChannelImageUrl(message)"
               [alt]="channelTitle(message)"
               [title]="channelTitle(message)"
               class="h-6 w-6 shrink-0 rounded-full object-cover"
@@ -54,9 +52,9 @@
           }
 
           <!-- User Avatar (preferred over channel avatar) -->
-          @if (userImg) {
+          @if (getUserImageUrl(message)) {
             <img
-              [src]="userImg"
+              [src]="getUserImageUrl(message)"
               [alt]="message.author"
               [title]="message.author"
               class="h-6 w-6 shrink-0 rounded-full object-cover"

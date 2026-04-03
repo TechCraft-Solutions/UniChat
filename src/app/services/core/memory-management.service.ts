@@ -51,14 +51,14 @@ export class MemoryManagementService {
   }
 
   /**
-   * Manually prune old messages
-   * Removes messages older than OLD_MESSAGE_AGE_MS
+   * Manually prune old messages.
+   * Trims to MAX_MESSAGES_TOTAL by removing oldest messages across all channels.
    */
   pruneOldMessages(): void {
     const stats = this.chatStorage.getMemoryStats();
 
-    // Only prune if we have significant messages
-    if (stats.totalMessages < 100) {
+    // Only prune if we exceed the global cap
+    if (stats.totalMessages <= APP_CONFIG.MAX_MESSAGES_TOTAL) {
       return;
     }
 
@@ -91,7 +91,7 @@ export class MemoryManagementService {
    */
   isMemoryHigh(): boolean {
     const stats = this.getStats();
-    return stats.totalMessages > 5000; // Warning threshold
+    return stats.totalMessages > APP_CONFIG.MAX_MESSAGES_TOTAL * 0.8; // 80% warning threshold
   }
 
   /**
@@ -99,6 +99,6 @@ export class MemoryManagementService {
    */
   getMemoryUsagePercent(): number {
     const stats = this.getStats();
-    return Math.min(100, (stats.totalMessages / 10000) * 100);
+    return Math.min(100, (stats.totalMessages / APP_CONFIG.MAX_MESSAGES_TOTAL) * 100);
   }
 }

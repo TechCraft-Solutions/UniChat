@@ -29,6 +29,7 @@ pub struct SourceChatMessageModel {
   pub is_supporter: bool,
   pub source_channel_id: String,
   pub author_avatar_url: Option<String>,
+  pub channel_image_url: Option<String>,
   pub emotes: Option<Vec<ChatMessageEmoteModel>>,
 }
 

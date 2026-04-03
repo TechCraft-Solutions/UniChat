@@ -67,16 +67,13 @@ pub async fn openOverlayWindow(
 
   // In dev mode, load from Angular dev server for live reload support
   // In production, load from overlay HTTP server
-  let is_dev = app.config().build.dev_url.is_some();
-
-  let overlay_url = if is_dev {
-    // Load from Angular dev server with route hash
-    format!(
-      "http://localhost:1420/overlay?widgetId={}",
-      widget_id.trim()
-    )
+  let overlay_url = if let Some(dev_url) = app.config().build.dev_url.as_ref() {
+    // Dev mode: use the same origin as the dev server
+    // e.g., "http://localhost:1450" -> "http://localhost:1450/overlay?widgetId=..."
+    let origin = dev_url.to_string().trim_end_matches('/').to_string();
+    format!("{}/overlay?widgetId={}", origin, widget_id.trim())
   } else {
-    // Load from overlay HTTP server (production)
+    // Production: load from overlay HTTP server
     format!(
       "http://127.0.0.1:{port}/overlay?widgetId={}",
       widget_id.trim()

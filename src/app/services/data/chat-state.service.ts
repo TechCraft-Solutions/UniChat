@@ -116,9 +116,9 @@ export class ChatStateService {
     // Fire-and-forget: send to provider without blocking
     // For Twitch, we skip creating a synthetic message since Twitch echoes back
     if (platform === "twitch") {
-      // Create optimistic message immediately if requested
+      // Create optimistic message asynchronously to avoid signal write in computed context
       if (optimistic) {
-        this.createOptimisticMessage(platform, channelId, trimmed);
+        setTimeout(() => this.createOptimisticMessage(platform, channelId, trimmed), 0);
       }
 
       void this.providerCoordinator
@@ -141,9 +141,9 @@ export class ChatStateService {
         });
     } else {
       // For Kick and YouTube
+      // Create optimistic message asynchronously to avoid signal write in computed context
       if (optimistic) {
-        // Create optimistic message immediately
-        this.createOptimisticMessage(platform, channelId, trimmed);
+        setTimeout(() => this.createOptimisticMessage(platform, channelId, trimmed), 0);
       }
 
       // Fire-and-forget send to provider

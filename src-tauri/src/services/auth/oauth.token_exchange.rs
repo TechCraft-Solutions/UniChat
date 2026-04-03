@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use crate::helpers::oauth_config_helper::OAuthProviderConfig;
 use crate::models::auth_oauth_model::OAuthTokenModel;
-use crate::models::platform_type_model::PlatformTypeModel;
+use crate::models::platform_type_model::{PlatformKey, PlatformTypeModel};
 
 /// Exchange authorization code for access token
 pub async fn exchange_code_for_token(
@@ -62,18 +62,16 @@ pub async fn exchange_code_for_token(
 /// Refresh an access token using a refresh token
 pub async fn refresh_access_token(
   http: &Client,
-  _platform: &PlatformTypeModel,
+  platform: &PlatformTypeModel,
   refresh_token: &str,
   config: &OAuthProviderConfig,
 ) -> Result<OAuthTokenModel, String> {
+  // Standard OAuth2 refresh request — no redirect_uri needed for refresh
   let mut form: Vec<(&str, String)> = vec![
     ("client_id", config.client_id.clone()),
     ("grant_type", "refresh_token".to_string()),
     ("refresh_token", refresh_token.to_string()),
   ];
-
-  // Some providers require redirect_uri on refresh
-  form.push(("redirect_uri", config.redirect_uri.clone()));
 
   if let Some(ref secret) = config.client_secret {
     form.push(("client_secret", secret.clone()));
@@ -87,20 +85,35 @@ pub async fn refresh_access_token(
     .map_err(|e| format!("token refresh request failed: {e}"))?;
 
   let status = response.status();
-  let payload: Value = response
-    .json()
+  let body = response
+    .text()
     .await
-    .map_err(|e| format!("token refresh response parse failed: {e}"))?;
+    .map_err(|e| format!("token refresh response read failed: {e}"))?;
 
   if !status.is_success() {
-    return Err(format!("token refresh failed: {payload}"));
+    return Err(format!(
+      "token refresh failed ({status}): {body}"
+    ));
   }
 
-  // Some providers return a new refresh token, others don't
+  let payload: Value = serde_json::from_str(&body)
+    .map_err(|e| format!("token refresh response parse failed: {e}. Body: {body}"))?;
+
+  // Some providers return a new refresh token, others don't.
+  // If no new refresh token is returned, keep the existing one.
   let new_refresh_token = payload["refresh_token"]
     .as_str()
     .map(|v| v.to_string())
     .or_else(|| Some(refresh_token.to_string()));
+
+  println!(
+    "[OAuth Refresh] {} token refreshed successfully (expires_in={})",
+    platform.as_key(),
+    payload["expires_in"]
+      .as_i64()
+      .map(|v| v.to_string())
+      .unwrap_or_else(|| "unknown".to_string())
+  );
 
   Ok(OAuthTokenModel {
     access_token: payload["access_token"]

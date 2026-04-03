@@ -218,13 +218,21 @@ impl OAuthProviderService {
           .validate_token_with_api(&platform, &account.access_token, &config)
           .await
         {
-          Ok(_) => {
+          Ok(true) => {
             // Token is valid
             account.auth_status = AuthStatusModel::Authorized;
           }
-          Err(_) => {
-            // Token is invalid/revoked
+          Ok(false) => {
+            // Token is truly invalid/revoked (401/403)
             account.auth_status = AuthStatusModel::Revoked;
+          }
+          Err(_) => {
+            // API call failed (500, network, etc.) — keep existing status
+            // Don't mark as revoked just because the API is temporarily down
+            println!(
+              "[Auth Validate] {} keeping Authorized status (API unavailable)",
+              platform.as_key()
+            );
           }
         }
       }
@@ -240,13 +248,17 @@ impl OAuthProviderService {
     Ok(accounts)
   }
 
-  /// Validate token by making a test API call to the platform
+  /// Validate token by making a test API call to the platform.
+  /// Returns:
+  ///   Ok(true) — token is valid
+  ///   Ok(false) — token is invalid/revoked (401 unauthorized)
+  ///   Err — API call failed (network error, 500, etc.) — status unknown, don't change auth_status
   async fn validate_token_with_api(
     &self,
     platform: &PlatformTypeModel,
     access_token: &Option<String>,
     config: &crate::helpers::oauth_config_helper::OAuthProviderConfig,
-  ) -> Result<(), String> {
+  ) -> Result<bool, String> {
     let token = access_token
       .as_ref()
       .ok_or_else(|| "No access token available".to_string())?;
@@ -269,17 +281,30 @@ impl OAuthProviderService {
       status
     );
 
-    if !status.is_success() {
+    if status.is_success() {
+      return Ok(true);
+    }
+
+    // 401/403 means token is truly invalid/revoked
+    if status == 401 || status == 403 {
       let body = response.text().await.unwrap_or_default();
       println!(
-        "[Auth Validate] {} validation response: {}",
+        "[Auth Validate] {} token rejected as unauthorized: {}",
         platform.as_key(),
         body
       );
-      return Err(format!("Token validation failed: {} - {}", status, body));
+      return Ok(false);
     }
 
-    Ok(())
+    // Other errors (500, network, etc.) — don't mark as revoked, API may be down
+    let body = response.text().await.unwrap_or_default();
+    println!(
+      "[Auth Validate] {} validation API error ({}): {} — keeping existing status",
+      platform.as_key(),
+      status,
+      body
+    );
+    Err(format!("API error {status}, not marking as revoked"))
   }
 
   /// Refresh an expired access token using the refresh token
@@ -288,6 +313,12 @@ impl OAuthProviderService {
     platform: &PlatformTypeModel,
     account_id: &str,
   ) -> Result<AuthAccountModel, String> {
+    println!(
+      "[OAuth Refresh] Starting refresh for {} account {}",
+      platform.as_key(),
+      account_id
+    );
+
     // Get the saved token
     let saved_token = self
       .token_vault_service
@@ -297,7 +328,20 @@ impl OAuthProviderService {
     // Get the refresh token
     let refresh_token = saved_token
       .refresh_token
-      .ok_or_else(|| "No refresh token available. Please re-authenticate.".to_string())?;
+      .ok_or_else(|| {
+        println!(
+          "[OAuth Refresh] {} account {} has no refresh token — must re-authenticate",
+          platform.as_key(),
+          account_id
+        );
+        "No refresh token available. Please re-authenticate.".to_string()
+      })?;
+
+    println!(
+      "[OAuth Refresh] {} has refresh token (length={})",
+      platform.as_key(),
+      refresh_token.len()
+    );
 
     // Get config
     let config = get_oauth_provider_config(platform)?;
@@ -331,6 +375,13 @@ impl OAuthProviderService {
       .lock()
       .map_err(|_| "account store lock poisoned".to_string())?;
     guard.insert(account.id.clone(), account.clone());
+
+    println!(
+      "[OAuth Refresh] {} account {} refreshed successfully, username={}",
+      platform.as_key(),
+      account_id,
+      account.username
+    );
 
     Ok(account)
   }

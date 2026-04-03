@@ -8,6 +8,7 @@ import { ChatChannel, PlatformType } from "@models/chat.model";
 import { ChatListService } from "@services/data/chat-list.service";
 import { ChatStateManagerService } from "@services/data/chat-state-manager.service";
 import { ConnectionStateService } from "@services/data/connection-state.service";
+import { AuthorizationService } from "@services/features/authorization.service";
 import { KickChatService } from "@services/providers/kick-chat.service";
 import { TwitchChatService } from "@services/providers/twitch-chat.service";
 import { YouTubeChatService } from "@services/providers/youtube-chat.service";
@@ -22,6 +23,7 @@ export class ChatProviderCoordinatorService {
   private readonly chatListService = inject(ChatListService);
   private readonly connectionStateService = inject(ConnectionStateService);
   private readonly chatStateManager = inject(ChatStateManagerService);
+  private readonly authService = inject(AuthorizationService);
 
   constructor() {
     this.twitchService.onStatusChange((channelId, status) => {
@@ -34,6 +36,11 @@ export class ChatProviderCoordinatorService {
       } else if (status === "disconnected" || status === "reconnecting") {
         this.chatStateManager.markChannelAsDisconnected(channelRef);
       }
+    });
+
+    // Listen for token refresh events and reconnect affected channels
+    this.authService.tokenRefreshed.subscribe(({ accountId, platform }) => {
+      this.reconnectChannelsForAccount(accountId, platform);
     });
   }
 
@@ -84,6 +91,49 @@ export class ChatProviderCoordinatorService {
     this.chatStateManager.markChannelAsDisconnected(
       buildChannelRef(platform, channel?.channelId ?? channelId)
     );
+  }
+
+  /**
+   * Reconnect a single channel with fresh credentials
+   */
+  reconnectChannel(channelId: string, platform: PlatformType): void {
+    const channel = this.resolveChannel(channelId, platform);
+    const resolvedChannelId = channel?.channelId ?? channelId;
+    const channelRef = buildChannelRef(platform, resolvedChannelId);
+
+    switch (platform) {
+      case "twitch":
+        this.connectionStateService.setChannelStatus(channelRef, "reconnecting");
+        this.twitchService.reconnectChannel(channel?.channelName ?? channelId);
+        break;
+      case "kick":
+        this.kickService.reconnectChannel(resolvedChannelId);
+        break;
+      case "youtube":
+        this.youtubeService.reconnectChannel(resolvedChannelId);
+        break;
+    }
+  }
+
+  /**
+   * Reconnect all channels linked to a specific account
+   * Called after token refresh to restore all connections for that account
+   */
+  reconnectChannelsForAccount(accountId: string, platform: PlatformType): void {
+    const channels = this.chatListService.getChannels(platform);
+    const accountChannels = channels.filter((ch) => ch.accountId === accountId);
+
+    if (accountChannels.length === 0) {
+      return;
+    }
+
+    for (const channel of accountChannels) {
+      try {
+        this.reconnectChannel(channel.channelId, platform);
+      } catch {
+        // Isolate failures
+      }
+    }
   }
 
   isConnected(channelId: string, platform: PlatformType): boolean {

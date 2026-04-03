@@ -319,10 +319,7 @@ export class OverlayManagementView {
   }
 
   get selectedChannelIds(): string[] {
-    const current = this.channelIdsModel() ?? [];
-    // Overlay is independent - return all selected channels
-    // Only channels visible in settings (isVisible === true) are available for selection
-    return current;
+    return this.channelIdsModel() ?? [];
   }
 
   set selectedChannelIds(value: string[]) {
@@ -396,9 +393,9 @@ export class OverlayManagementView {
 
   isChannelSelected(channelId: string): boolean {
     const current = this.channelIdsModel();
-    // Always use arrays now - check if channel is in the list
-    if (!current) {
-      return false;
+    // undefined means "show all" — treat as all channels selected
+    if (current === undefined) {
+      return true;
     }
     return current.includes(channelId);
   }

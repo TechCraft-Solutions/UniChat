@@ -7,10 +7,9 @@ export const APP_CONFIG = {
   // Environment
   production: false,
 
-  // Message limits (pairs with periodic prune + rAF-batched live ingress for 1000+ msg/min)
-  MAX_MESSAGES_PER_CHANNEL: 2000,
-  MAX_MESSAGES_TOTAL: 10000,
-  MESSAGE_CACHE_SIZE: 10000,
+  // Message limits (global cap across ALL channels, in-memory only)
+  MAX_MESSAGES_TOTAL: 1000,
+  MESSAGE_CACHE_SIZE: 1000,
 
   // History loading
   ROBOTTY_HISTORY_MAX_PAGES: 40,
@@ -71,7 +70,7 @@ export const DENSITY_CONSTANTS = {
  * Overlay constants
  */
 export const OVERLAY_CONSTANTS = {
-  DEFAULT_PORT: 37453,
+  DEFAULT_PORT: 1450,
   MESSAGE_LIMIT_DEFAULT: 50,
   MESSAGE_LIMIT_MAX: 500,
 } as const;

@@ -1,5 +1,6 @@
 /* sys lib */
 import { Injectable, inject, signal } from "@angular/core";
+import { Subject } from "rxjs";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
@@ -40,6 +41,12 @@ export class AuthorizationService {
   private readonly feedData = inject(DashboardFeedDataService);
   private readonly logger = inject(LoggerService);
   private accountsLoaded = false;
+
+  /**
+   * Event emitted after a successful token refresh.
+   * Listeners (e.g. ChatProviderCoordinatorService) handle reconnection.
+   */
+  readonly tokenRefreshed = new Subject<{ accountId: string; platform: PlatformType }>();
 
   readonly accounts = this.accountsSignal.asReadonly();
 
@@ -242,7 +249,11 @@ export class AuthorizationService {
     this.logger.info("AuthorizationService", "Accounts loaded", loaded.length, "accounts");
 
     // Then validate tokens in background (async, non-blocking)
-    void this.validateAllPlatforms();
+    // After validation completes, auto-refresh any expired tokens
+    void this.validateAllPlatforms().then(() => {
+      this.logger.info("AuthorizationService", "Validation complete, attempting auto-refresh of expired tokens");
+      void this.refreshAllExpiredTokens();
+    });
 
     // Link any unlinked channels to authorized accounts
     void this.linkAllChannelsToAccounts();
@@ -348,23 +359,27 @@ export class AuthorizationService {
   }
 
   /**
-   * Refresh token and notify services to reconnect
-   * Called by platform services when they detect expired tokens
+   * Refresh token and emit event for services to reconnect.
+   * Called by platform services when they detect expired tokens.
    */
   async refreshAndReconnect(accountId: string, platform: PlatformType): Promise<boolean> {
     const success = await this.refreshAccountToken(accountId, platform);
     if (success) {
       this.logger.info(
         "AuthorizationService",
-        "Token refreshed successfully, services should reconnect"
+        "Token refreshed, emitting reconnect event for account",
+        accountId
       );
+      // Emit event — coordinator (or any listener) handles reconnection
+      this.tokenRefreshed.next({ accountId, platform });
     }
     return success;
   }
 
   /**
-   * Try to refresh expired tokens for all platforms
-   * Returns map of platform to success status
+   * Try to refresh expired tokens for all platforms.
+   * Emits tokenRefreshed events for successful refreshes so channels reconnect.
+   * Returns map of platform to success status.
    */
   async refreshAllExpiredTokens(): Promise<Map<PlatformType, boolean>> {
     const results = new Map<PlatformType, boolean>();
@@ -374,11 +389,45 @@ export class AuthorizationService {
       const account = this.getPrimaryAccount(platform);
       if (account && (account.authStatus === "tokenExpired" || account.authStatus === "revoked")) {
         const success = await this.refreshAccountToken(account.id, platform);
+        if (success) {
+          // Emit event so coordinator reconnects channels for this account
+          this.tokenRefreshed.next({ accountId: account.id, platform });
+        }
         results.set(platform, success);
       }
     }
 
     return results;
+  }
+
+  /**
+   * Start automatic token refresh every 30 minutes.
+   * Checks all platforms for expired tokens and auto-refreshes them.
+   * Call this on application initialization.
+   */
+  private autoRefreshIntervalId: ReturnType<typeof setInterval> | null = null;
+
+  startAutoRefresh(): void {
+    if (this.autoRefreshIntervalId) {
+      return; // Already running
+    }
+
+    const THIRTY_MINUTES = 30 * 60 * 1000;
+    this.autoRefreshIntervalId = setInterval(() => {
+      this.logger.info("AuthorizationService", "Running periodic token refresh check");
+      void this.refreshAllExpiredTokens();
+    }, THIRTY_MINUTES);
+  }
+
+  /**
+   * Stop automatic token refresh.
+   * Call this on application cleanup.
+   */
+  stopAutoRefresh(): void {
+    if (this.autoRefreshIntervalId) {
+      clearInterval(this.autoRefreshIntervalId);
+      this.autoRefreshIntervalId = null;
+    }
   }
 
   /**

@@ -305,7 +305,7 @@ export class OverlayView implements OnDestroy {
       } catch (tauriError) {
         // Tauri invoke failed (e.g., in OBS browser source), try HTTP fallback
         try {
-          const port = this.widget?.port || 1421;
+          const port = this.widget?.port || 1450;
           const response = await fetch(
             `http://127.0.0.1:${port}/api/overlay/${encodeURIComponent(widgetId)}/config`
           );
@@ -514,6 +514,9 @@ export class OverlayView implements OnDestroy {
             } else if (message.platform === "kick" && channel) {
               this.pendingChannelAvatarLoads.add(channelCacheKey);
               void this.fetchKickChannelImage(channel.channelName, channelCacheKey);
+            } else if (message.platform === "youtube" && channel) {
+              this.pendingChannelAvatarLoads.add(channelCacheKey);
+              void this.fetchYouTubeChannelImage(channel.channelName, channelCacheKey);
             }
           }
         }
@@ -781,11 +784,6 @@ export class OverlayView implements OnDestroy {
   }
 
   getMessageSegments(message: OverlayChatMessage): ChatTextSegment[] {
-    const cached = this.messageSegmentsCache.get(message.id);
-    if (cached && cached.text === message.text) {
-      return cached.segments;
-    }
-
     // Create a minimal ChatMessage-like object for rich text parsing
     const chatMessage: ChatMessage = {
       id: message.id,
@@ -816,9 +814,8 @@ export class OverlayView implements OnDestroy {
       authorAvatarUrl: message.authorAvatarUrl,
     };
 
-    const segments = this.richText.buildSegments(chatMessage);
-    this.messageSegmentsCache.set(message.id, { text: message.text, segments });
-    return segments;
+    // No caching - compute segments on each call to avoid signal write errors
+    return this.richText.buildSegments(chatMessage);
   }
 
   messagesContainerClasses(): string {

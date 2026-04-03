@@ -70,7 +70,7 @@ export class DashboardView {
 
   constructor() {
     const featured = this.dashboardStateService.featuredWidget();
-    const port = featured?.port ?? 1421;
+    const port = featured?.port ?? 1450;
     void this.overlaySourceBridge.ensureConnected(port);
 
     const cleanups = [

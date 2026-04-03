@@ -45,6 +45,16 @@ pub fn run() {
       // Initialize overlay server
       let overlay_server = Arc::new(OverlayServerService::new(frontend_dist_dir));
 
+      // Auto-start overlay server on default port (1421)
+      let overlay_server_clone = overlay_server.clone();
+      tauri::async_runtime::spawn(async move {
+        if let Err(e) = overlay_server_clone.start(1421).await {
+          eprintln!("[Overlay Server] Failed to auto-start on port 1421: {e}");
+        } else {
+          println!("[Overlay Server] Started on port 1421");
+        }
+      });
+
       app.manage(AppState {
         oauth_provider_service: Arc::new(OAuthProviderService::new()),
         overlay_server_service: overlay_server,
