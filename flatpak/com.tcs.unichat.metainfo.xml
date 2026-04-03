@@ -28,9 +28,21 @@
   </provides>
 
   <releases>
-    <release version="0.1.0" date="2026-03-24">
+    <release version="0.1.0" date="2026-04-04">
       <description>
-        <p>Initial public layout with Angular + Tauri v2, mixed/split feeds, and packaging tooling.</p>
+        <p>Initial public release of UniChat — a unified desktop chat client for Twitch, Kick, and YouTube live chat.</p>
+        <p>Features:</p>
+        <ul>
+          <li>Multi-platform support: Twitch, Kick, and YouTube live chat in one place</li>
+          <li>Mixed and split feed views for monitoring multiple channels simultaneously</li>
+          <li>OAuth authentication with automatic token refresh and reconnection</li>
+          <li>Overlay system for streaming chat widgets with configurable channels</li>
+          <li>Real-time message delivery with rich text formatting</li>
+          <li>Dark and light theme support</li>
+          <li>Global message caching with intelligent memory management</li>
+          <li>Channel avatar fetching from platform APIs</li>
+          <li>Flatpak packaging for Linux distribution</li>
+        </ul>
       </description>
     </release>
   </releases>
