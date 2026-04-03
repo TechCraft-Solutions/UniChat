@@ -716,7 +716,12 @@ export class TwitchChatService extends BaseChatProviderService {
       return;
     }
 
-    this.logger.info("TwitchChatService", "Reconnecting channel", normalizedChannel, "with new token");
+    this.logger.info(
+      "TwitchChatService",
+      "Reconnecting channel",
+      normalizedChannel,
+      "with new token"
+    );
     this.disconnect(normalizedChannel);
     // Reconnect will pick up the new token from resolveAccountForChannel()
     this.connect(normalizedChannel);

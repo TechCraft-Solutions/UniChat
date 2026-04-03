@@ -91,9 +91,7 @@ pub async fn refresh_access_token(
     .map_err(|e| format!("token refresh response read failed: {e}"))?;
 
   if !status.is_success() {
-    return Err(format!(
-      "token refresh failed ({status}): {body}"
-    ));
+    return Err(format!("token refresh failed ({status}): {body}"));
   }
 
   let payload: Value = serde_json::from_str(&body)

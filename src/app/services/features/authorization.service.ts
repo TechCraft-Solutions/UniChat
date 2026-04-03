@@ -251,7 +251,10 @@ export class AuthorizationService {
     // Then validate tokens in background (async, non-blocking)
     // After validation completes, auto-refresh any expired tokens
     void this.validateAllPlatforms().then(() => {
-      this.logger.info("AuthorizationService", "Validation complete, attempting auto-refresh of expired tokens");
+      this.logger.info(
+        "AuthorizationService",
+        "Validation complete, attempting auto-refresh of expired tokens"
+      );
       void this.refreshAllExpiredTokens();
     });
 

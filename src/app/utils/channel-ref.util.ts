@@ -60,9 +60,7 @@ export function migrateLegacyChannelRefs(
     if (directRef) {
       // Normalize provider channel ID to lowercase for consistent matching
       // (message sourceChannelId is always lowercase from normalizeChannelId)
-      migrated.add(
-        buildChannelRef(directRef.platform, directRef.providerChannelId.toLowerCase())
-      );
+      migrated.add(buildChannelRef(directRef.platform, directRef.providerChannelId.toLowerCase()));
       continue;
     }
 

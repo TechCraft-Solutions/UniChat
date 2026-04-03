@@ -296,7 +296,12 @@ export class KickChatService extends BaseChatProviderService {
       return;
     }
 
-    this.logger.info("KickChatService", "Reconnecting channel", normalizedChannel, "with new token");
+    this.logger.info(
+      "KickChatService",
+      "Reconnecting channel",
+      normalizedChannel,
+      "with new token"
+    );
     // Clear cached channel info so it gets re-fetched with new token
     this.channelInfoByChannel.delete(normalizedChannel);
     // Reset reconnect attempts for clean reconnect

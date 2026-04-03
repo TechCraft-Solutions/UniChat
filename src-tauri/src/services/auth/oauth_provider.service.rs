@@ -326,16 +326,14 @@ impl OAuthProviderService {
       .ok_or_else(|| "No saved token found".to_string())?;
 
     // Get the refresh token
-    let refresh_token = saved_token
-      .refresh_token
-      .ok_or_else(|| {
-        println!(
-          "[OAuth Refresh] {} account {} has no refresh token — must re-authenticate",
-          platform.as_key(),
-          account_id
-        );
-        "No refresh token available. Please re-authenticate.".to_string()
-      })?;
+    let refresh_token = saved_token.refresh_token.ok_or_else(|| {
+      println!(
+        "[OAuth Refresh] {} account {} has no refresh token — must re-authenticate",
+        platform.as_key(),
+        account_id
+      );
+      "No refresh token available. Please re-authenticate.".to_string()
+    })?;
 
     println!(
       "[OAuth Refresh] {} has refresh token (length={})",
