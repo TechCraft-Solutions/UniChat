@@ -49,6 +49,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf lib32z1 lib32stdc++6 unzip wget
 
+      - name: Create .env file
+        run: |
+          echo "TWITCH_CLIENT_ID=${{ secrets.TWITCH_CLIENT_ID }}" > src-tauri/.env
+          echo "TWITCH_CLIENT_SECRET=${{ secrets.TWITCH_CLIENT_SECRET }}" >> src-tauri/.env
+          echo "KICK_CLIENT_ID=${{ secrets.KICK_CLIENT_ID }}" >> src-tauri/.env
+          echo "KICK_CLIENT_SECRET=${{ secrets.KICK_CLIENT_SECRET }}" >> src-tauri/.env
+          echo "YOUTUBE_CLIENT_ID=${{ secrets.YOUTUBE_CLIENT_ID }}" >> src-tauri/.env
+          echo "YOUTUBE_CLIENT_SECRET=${{ secrets.YOUTUBE_CLIENT_SECRET }}" >> src-tauri/.env
+          echo "YOUTUBE_DATA_API_KEY=${{ secrets.YOUTUBE_DATA_API_KEY }}" >> src-tauri/.env
+          echo "UNICHAT_OAUTH_REDIRECT_URI=${{ secrets.UNICHAT_OAUTH_REDIRECT_URI }}" >> src-tauri/.env
+
       - name: Install Android SDK
         run: |
           export ANDROID_HOME=$HOME/Android/Sdk

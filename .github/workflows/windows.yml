@@ -14,6 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Create .env file
+        run: |
+          echo "TWITCH_CLIENT_ID=${{ secrets.TWITCH_CLIENT_ID }}" > src-tauri/.env
+          echo "TWITCH_CLIENT_SECRET=${{ secrets.TWITCH_CLIENT_SECRET }}" >> src-tauri/.env
+          echo "KICK_CLIENT_ID=${{ secrets.KICK_CLIENT_ID }}" >> src-tauri/.env
+          echo "KICK_CLIENT_SECRET=${{ secrets.KICK_CLIENT_SECRET }}" >> src-tauri/.env
+          echo "YOUTUBE_CLIENT_ID=${{ secrets.YOUTUBE_CLIENT_ID }}" >> src-tauri/.env
+          echo "YOUTUBE_CLIENT_SECRET=${{ secrets.YOUTUBE_CLIENT_SECRET }}" >> src-tauri/.env
+          echo "YOUTUBE_DATA_API_KEY=${{ secrets.YOUTUBE_DATA_API_KEY }}" >> src-tauri/.env
+          echo "UNICHAT_OAUTH_REDIRECT_URI=${{ secrets.UNICHAT_OAUTH_REDIRECT_URI }}" >> src-tauri/.env
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
