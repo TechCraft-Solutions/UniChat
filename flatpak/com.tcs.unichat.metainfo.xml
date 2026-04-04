@@ -28,6 +28,18 @@
   </provides>
 
   <releases>
+    <release version="0.1.5" date="2026-04-05">
+      <description>
+        <p>Release version 0.1.5 with Tauri API and build improvements:</p>
+        <ul>
+          <li>Enabled global Tauri API and relaxed CSP for better integration</li>
+          <li>Reordered CSS imports and added global styles for consistency</li>
+          <li>Simplified font imports and added Roboto font</li>
+          <li>Updated dependencies and moved dev-only packages to devDependencies</li>
+          <li>Configured Angular schematics and production build settings</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.4" date="2026-04-04">
       <description>
         <p>Release version 0.1.4 with refactored channel avatar system:</p>
