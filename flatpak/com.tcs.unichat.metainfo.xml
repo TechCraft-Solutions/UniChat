@@ -28,6 +28,19 @@
   </provides>
 
   <releases>
+    <release version="0.1.4" date="2026-04-04">
+      <description>
+        <p>Release version 0.1.4 with refactored channel avatar system:</p>
+        <ul>
+          <li>Extracted ChannelAvatarService for centralized channel avatar management across all views</li>
+          <li>Refactored chat-message-card and dashboard feed components to use new avatar service</li>
+          <li>Refactored overlay and settings views to use centralized avatar service</li>
+          <li>Improved channel image preloading in ChatListService for faster initial render</li>
+          <li>Fixed updateChannelAccount to properly pass username for account linking</li>
+          <li>Updated Tailwind variant syntax for Flowbite integration</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.3" date="2026-04-04">
       <description>
         <p>Release version 0.1.3 with build configuration and overlay fixes:</p>
