@@ -88,7 +88,7 @@ pub async fn openOverlayWindow(
     return Ok(());
   }
 
-  // Create new overlay window with transparency support
+  // Create new overlay window
   let _window = WebviewWindowBuilder::new(
     &app,
     &window_label,
@@ -101,12 +101,11 @@ pub async fn openOverlayWindow(
   .title("UniChat Overlay Preview")
   .inner_size(500.0, 700.0)
   .resizable(true)
-  .decorations(!transparent_bg) // Remove decorations for transparent overlay
+  .decorations(!transparent_bg)
   .always_on_top(true)
-  .transparent(transparent_bg) // Enable window transparency
   .visible(true)
   .build()
-  .map_err(|e| e.to_string())?;
+  .map_err(|e: tauri::Error| e.to_string())?;
 
   Ok(())
 }
