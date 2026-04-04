@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   signal,
   viewChild,
@@ -14,7 +15,6 @@ import { MatIconModule } from "@angular/material/icon";
 import { ChatChannel } from "@models/chat.model";
 
 /* services */
-import { AvatarCacheService } from "@services/core/avatar-cache.service";
 import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { ChatStateService } from "@services/data/chat-state.service";
@@ -25,9 +25,8 @@ import { ChatMessagePresentationService } from "@services/ui/chat-message-presen
 import { DashboardChatInteractionService } from "@services/ui/dashboard-chat-interaction.service";
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
-import { DashboardStateService } from "@services/features/dashboard-state.service";
 import { AuthorizationService } from "@services/features/authorization.service";
-import { ChannelImageLoaderService } from "@services/ui/channel-image-loader.service";
+import { ChannelAvatarService } from "@services/ui/channel-avatar.service";
 import { buildChannelRef } from "@utils/channel-ref.util";
 
 /* components */
@@ -59,15 +58,13 @@ export class DashboardMixedFeedComponent {
   readonly presentation = inject(ChatMessagePresentationService);
   readonly interactions = inject(DashboardChatInteractionService);
   readonly connectionStateService = inject(ConnectionStateService);
+  readonly channelAvatars = inject(ChannelAvatarService);
   private readonly dashboardPreferences = inject(DashboardPreferencesService);
-  private readonly dashboardState = inject(DashboardStateService);
   private readonly twitchChat = inject(TwitchChatService);
   private readonly chatStorage = inject(ChatStorageService);
-  private readonly avatarCache = inject(AvatarCacheService);
   private readonly localStorageService = inject(LocalStorageService);
   private readonly chatStateService = inject(ChatStateService);
   private readonly authorizationService = inject(AuthorizationService);
-  private readonly channelImageLoader = inject(ChannelImageLoaderService);
 
   // Reference to the history header component
   readonly historyHeader = viewChild<
@@ -106,20 +103,12 @@ export class DashboardMixedFeedComponent {
     () => this.chatListService.channels().filter((ch) => ch.isVisible).length
   );
 
-  private persistMixedEnabled(): void {
-    const visible = new Set(
-      this.chatListService
-        .channels()
-        .filter((ch) => ch.isVisible)
-        .map((c) => this.channelRefFor(c))
-    );
-    const current = this.enabledChannels();
-
-    // Prune any enabled IDs that no longer exist in visible channels
-    const pruned = new Set([...current].filter((id) => visible.has(id)));
-
-    // Persist the pruned list to preferences
-    this.dashboardPreferences.setMixedEnabledChannelIds([...pruned]);
+  constructor() {
+    effect(() => {
+      for (const channel of this.orderedVisibleChannels()) {
+        this.channelAvatars.ensureChannelImageForChannel(channel);
+      }
+    });
   }
 
   private hydrateMixedOrder(): string[] {
@@ -235,39 +224,8 @@ export class DashboardMixedFeedComponent {
     return buildChannelRef(channel.platform, channel.channelId);
   }
 
-  /** Get channel profile image URL (loads on demand for all platforms) */
-  async getChannelImageUrl(channel: ChatChannel): Promise<string | null> {
-    // Check if channel already has image loaded
-    if (channel.channelImageUrl) {
-      return channel.channelImageUrl;
-    }
-
-    // Check centralized cache
-    const cached = this.avatarCache.getChannelAvatar(channel.id);
-    if (cached) {
-      return cached;
-    }
-
-    // Load from ChannelImageLoaderService (supports all platforms)
-    return this.channelImageLoader.loadChannelImage(
-      channel.platform,
-      channel.channelName,
-      channel.channelId
-    );
-  }
-
-  hasChannelImage(channel: ChatChannel): boolean {
-    return this.avatarCache.hasChannelAvatar(channel.id);
-  }
-
-  getCachedChannelImage(channel: ChatChannel): string | null {
-    return this.avatarCache.getChannelAvatar(channel.id) ?? null;
-  }
-
   readonly loadChannelImage = (channel: ChatChannel): void => {
-    if (!this.avatarCache.hasChannelAvatar(channel.id)) {
-      void this.getChannelImageUrl(channel);
-    }
+    this.channelAvatars.ensureChannelImageForChannel(channel);
   };
 
   // Check if any platform has authorized account for sending messages

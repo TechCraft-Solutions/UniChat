@@ -16,7 +16,6 @@ import { MatIconModule } from "@angular/material/icon";
 import { ChatChannel, ChatMessage, PlatformType } from "@models/chat.model";
 
 /* services */
-import { AvatarCacheService } from "@services/core/avatar-cache.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { ChatStateService } from "@services/data/chat-state.service";
 import { ChatStorageService } from "@services/data/chat-storage.service";
@@ -30,7 +29,7 @@ import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.
 import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.service";
 import { SplitFeedUiService } from "@services/ui/split-feed-ui.service";
 import { AuthorizationService } from "@services/features/authorization.service";
-import { ChannelImageLoaderService } from "@services/ui/channel-image-loader.service";
+import { ChannelAvatarService } from "@services/ui/channel-avatar.service";
 import { buildChannelRef } from "@utils/channel-ref.util";
 
 /* components */
@@ -73,16 +72,15 @@ export class DashboardSplitFeedComponent {
   readonly splitUi = inject(SplitFeedUiService);
   readonly blockResize = inject(BlockResizeService);
   readonly connectionStateService = inject(ConnectionStateService);
+  readonly channelAvatars = inject(ChannelAvatarService);
   private readonly chatStateService = inject(ChatStateService);
   private readonly chatListService = inject(ChatListService);
   private readonly dashboardPreferencesService = inject(DashboardPreferencesService);
   private readonly twitchChat = inject(TwitchChatService);
   readonly chatStorage = inject(ChatStorageService);
-  private readonly avatarCache = inject(AvatarCacheService);
   private readonly keyboardShortcutsService = inject(KeyboardShortcutsService);
   private readonly authorizationService = inject(AuthorizationService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly channelImageLoader = inject(ChannelImageLoaderService);
 
   // Reference to the history header component
   readonly historyHeader = viewChild<
@@ -172,6 +170,9 @@ export class DashboardSplitFeedComponent {
     effect(() => {
       for (const platform of this.visiblePlatforms()) {
         const channels = this.platformState(platform).orderedChannels;
+        for (const channel of channels) {
+          this.channelAvatars.ensureChannelImageForChannel(channel);
+        }
         this.splitUi.ensureActiveChannel(platform, channels);
         const activeChannel = this.platformState(platform).activeChannel;
         if (activeChannel) {
@@ -476,42 +477,8 @@ export class DashboardSplitFeedComponent {
     }
   }
 
-  /** Get channel profile image URL (loads on demand for all platforms) */
-  async getChannelImageUrl(channel: ChatChannel): Promise<string | null> {
-    // Check if channel already has image loaded
-    if (channel.channelImageUrl) {
-      return channel.channelImageUrl;
-    }
-
-    // Check centralized cache
-    const cached = this.avatarCache.getChannelAvatar(channel.channelId);
-    if (cached) {
-      return cached;
-    }
-
-    // Load from ChannelImageLoaderService (supports all platforms)
-    return this.channelImageLoader.loadChannelImage(
-      channel.platform,
-      channel.channelName,
-      channel.channelId
-    );
-  }
-
-  /** Check if channel has image available (for template) */
-  hasChannelImage(channel: ChatChannel): boolean {
-    return this.avatarCache.hasChannelAvatar(channel.channelId);
-  }
-
-  /** Get cached image URL (for template) */
-  getCachedChannelImage(channel: ChatChannel): string | null {
-    return this.avatarCache.getChannelAvatar(channel.channelId) ?? null;
-  }
-
-  /** Load channel image on demand */
   loadChannelImage(channel: ChatChannel): void {
-    if (!this.avatarCache.hasChannelAvatar(channel.channelId)) {
-      void this.getChannelImageUrl(channel);
-    }
+    this.channelAvatars.ensureChannelImageForChannel(channel);
   }
 
   channelRefFor(platform: PlatformType, channelId: string): string {
