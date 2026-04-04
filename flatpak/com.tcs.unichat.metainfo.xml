@@ -28,6 +28,20 @@
   </provides>
 
   <releases>
+    <release version="0.1.1" date="2026-04-04">
+      <description>
+        <p>Release version 0.1.1 with improvements and bug fixes:</p>
+        <ul>
+          <li>Build system improvements: migrated from npm to bun for faster dependency management</li>
+          <li>Fixed circular dependency issue in ChatListService by using Injector pattern</li>
+          <li>Removed unnecessary Rust dependencies (OpenSSL, native-tls, hyper-tls) reducing binary size</li>
+          <li>Android build now uses rustls-tls instead of native-tls for better cross-compilation</li>
+          <li>Added OpenSSL environment variables for Android CI builds</li>
+          <li>Enabled production mode to reduce console output in production builds</li>
+          <li>Fixed macOS build error by removing unsupported .transparent() method on WebviewWindowBuilder</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-04-04">
       <description>
         <p>Initial public release of UniChat — a unified desktop chat client for Twitch, Kick, and YouTube live chat.</p>
