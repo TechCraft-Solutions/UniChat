@@ -28,6 +28,18 @@
   </provides>
 
   <releases>
+    <release version="0.1.3" date="2026-04-04">
+      <description>
+        <p>Release version 0.1.3 with build configuration and overlay fixes:</p>
+        <ul>
+          <li>Simplified Angular build configuration by changing inlineStyleLanguage from scss to css</li>
+          <li>Removed custom optimization settings for production build to fix CSS loading issues</li>
+          <li>Disabled inlineCritical CSS to ensure styles load properly</li>
+          <li>Added devtools: true in tauri.conf.json for development debugging</li>
+          <li>Restructured overlay window configuration: moved all desktop-only builder methods (inner_size, resizable, decorations, always_on_top, visible) under #[cfg(desktop)] to fix Android build</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.2" date="2026-04-04">
       <description>
         <p>Release version 0.1.2 with platform-specific fixes:</p>
