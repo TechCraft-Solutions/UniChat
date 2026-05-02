@@ -12,4 +12,9 @@
   >
     <router-outlet />
   </main>
+
+  <!-- Debug Panel (fixed position, bottom-right) -->
+  @if (showDebugPanel()) {
+    <app-debug-panel />
+  }
 </div>
