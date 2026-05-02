@@ -1,5 +1,5 @@
+use crate::helpers::config_helper::AppConfig;
 use crate::models::platform_type_model::PlatformTypeModel;
-use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct OAuthProviderConfig {
@@ -15,12 +15,29 @@ pub struct OAuthProviderConfig {
 
 pub fn get_oauth_provider_config(
   platform: &PlatformTypeModel,
+  config: &AppConfig,
 ) -> Result<OAuthProviderConfig, String> {
+  eprintln!("[OAuth] Getting config for {:?}", platform);
   match platform {
     PlatformTypeModel::Twitch => {
-      let client_id = read_required("TWITCH_CLIENT_ID")
-        .map_err(|e| format!("Twitch OAuth not configured: {e}. Please set TWITCH_CLIENT_ID in your .env file or environment variables."))?;
-      let client_secret = read_value("TWITCH_CLIENT_SECRET");
+      eprintln!("[OAuth] Loading Twitch config...");
+      let client_id = config
+        .twitch_client_id
+        .clone()
+        .ok_or_else(|| {
+          eprintln!("[OAuth] Twitch OAuth not configured: TWITCH_CLIENT_ID not set");
+          "Twitch OAuth not configured. Please set TWITCH_CLIENT_ID in your .env file or environment variables.".to_string()
+        })?;
+      eprintln!(
+        "[OAuth] Twitch client_id loaded (length: {})",
+        client_id.len()
+      );
+      let client_secret = config.twitch_client_secret.clone();
+      if client_secret.is_some() {
+        eprintln!("[OAuth] Twitch client_secret loaded");
+      } else {
+        eprintln!("[OAuth] Twitch client_secret not set (optional)");
+      }
 
       Ok(OAuthProviderConfig {
         client_id,
@@ -34,52 +51,64 @@ pub fn get_oauth_provider_config(
           "chat:edit".to_string(),
           "moderator:manage:banned_users".to_string(),
         ],
-        redirect_uri: read_or_default(
-          "UNICHAT_OAUTH_REDIRECT_URI",
-          "http://localhost:3456/callback".to_string(),
-        ),
+        redirect_uri: config.oauth_redirect_uri.clone(),
       })
     }
     PlatformTypeModel::Kick => {
-      let client_id = read_required("KICK_CLIENT_ID")
-        .map_err(|e| format!("Kick OAuth not configured: {e}. Please set KICK_CLIENT_ID in your .env file or environment variables."))?;
-      let client_secret = read_value("KICK_CLIENT_SECRET");
+      eprintln!("[OAuth] Loading Kick config...");
+      let client_id = config
+        .kick_client_id
+        .clone()
+        .ok_or_else(|| {
+          eprintln!("[OAuth] Kick OAuth not configured: KICK_CLIENT_ID not set");
+          "Kick OAuth not configured. Please set KICK_CLIENT_ID in your .env file or environment variables.".to_string()
+        })?;
+      eprintln!(
+        "[OAuth] Kick client_id loaded (length: {})",
+        client_id.len()
+      );
+      let client_secret = config.kick_client_secret.clone();
+      if client_secret.is_some() {
+        eprintln!("[OAuth] Kick client_secret loaded");
+      }
 
       Ok(OAuthProviderConfig {
         client_id,
         client_secret,
-        authorize_url: read_or_default(
-          "KICK_AUTHORIZE_URL",
-          "https://id.kick.com/oauth/authorize".to_string(),
-        ),
-        token_url: read_or_default(
-          "KICK_TOKEN_URL",
-          "https://id.kick.com/oauth/token".to_string(),
-        ),
-        userinfo_url: read_or_default(
-          "KICK_USERINFO_URL",
-          "https://api.kick.com/public/v1/users".to_string(),
-        ),
-        revoke_url: Some(read_or_default(
-          "KICK_REVOKE_URL",
-          "https://id.kick.com/oauth/revoke".to_string(),
-        )),
+        authorize_url: config
+          .kick_client_id
+          .as_ref()
+          .map(|_| "https://id.kick.com/oauth/authorize".to_string())
+          .unwrap_or_else(|| "https://id.kick.com/oauth/authorize".to_string()),
+        token_url: "https://id.kick.com/oauth/token".to_string(),
+        userinfo_url: "https://api.kick.com/public/v1/users".to_string(),
+        revoke_url: Some("https://id.kick.com/oauth/revoke".to_string()),
         scopes: vec![
           "user:read".to_string(),
           "chat:read".to_string(),
           "chat:write".to_string(),
           "moderation:chat_message:manage".to_string(),
         ],
-        redirect_uri: read_or_default(
-          "UNICHAT_OAUTH_REDIRECT_URI",
-          "http://localhost:3456/callback".to_string(),
-        ),
+        redirect_uri: config.oauth_redirect_uri.clone(),
       })
     }
     PlatformTypeModel::Youtube => {
-      let client_id = read_required("YOUTUBE_CLIENT_ID")
-        .map_err(|e| format!("YouTube OAuth not configured: {e}. Please set YOUTUBE_CLIENT_ID in your .env file or environment variables."))?;
-      let client_secret = read_value("YOUTUBE_CLIENT_SECRET");
+      eprintln!("[OAuth] Loading YouTube config...");
+      let client_id = config
+        .youtube_client_id
+        .clone()
+        .ok_or_else(|| {
+          eprintln!("[OAuth] YouTube OAuth not configured: YOUTUBE_CLIENT_ID not set");
+          "YouTube OAuth not configured. Please set YOUTUBE_CLIENT_ID in your .env file or environment variables.".to_string()
+        })?;
+      eprintln!(
+        "[OAuth] YouTube client_id loaded (length: {})",
+        client_id.len()
+      );
+      let client_secret = config.youtube_client_secret.clone();
+      if client_secret.is_some() {
+        eprintln!("[OAuth] YouTube client_secret loaded");
+      }
 
       Ok(OAuthProviderConfig {
         client_id,
@@ -92,47 +121,8 @@ pub fn get_oauth_provider_config(
           "https://www.googleapis.com/auth/youtube.readonly".to_string(),
           "https://www.googleapis.com/auth/youtube.force-ssl".to_string(),
         ],
-        redirect_uri: read_or_default(
-          "UNICHAT_OAUTH_REDIRECT_URI",
-          "http://localhost:3456/callback".to_string(),
-        ),
+        redirect_uri: config.oauth_redirect_uri.clone(),
       })
     }
   }
-}
-
-fn read_required(key: &str) -> Result<String, String> {
-  read_value(key).ok_or_else(|| format!("{key} not set"))
-}
-
-fn read_or_default(key: &str, default_value: String) -> String {
-  read_value(key).unwrap_or(default_value)
-}
-
-fn read_value(key: &str) -> Option<String> {
-  if let Ok(value) = std::env::var(key) {
-    return Some(value);
-  }
-
-  let dotenv_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".env");
-  let dotenv_content = std::fs::read_to_string(dotenv_path).ok()?;
-  parse_dotenv(&dotenv_content).get(key).cloned()
-}
-
-fn parse_dotenv(dotenv_content: &str) -> HashMap<String, String> {
-  dotenv_content
-    .lines()
-    .filter_map(|line| {
-      let trimmed = line.trim();
-      if trimmed.is_empty() || trimmed.starts_with('#') {
-        return None;
-      }
-
-      let mut parts = trimmed.splitn(2, '=');
-      let key = parts.next()?.trim().to_string();
-      let raw_value = parts.next()?.trim();
-      let value = raw_value.trim_matches('"').trim_matches('\'').to_string();
-      Some((key, value))
-    })
-    .collect()
 }

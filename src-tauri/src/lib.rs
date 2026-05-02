@@ -8,6 +8,8 @@ pub mod utils;
 use std::sync::Arc;
 use tauri::Manager;
 
+use crate::helpers::config_helper::{AppConfig, SharedConfig};
+use crate::models::platform_type_model::PlatformKey;
 use crate::routes::auth_provider_route::{
   authAwaitCallback, authComplete, authDisconnect, authRefresh, authStart, authStatus, authValidate,
 };
@@ -28,8 +30,11 @@ use crate::routes::youtube_route::{
 };
 use crate::services::auth::oauth_provider_service::OAuthProviderService;
 use crate::services::overlay_server::overlay_server_service::OverlayServerService;
+use tauri::Emitter;
+use tauri_plugin_deep_link::DeepLinkExt;
 
 pub struct AppState {
+  pub config: SharedConfig,
   pub oauth_provider_service: Arc<OAuthProviderService>,
   pub overlay_server_service: Arc<OverlayServerService>,
 }
@@ -40,6 +45,8 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     .plugin(tauri_plugin_deep_link::init())
     .setup(|app| {
+      let config = Arc::new(AppConfig::new());
+
       let frontend_dist_dir = resolve_frontend_dist_dir(app);
 
       let overlay_server = Arc::new(OverlayServerService::new(frontend_dist_dir));
@@ -49,9 +56,79 @@ pub fn run() {
         let _ = overlay_server_clone.start(1450).await;
       });
 
+      let oauth_service = Arc::new(OAuthProviderService::new_with_config(config.clone()));
+      let oauth_service_clone = oauth_service.clone();
+
       app.manage(AppState {
-        oauth_provider_service: Arc::new(OAuthProviderService::new()),
+        config: config.clone(),
+        oauth_provider_service: oauth_service,
         overlay_server_service: overlay_server,
+      });
+
+      // Handle deep-link events (for OAuth callbacks in Flatpak)
+      let app_handle = app.handle().clone();
+      app.deep_link().on_open_url(move |event| {
+        let urls = event.urls();
+        eprintln!("[DeepLink] Event received with {} URLs", urls.len());
+        for url in urls {
+          eprintln!(
+            "[DeepLink] Processing URL: {} (scheme: {}, path: {})",
+            url,
+            url.scheme(),
+            url.path()
+          );
+          if url.scheme() == "unichat" && url.path().starts_with("/oauth/callback") {
+            eprintln!("[DeepLink] OAuth callback detected: {}", url);
+            // Process the OAuth callback asynchronously
+            let url_string = url.to_string();
+            let oauth_service = oauth_service_clone.clone();
+            let app_handle = app_handle.clone();
+
+            tauri::async_runtime::spawn(async move {
+              // Try to complete auth for all platforms since we don't know which one it is
+              // The state validation will tell us which platform this callback is for
+              let platforms = vec![
+                crate::models::platform_type_model::PlatformTypeModel::Twitch,
+                crate::models::platform_type_model::PlatformTypeModel::Kick,
+                crate::models::platform_type_model::PlatformTypeModel::Youtube,
+              ];
+
+              for platform in platforms {
+                eprintln!("[DeepLink] Trying platform: {}", platform.as_key());
+                match oauth_service
+                  .complete_auth(platform.clone(), url_string.clone())
+                  .await
+                {
+                  Ok(account) => {
+                    eprintln!(
+                      "[DeepLink] OAuth completed for {}: {}",
+                      platform.as_key(),
+                      account.username
+                    );
+                    // Emit event to frontend that auth is complete
+                    let _ = app_handle.emit("oauth-complete", &account);
+                    return; // Success, stop trying other platforms
+                  }
+                  Err(e) => {
+                    eprintln!("[DeepLink] OAuth failed for {}: {}", platform.as_key(), e);
+                    // Continue trying other platforms
+                  }
+                }
+              }
+
+              // If we get here, none of the platforms worked
+              let error_msg = "OAuth callback failed for all platforms";
+              eprintln!("[DeepLink] {}", error_msg);
+              let _ = app_handle.emit("oauth-error", error_msg);
+            });
+          } else {
+            eprintln!(
+              "[DeepLink] URL not handled: scheme={}, path={}",
+              url.scheme(),
+              url.path()
+            );
+          }
+        }
       });
 
       Ok(())

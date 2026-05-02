@@ -3,6 +3,9 @@
 #[path = "auth.twitch.helper.rs"]
 pub mod auth_twitch_helper;
 
+#[path = "config.helper.rs"]
+pub mod config_helper;
+
 #[path = "oauth.config.helper.rs"]
 pub mod oauth_config_helper;
 
