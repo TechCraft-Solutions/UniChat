@@ -1,0 +1,15 @@
+pkgbase = unichat
+	pkgdesc = Unified desktop chat client for Twitch, Kick, YouTube, and more
+	pkgver = 0.1.6
+	pkgrel = 1
+	url = https://github.com/rusnakdima/UniChat
+	arch = x86_64
+	license = MIT
+	makedepends = appimagekit
+	depends = gtk3
+	depends = libsoup3
+	depends = libayatana-appindicator
+	source = unichat::https://github.com/rusnakdima/UniChat/releases/download/v0.1.6/unichat-0.1.6-x86_64.AppImage
+	sha256sums = SKIP
+
+pkgname = unichat

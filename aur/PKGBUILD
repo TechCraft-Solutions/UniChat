@@ -1,0 +1,56 @@
+# Maintainer: Your Name <rusnakdima03@gmail.com>
+
+pkgname=unichat
+pkgver=0.1.6
+pkgrel=1
+pkgdesc="Unified desktop chat client for Twitch, Kick, YouTube, and more"
+arch=('x86_64')
+url="https://github.com/rusnakdima/UniChat"
+license=('MIT')
+depends=('gtk3' 'libsoup3' 'libayatana-appindicator')
+makedepends=('appimagekit')
+source=("unichat::https://github.com/rusnakdima/UniChat/releases/download/v${pkgver}/unichat-${pkgver}-x86_64.AppImage")
+sha256sums=('SKIP')
+
+build() {
+  # AppImage is pre-built, nothing to compile
+  return 0
+}
+
+package() {
+  # Install the AppImage
+  install -Dm755 "${srcdir}/unichat" "${pkgdir}/usr/bin/unichat"
+  chmod +x "${pkgdir}/usr/bin/unichat"
+
+  # Extract AppImage contents
+  "${srcdir}/unichat" --appimage-extract >/dev/null 2>&1
+
+  if [ -d "${srcdir}/squashfs-root" ]; then
+    # Install icons
+    install -d "${pkgdir}/usr/share/icons/hicolor/256x256/apps"
+    install -Dm644 "${srcdir}/squashfs-root/unichat.png" \
+      "${pkgdir}/usr/share/icons/hicolor/256x256/apps/com.tcs.unichat.png"
+    install -Dm644 "${srcdir}/squashfs-root/unichat.png" \
+      "${pkgdir}/usr/share/pixmaps/com.tcs.unichat.png"
+
+    # Create and install proper desktop file
+    cat > "${pkgdir}/usr/share/applications/com.tcs.unichat.desktop" << EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=UniChat
+Comment=Unified chat client for streaming platforms
+Icon=com.tcs.unichat
+Exec=unichat %U
+Terminal=false
+Categories=Network;InstantMessaging;
+Keywords=chat;twitch;kick;youtube;stream;
+StartupWMClass=unichat
+StartupNotify=true
+MimeType=x-scheme-handler/unichat;
+EOF
+
+    # Cleanup extracted files
+    rm -rf "${srcdir}/squashfs-root"
+  fi
+}
