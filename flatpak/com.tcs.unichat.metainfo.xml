@@ -29,6 +29,22 @@
   </provides>
 
   <releases>
+    <release version="0.1.7" date="2026-05-03">
+      <description>
+        <p>Release version 0.1.7 with OAuth improvements, debug panel, and Flatpak fixes:</p>
+        <ul>
+          <li>Added centralized AppConfig for multi-source .env loading (runtime vars, embedded fallback, runtime file search)</li>
+          <li>Added debug panel component for development mode (visible only with DEBUG_PANEL_ENABLED=true)</li>
+          <li>Added environment files (environment.ts / environment.prod.ts) for build-time configuration</li>
+          <li>Added debug logging to OAuth, Kick, and Twitch services</li>
+          <li>Added debug logging to frontend services (KickChatService, TwitchChatService, AuthorizationService)</li>
+          <li>Fixed Flatpak D-Bus secret service and portal permissions for OAuth token storage</li>
+          <li>Updated OAuth services to use AppConfig for configuration management</li>
+          <li>Added MimeType=x-scheme-handler/unichat for custom URL scheme support</li>
+          <li>Added AUR package (PKGBUILD) for AppImage distribution on Arch Linux</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.6" date="2026-04-05">
       <description>
         <p>Release version 0.1.6 with overlay improvements and code cleanup:</p>
