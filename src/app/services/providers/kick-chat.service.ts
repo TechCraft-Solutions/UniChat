@@ -107,11 +107,13 @@ export class KickChatService extends BaseChatProviderService {
       this.handleSocketMessage(channelSlug, data);
     });
 
-    socket.addEventListener("error", () => {
+    socket.addEventListener("error", (event) => {
+      this.logger.error("KickChatService", "WebSocket error for", channelSlug, event);
       this.errorService.reportWebSocketError(channelSlug, "kick", true);
     });
 
     socket.addEventListener("close", (event) => {
+      this.logger.warn("KickChatService", "WebSocket closed for", channelSlug, "code:", event.code, "reason:", event.reason);
       this.socketByChannel.delete(channelSlug);
       if (this.connectedChannels.has(channelSlug)) {
         this.scheduleReconnect(channelSlug);
@@ -136,7 +138,9 @@ export class KickChatService extends BaseChatProviderService {
         channelSlug,
         accessToken: account?.accessToken || null,
       });
+      this.logger.info("KickChatService", "Fetched channel info for", channelSlug, channelInfo);
       if (!channelInfo.chatroomId) {
+        this.logger.error("KickChatService", "Missing chatroom ID for", channelSlug);
         this.errorService.reportChannelNotFound(channelSlug, "kick");
         throw new Error("missing kick chatroom id");
       }
@@ -145,6 +149,7 @@ export class KickChatService extends BaseChatProviderService {
       return channelInfo;
     } catch (error) {
       const message = String(error ?? "");
+      this.logger.error("KickChatService", "fetchChannelInfo failed for", channelSlug, "error:", error);
       if (message.includes("404") || message.includes("not found")) {
         this.errorService.reportChannelNotFound(channelSlug, "kick");
       } else if (
@@ -161,6 +166,7 @@ export class KickChatService extends BaseChatProviderService {
       } else if (message.includes("500")) {
         // Kick API sometimes returns 500 - use cached channel info if available
         if (cached) {
+          this.logger.warn("KickChatService", "Using cached channel info for", channelSlug);
           return cached;
         }
         this.errorService.reportNetworkError(channelSlug, "Kick API temporarily unavailable");
@@ -375,20 +381,25 @@ export class KickChatService extends BaseChatProviderService {
     try {
       const channelInfo = await this.fetchChannelInfo(channelSlug);
       if (!channelInfo) {
+        this.logger.error("KickChatService", "No channel info returned for", channelSlug);
         this.errorService.reportChannelNotFound(channelSlug, "kick");
         return;
       }
+      this.logger.info("KickChatService", "Got channel info for", channelSlug, "chatroomId:", channelInfo.chatroomId);
       this.channelInfoByChannel.set(channelSlug, channelInfo);
       await this.fetchKickRecentMessagesRest(channelSlug, channelInfo.chatroomId);
       if (!this.connectedChannels.has(channelSlug)) {
+        this.logger.warn("KickChatService", "Channel", channelSlug, "disconnected during setup");
         return;
       }
+      this.logger.info("KickChatService", "Opening WebSocket for", channelSlug);
       this.openSocket(channelSlug, channelInfo.chatroomId);
     } catch (error) {
       // Increment reconnect attempts for exponential backoff
       const attempts = this.reconnectAttempts.get(channelSlug) ?? 0;
       this.reconnectAttempts.set(channelSlug, attempts + 1);
 
+      this.logger.error("KickChatService", "Failed to connect to", channelSlug, "attempt:", attempts + 1, "error:", error);
       this.errorService.reportNetworkError(
         channelSlug,
         "Failed to connect to Kick chat. Retrying...",

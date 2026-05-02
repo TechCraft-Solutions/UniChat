@@ -53,7 +53,7 @@ export class TwitchChatService extends BaseChatProviderService {
     string,
     (channel: string, state: tmi.RoomState) => void
   >();
-  private readonly failureListeners = new Map<string, () => void>();
+  private readonly failureListeners = new Map<string, (err: unknown) => void>();
   private readonly noticeListeners = new Map<string, (reason: string) => void>();
   private readonly statusListeners = new Set<
     (channelId: string, status: TwitchConnectionStatus) => void
@@ -83,6 +83,13 @@ export class TwitchChatService extends BaseChatProviderService {
     this.emitStatus(normalizedChannel, "connecting");
 
     const account = this.resolveAccountForChannel(normalizedChannel);
+    this.logger.info(
+      "TwitchChatService",
+      "Connecting to",
+      normalizedChannel,
+      "account:",
+      account ? { username: account.username, status: account.authStatus } : "none"
+    );
 
     const client = new tmi.Client({
       options: {
@@ -131,7 +138,8 @@ export class TwitchChatService extends BaseChatProviderService {
     client.on("connected", connectedListener);
     this.connectedListeners.set(normalizedChannel, connectedListener);
 
-    const disconnectedListener = () => {
+    const disconnectedListener = (remoteAddress?: string) => {
+      this.logger.warn("TwitchChatService", "Disconnected from Twitch", normalizedChannel, "remote:", remoteAddress);
       this.emitStatus(normalizedChannel, "disconnected");
       this.connectionStateService.clearRoomState(normalizedChannel);
     };
@@ -170,10 +178,11 @@ export class TwitchChatService extends BaseChatProviderService {
 
     // `tmi.js` runtime emits `connectionfailure`; types may not include it.
     type TmiClientWithConnectionFailure = tmi.Client & {
-      on(event: "connectionfailure", listener: () => void): tmi.Client;
+      on(event: "connectionfailure", listener: (err: unknown) => void): tmi.Client;
     };
 
-    const failureListener = () => {
+    const failureListener = (err: unknown) => {
+      this.logger.error("TwitchChatService", "Connection failure for", normalizedChannel, "error:", err);
       this.errorService.reportNetworkTimeout(normalizedChannel, "twitch");
     };
     (client as unknown as TmiClientWithConnectionFailure).on("connectionfailure", failureListener);
@@ -213,7 +222,7 @@ export class TwitchChatService extends BaseChatProviderService {
       if (roomstateListener) client.removeListener("roomstate", roomstateListener);
       if (failureListener) {
         type TmiClientWithConnectionFailure = tmi.Client & {
-          removeListener(event: "connectionfailure", listener: () => void): tmi.Client;
+          removeListener(event: "connectionfailure", listener: (err: unknown) => void): tmi.Client;
         };
         (client as unknown as TmiClientWithConnectionFailure).removeListener(
           "connectionfailure",
@@ -298,23 +307,27 @@ export class TwitchChatService extends BaseChatProviderService {
       return true;
     } catch (error) {
       const message = String(error ?? "");
+      this.logger.error("TwitchChatService", "Send message failed for", normalizedChannel, "error:", error);
       if (
         message.toLowerCase().includes("anonymous") ||
         message.toLowerCase().includes("not connected")
       ) {
+        this.logger.warn("TwitchChatService", "Detected anonymous/not-connected state, reconnecting...");
         this.errorService.reportWebSocketError(normalizedChannel, "twitch", true);
         this.disconnect(normalizedChannel);
         this.connect(normalizedChannel);
         await this.delay(900);
         client = this.clientsByChannel.get(normalizedChannel);
         if (!client) {
+          this.logger.error("TwitchChatService", "Client still not available after reconnect");
           return false;
         }
 
         try {
           await client.say(normalizedChannel, trimmed);
           return true;
-        } catch {
+        } catch (retryError) {
+          this.logger.error("TwitchChatService", "Retry also failed:", retryError);
           this.errorService.reportNetworkError(
             normalizedChannel,
             "Failed to send message after reconnect"

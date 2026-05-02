@@ -2,6 +2,7 @@
 import { Injectable, inject, signal } from "@angular/core";
 import { Subject } from "rxjs";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 /* models */
@@ -52,6 +53,17 @@ export class AuthorizationService {
 
   constructor() {
     void this.refreshStatuses();
+
+    // Listen for OAuth completion events from deep links
+    void listen<ChatAccount>('oauth-complete', (event) => {
+      this.logger.info("AuthorizationService", "Received oauth-complete event", event.payload);
+      this.upsertAccount(event.payload);
+      this.ensureChannelForAuthorizedAccount(event.payload);
+    });
+
+    void listen<string>('oauth-error', (event) => {
+      this.logger.error("AuthorizationService", "Received oauth-error event", event.payload);
+    });
   }
 
   /**
@@ -125,28 +137,41 @@ export class AuthorizationService {
   async authorize(platform: PlatformType): Promise<void> {
     const result = await invoke<AuthCommandResultPayload>("authStart", { platform });
     if (result.authUrl) {
+      // Check if we're using deep links (Flatpak) or localhost
+      const isDeepLink = result.authUrl.includes('unichat://');
+
       await openUrl(result.authUrl);
-      const completed = await invoke<AuthCommandResultPayload>("authAwaitCallback", { platform });
 
-      if (completed.account) {
-        this.logger.info(
-          "AuthorizationService",
-          "Initial account from backend",
-          completed.account.username
-        );
+      if (isDeepLink) {
+        // For deep links, the OAuth flow is asynchronous
+        // The backend will emit events when the deep-link callback is received
+        this.logger.info("AuthorizationService", "Started deep-link OAuth flow for", platform);
+        // The completion will be handled by the persistent event listeners in the constructor
+        return Promise.resolve();
+      } else {
+        // For localhost, use the traditional synchronous flow
+        const completed = await invoke<AuthCommandResultPayload>("authAwaitCallback", { platform });
 
-        // For Kick, the backend now fetches the real username from the OAuth identity
-        // No need to prompt user for username anymore
-        if (platform === "kick") {
+        if (completed.account) {
           this.logger.info(
             "AuthorizationService",
-            "Kick account created with username",
+            "Initial account from backend",
             completed.account.username
           );
-        }
 
-        this.upsertAccount(completed.account);
-        this.ensureChannelForAuthorizedAccount(completed.account);
+          // For Kick, the backend now fetches the real username from the OAuth identity
+          // No need to prompt user for username anymore
+          if (platform === "kick") {
+            this.logger.info(
+              "AuthorizationService",
+              "Kick account created with username",
+              completed.account.username
+            );
+          }
+
+          this.upsertAccount(completed.account);
+          this.ensureChannelForAuthorizedAccount(completed.account);
+        }
       }
     }
   }

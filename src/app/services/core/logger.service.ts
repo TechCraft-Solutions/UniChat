@@ -8,13 +8,17 @@ export type LogLevel = "debug" | "info" | "warn" | "error";
 
 /**
  * Logging service with configurable log levels per environment
+ * 
+ * Debug mode can be enabled in production by setting:
+ *   localStorage.setItem('unichat_debug', 'true')
+ * Then reload the app.
  */
 @Injectable({
   providedIn: "root",
 })
 export class LoggerService {
-  private readonly enabled = !APP_CONFIG.production;
-  private readonly minLevel: LogLevel = APP_CONFIG.production ? "warn" : "debug";
+  private readonly debugEnabled = this.checkDebugMode();
+  private readonly minLevel: LogLevel = this.debugEnabled ? "debug" : (APP_CONFIG.production ? "warn" : "debug");
 
   private readonly levels: Record<LogLevel, number> = {
     debug: 0,
@@ -23,8 +27,22 @@ export class LoggerService {
     error: 3,
   };
 
+  private checkDebugMode(): boolean {
+    if (!APP_CONFIG.production) {
+      return true; // Always debug in non-production
+    }
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        return window.localStorage.getItem("unichat_debug") === "true";
+      }
+    } catch {
+      // localStorage might not be available
+    }
+    return false;
+  }
+
   private shouldLog(level: LogLevel): boolean {
-    return this.enabled && this.levels[level] >= this.levels[this.minLevel];
+    return this.debugEnabled && this.levels[level] >= this.levels[this.minLevel];
   }
 
   debug(context: string, ...args: unknown[]): void {
