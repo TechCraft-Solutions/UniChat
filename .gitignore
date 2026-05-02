@@ -46,4 +46,4 @@ testem.log
 Thumbs.db
 
 # Markdown (except root documentation)
-*.md
+*.mdaur/
