@@ -39,6 +39,7 @@ pub fn validate_channel_slug(slug: &str) -> ValidationResult<()> {
 }
 
 /// Validate a username (alphanumeric + underscore + dash)
+#[allow(dead_code)]
 pub fn validate_username(username: &str) -> ValidationResult<()> {
   if username.is_empty() {
     return Err(ValidationError::Empty);
@@ -92,6 +93,7 @@ pub fn validate_oauth_token(token: &str) -> ValidationResult<()> {
 }
 
 /// Validate widget ID (alphanumeric + dash + underscore)
+#[allow(dead_code)]
 pub fn validate_widget_id(widget_id: &str) -> ValidationResult<()> {
   if widget_id.is_empty() {
     return Err(ValidationError::Empty);
@@ -113,6 +115,7 @@ pub fn validate_widget_id(widget_id: &str) -> ValidationResult<()> {
 
 /// Sanitize a string by removing potentially dangerous characters
 /// This is a basic sanitization - should be used in addition to validation
+#[allow(dead_code)]
 pub fn sanitize_input(input: &str) -> String {
   input
     .chars()

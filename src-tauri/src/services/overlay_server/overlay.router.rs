@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use tower_http::services::ServeDir;
 
 use crate::routes::overlay_route::{OVERLAY_CONFIGS, OVERLAY_MESSAGES};
+use crate::services::overlay_server::overlay_helpers::filter_and_sort_messages;
 use crate::services::overlay_server::overlay_subscriber_manager::OverlayServerState;
 use crate::services::overlay_server::overlay_ws_handlers::{handle_overlay_ws, OverlayWsQuery};
 
@@ -78,39 +79,13 @@ async fn get_overlay_messages(
   Path(widget_id): Path<String>,
   Query(query): Query<GetOverlayMessagesQuery>,
 ) -> Json<Vec<serde_json::Value>> {
-  use crate::models::overlay_message_model::OverlayMessageModel;
-
   let messages = OVERLAY_MESSAGES.read().await;
   let Some(widget_messages) = messages.get(&widget_id) else {
     return Json(Vec::new());
   };
 
-  let mut result: Vec<OverlayMessageModel> = widget_messages.clone();
+  let result = filter_and_sort_messages(widget_messages, query.channel_ids.as_ref(), query.limit);
 
-  // Apply channel filter if specified
-  if let Some(ids) = query.channel_ids {
-    if !ids.is_empty() {
-      result.retain(|msg| {
-        let channel_ref = format!("{}:{}", msg.platform, msg.source_channel_id);
-        ids.contains(&channel_ref)
-      });
-    }
-  }
-
-  // Sort by timestamp (newest first)
-  result.sort_by(|a, b| {
-    let a_time = a.timestamp.parse::<i64>().unwrap_or(0);
-    let b_time = b.timestamp.parse::<i64>().unwrap_or(0);
-    b_time.cmp(&a_time)
-  });
-
-  // Apply limit
-  let limit_value = query.limit.unwrap_or(50) as usize;
-  if result.len() > limit_value {
-    result.truncate(limit_value);
-  }
-
-  // Convert to JSON values
   let json_result: Vec<serde_json::Value> = result
     .into_iter()
     .map(|msg| {

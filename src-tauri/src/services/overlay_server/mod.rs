@@ -1,6 +1,9 @@
 //! Overlay server module
 //! Provides HTTP/WebSocket server for OBS browser source overlays
 
+#[path = "overlay.helpers.rs"]
+pub mod overlay_helpers;
+
 #[path = "overlay.router.rs"]
 pub mod overlay_router;
 

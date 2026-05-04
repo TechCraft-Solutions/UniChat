@@ -65,9 +65,9 @@ impl OAuthProviderService {
   }
 
   /// Set the config (called from lib.rs after AppConfig is created)
+  #[allow(dead_code)]
   pub fn set_config(&mut self, config: SharedConfig) {
     self.config = config;
-    eprintln!("[Auth] Config updated");
   }
 
   /// Start OAuth authentication flow
@@ -293,7 +293,8 @@ impl OAuthProviderService {
       .refresh_token
       .ok_or_else(|| "No refresh token available. Please re-authenticate.".to_string())?;
 
-    // Get config
+    // Get config (borrow needed - PlatformTypeModel is Clone, not Copy)
+    #[allow(clippy::needless_borrow)]
     let config = get_oauth_provider_config(&platform, &self.config)?;
 
     // Refresh the token

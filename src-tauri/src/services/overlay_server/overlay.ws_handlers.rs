@@ -16,6 +16,9 @@ use crate::services::overlay_server::overlay_subscriber_manager::{
   OverlayServerState, OverlaySubscriber,
 };
 
+const MAX_WIDGET_IDS: usize = 100;
+const MESSAGE_MAX_PER_WIDGET: usize = 100;
+
 /// Query parameters for overlay WebSocket connections
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -192,6 +195,13 @@ async fn persist_overlay_message(message: OverlayMessageModel) {
   }
 
   let mut messages = OVERLAY_MESSAGES.write().await;
+
+  if messages.len() >= MAX_WIDGET_IDS {
+    if let Some(oldest) = widget_ids.first().cloned() {
+      messages.remove(&oldest);
+    }
+  }
+
   for widget_id in widget_ids {
     let widget_messages = messages.entry(widget_id).or_insert_with(Vec::new);
 
@@ -199,7 +209,7 @@ async fn persist_overlay_message(message: OverlayMessageModel) {
       *existing = message.clone();
     } else {
       widget_messages.push(message.clone());
-      if widget_messages.len() > 100 {
+      if widget_messages.len() > MESSAGE_MAX_PER_WIDGET {
         widget_messages.remove(0);
       }
     }

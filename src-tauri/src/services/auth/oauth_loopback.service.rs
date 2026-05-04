@@ -3,10 +3,12 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Mutex;
+use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub struct OAuthLoopbackService {
   pending_callbacks: Mutex<HashMap<String, Receiver<String>>>,
+  join_handles: Mutex<Vec<JoinHandle<()>>>,
 }
 
 impl Default for OAuthLoopbackService {
@@ -19,6 +21,7 @@ impl OAuthLoopbackService {
   pub fn new() -> Self {
     Self {
       pending_callbacks: Mutex::new(HashMap::new()),
+      join_handles: Mutex::new(Vec::new()),
     }
   }
 
@@ -42,8 +45,8 @@ impl OAuthLoopbackService {
     }
 
     let expected_path = callback_path.to_string();
-    std::thread::spawn(move || match listener.accept() {
-      Ok((mut stream, _)) => {
+    let handle = std::thread::spawn(move || {
+      if let Ok((mut stream, _)) = listener.accept() {
         let mut buffer = [0_u8; 4096];
         let mut callback_url: Option<String> = None;
         if let Ok(size) = stream.read(&mut buffer) {
@@ -78,8 +81,14 @@ impl OAuthLoopbackService {
           let _ = sender.send(url);
         }
       }
-      Err(_) => {}
     });
+    {
+      let mut guard = self
+        .join_handles
+        .lock()
+        .map_err(|_| "join handles lock poisoned".to_string())?;
+      guard.push(handle);
+    }
 
     Ok(())
   }
