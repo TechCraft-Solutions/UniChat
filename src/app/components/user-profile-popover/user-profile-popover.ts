@@ -71,8 +71,6 @@ export class UserProfilePopoverComponent {
   readonly youtubeUserInfoLoading = signal(false);
   readonly channelInfo = signal<{ name: string; imageUrl?: string } | null>(null);
 
-  readonly showChannelLabels = computed(() => false); // Not used in text-only mode
-
   readonly layout = computed((): UserProfilePanelLayout | null => {
     this.popover.anchorRect();
     this.popover.useSavedPosition();

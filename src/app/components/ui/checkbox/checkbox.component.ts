@@ -18,22 +18,10 @@ export class CheckboxComponent {
 
   @Output() checkedChange = new EventEmitter<boolean>();
   @Output() change = new EventEmitter<boolean>();
-  @Output() click = new EventEmitter<Event>();
 
   onModelChange(value: boolean): void {
     this.checked = value;
     this.checkedChange.emit(value);
-  }
-
-  onCheckboxChange(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    this.checked = target.checked;
-    this.change.emit(target.checked);
-  }
-
-  onCheckboxClick(event: Event): void {
-    // Prevent browser's default focus-scroll behavior that causes page teleportation
-    // Use preventDefault on the focus event, not click, to allow state toggling
-    this.click.emit(event);
+    this.change.emit(value);
   }
 }
