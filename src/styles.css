@@ -200,5 +200,40 @@ mat-icon {
   transform: rotate(180deg);
 }
 
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+/* ===== Bottom Sheet Animation ===== */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.bottom-sheet {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* ===== Safe Area Padding for Mobile ===== */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ===== Touch-friendly targets ===== */
+@media (hover: none) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}

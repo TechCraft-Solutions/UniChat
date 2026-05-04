@@ -28,6 +28,7 @@ import { YouTubeChannelInfo } from "@models/platform-api.model";
 
 /* services */
 import { AvatarCacheService } from "@services/core/avatar-cache.service";
+import { LoggerService } from "@services/core/logger.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { DashboardStateService } from "@services/features/dashboard-state.service";
 import { AuthorizationService } from "@services/features/authorization.service";
@@ -71,6 +72,7 @@ export class OverlayView implements OnDestroy {
   private readonly kickChat = inject(KickChatService);
   private readonly chatList = inject(ChatListService);
   private readonly avatarCache = inject(AvatarCacheService);
+  private readonly logger = inject(LoggerService);
   private readonly channelImageLoader = inject(ChannelImageLoaderService);
   private configPollInterval: ReturnType<typeof setInterval> | null = null;
   private lastKnownConfig: Map<string, string> = new Map();
@@ -221,7 +223,7 @@ export class OverlayView implements OnDestroy {
       // Try Tauri invoke first (works in preview window)
       try {
         config = await invoke<WidgetConfig>("getOverlayConfig", { widgetId: widget.id });
-      } catch {
+      } catch (tauriError) {
         // Tauri invoke failed (e.g., in OBS browser source), try HTTP fallback
         try {
           const port = widget.port;
@@ -231,8 +233,11 @@ export class OverlayView implements OnDestroy {
           if (response.ok) {
             config = await response.json();
           }
-        } catch {
-          /* HTTP fallback unavailable */
+        } catch (httpError) {
+          this.logger.debug("HTTP fallback unavailable for overlay config", {
+            tauriError,
+            httpError,
+          });
         }
       }
 
@@ -314,8 +319,11 @@ export class OverlayView implements OnDestroy {
           if (response.ok) {
             config = await response.json();
           }
-        } catch {
-          /* HTTP fallback unavailable */
+        } catch (httpError) {
+          this.logger.debug("HTTP fallback unavailable for pollBackendConfig", {
+            tauriError,
+            httpError,
+          });
         }
       }
 
@@ -390,8 +398,8 @@ export class OverlayView implements OnDestroy {
 
         this.cdr.markForCheck();
       }
-    } catch {
-      /* poll failed */
+    } catch (pollError) {
+      this.logger.warn("Backend config poll failed", { error: pollError });
     }
   }
 

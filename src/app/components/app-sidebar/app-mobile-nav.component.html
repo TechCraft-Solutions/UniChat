@@ -1,0 +1,33 @@
+<nav
+  class="fixed right-0 bottom-0 left-0 z-50 flex h-16 items-center justify-around border-t border-slate-200 bg-white px-2 py-2 lg:hidden dark:border-white/10 dark:bg-slate-900"
+  role="navigation"
+  aria-label="Mobile navigation"
+>
+  @for (item of navItems; track item.path) {
+    <button
+      type="button"
+      class="flex flex-col items-center justify-center gap-0.5 rounded-xl px-4 py-1.5 transition"
+      [class]="
+        isActive(item.path)
+          ? 'text-slate-900 dark:text-white'
+          : 'text-slate-500 dark:text-slate-400'
+      "
+      (click)="navigate(item.path)"
+      [attr.aria-label]="item.label"
+      [attr.aria-current]="isActive(item.path) ? 'page' : null"
+    >
+      <mat-icon [fontIcon]="item.icon" class="h-6! w-6!" />
+      <span class="text-[10px] font-medium">{{ item.label }}</span>
+    </button>
+  }
+
+  <button
+    type="button"
+    (click)="toggleTheme()"
+    class="flex flex-col items-center justify-center gap-0.5 rounded-xl px-4 py-1.5 text-slate-500 transition dark:text-slate-400"
+    aria-label="Toggle theme"
+  >
+    <mat-icon [fontIcon]="themeMode() === 'dark' ? 'light_mode' : 'dark_mode'" class="h-6! w-6!" />
+    <span class="text-[10px] font-medium">Theme</span>
+  </button>
+</nav>

@@ -8,7 +8,7 @@ export const APP_CONFIG = {
   production: true,
 
   // Debug mode - set via localStorage: localStorage.setItem('unichat_debug', 'true')
-  debug: typeof window !== 'undefined' && window.localStorage?.getItem('unichat_debug') === 'true',
+  debug: typeof window !== "undefined" && window.localStorage?.getItem("unichat_debug") === "true",
 
   // Message limits (global cap across ALL channels, in-memory only)
   MAX_MESSAGES_TOTAL: 1000,

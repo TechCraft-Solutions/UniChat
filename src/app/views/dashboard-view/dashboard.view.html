@@ -15,7 +15,7 @@
   />
 
   <main
-    class="flex min-h-0 flex-1 flex-col overflow-y-auto"
+    class="flex min-h-0 flex-1 flex-col overflow-y-auto pb-20 lg:pb-0"
     role="main"
     aria-label="Chat dashboard"
   >
@@ -29,7 +29,7 @@
   <!-- Search Modal Overlay -->
   @if (showSearch()) {
     <div
-      class="absolute inset-0 z-50 flex items-start justify-center overflow-hidden bg-black/50 p-4 pt-20"
+      class="absolute inset-0 z-50 flex items-start justify-center overflow-hidden bg-black/50 p-4 pt-12 lg:pt-20"
       (click)="toggleSearch()"
     >
       <app-chat-search
@@ -40,13 +40,37 @@
     </div>
   }
 
-  <!-- Pinned Messages Panel Overlay -->
+  <!-- Pinned Messages Panel - Desktop: side panel, Mobile: bottom sheet -->
   @if (showPinned()) {
     <div
-      class="absolute inset-0 z-50 flex items-start justify-end bg-black/50 p-4"
+      class="absolute inset-0 z-50 flex items-end justify-center bg-black/50 p-0 lg:items-start lg:justify-end lg:bg-black/50 lg:p-4"
       (click)="togglePinned()"
     >
-      <app-pinned-messages-panel (click)="$event.stopPropagation()" (closed)="togglePinned()" />
+      <div
+        class="max-h-[85vh] w-full rounded-t-2xl border-t border-slate-200 bg-white shadow-xl lg:max-h-[500px] lg:max-w-lg lg:rounded-xl dark:border-white/10 dark:bg-slate-900"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="flex items-center justify-between border-b border-slate-200 px-4 py-3 lg:hidden dark:border-white/10"
+        >
+          <div class="flex items-center gap-2">
+            <mat-icon
+              [fontIcon]="'push_pin'"
+              class="h-6! w-5! text-xl! text-amber-600 dark:text-amber-400"
+            />
+            <h3 class="text-sm font-semibold">Pinned Messages</h3>
+          </div>
+          <button
+            type="button"
+            (click)="togglePinned()"
+            class="rounded-lg p-1 text-slate-500 transition hover:bg-slate-200 dark:hover:bg-white/10"
+            aria-label="Close"
+          >
+            <mat-icon [fontIcon]="'close'" class="h-5! w-5!" />
+          </button>
+        </div>
+        <app-pinned-messages-panel (closed)="togglePinned()" />
+      </div>
     </div>
   }
 
