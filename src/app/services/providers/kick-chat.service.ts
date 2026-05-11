@@ -8,12 +8,13 @@ import { ConnectionErrorService } from "@services/core/connection-error.service"
 import { BaseChatProviderService } from "@services/providers/base-chat-provider.service";
 import { KickChatEventMapper } from "@services/providers/kick-chat-event.mapper";
 import { normalizeChannelId } from "@utils/channel-normalization.util";
+import { ReconnectionManager } from "@utils/reconnection-manager.util";
 
 /* models */
 import { RecentlySentMessage, KickUserInfo, KickChannelInfo } from "@models/platform-api.model";
 
 /* helpers */
-import { createMessageActionState } from "@helpers/chat.helper";
+import { createMessageActionState, generateTimestamp } from "@helpers/chat.helper";
 
 @Injectable({
   providedIn: "root",
@@ -24,7 +25,7 @@ export class KickChatService extends BaseChatProviderService {
   private readonly socketByChannel = new Map<string, WebSocket>();
   private readonly channelInfoByChannel = new Map<string, KickChannelInfo>();
   private readonly reconnectTimerByChannel = new Map<string, number>();
-  private readonly reconnectAttempts = new Map<string, number>();
+  private readonly reconnectManagers = new Map<string, ReconnectionManager>();
   private readonly historyNoticeLoggedChannels = new Set<string>();
   private readonly recentlySentMessages = new Map<string, RecentlySentMessage>();
   private readonly errorService = inject(ConnectionErrorService);
@@ -325,7 +326,7 @@ export class KickChatService extends BaseChatProviderService {
     // Clear cached channel info so it gets re-fetched with new token
     this.channelInfoByChannel.delete(normalizedChannel);
     // Reset reconnect attempts for clean reconnect
-    this.reconnectAttempts.delete(normalizedChannel);
+    this.reconnectManagers.delete(normalizedChannel);
     // Disconnect and reconnect
     this.disconnect(normalizedChannel);
     this.connect(normalizedChannel);
@@ -355,25 +356,31 @@ export class KickChatService extends BaseChatProviderService {
       return;
     }
 
-    const attempts = this.reconnectAttempts.get(channelSlug) ?? 0;
-    const baseDelay = 1000;
-    const maxDelay = 30000;
+    let manager = this.reconnectManagers.get(channelSlug);
+    if (!manager) {
+      manager = new ReconnectionManager({
+        maxRetries: 10,
+        baseDelayMs: 1000,
+        maxDelayMs: 30000,
+        jitterPercentage: 0.2,
+      });
+      this.reconnectManagers.set(channelSlug, manager);
+    }
 
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (capped)
-    const delay = Math.min(maxDelay, baseDelay * Math.pow(2, attempts));
+    if (!manager.shouldRetry()) {
+      return;
+    }
 
-    // Add jitter (±20%) to prevent thundering herd
-    const jitter = delay * 0.2 * (Math.random() - 0.5);
-    const finalDelay = Math.max(500, delay + jitter); // Minimum 500ms
+    const delay = manager.onConnectionFailed();
 
     this.logger.debug(
       "KickChatService",
       "Scheduling reconnect for",
       channelSlug,
       "attempt",
-      attempts + 1,
+      manager.getState().attempts,
       "delay",
-      Math.round(finalDelay),
+      Math.round(delay),
       "ms"
     );
 
@@ -383,14 +390,23 @@ export class KickChatService extends BaseChatProviderService {
         return;
       }
       void this.startLiveSocket(channelSlug);
-    }, finalDelay);
+    }, delay);
 
     this.reconnectTimerByChannel.set(channelSlug, timerId);
   }
 
   private async startLiveSocket(channelSlug: string): Promise<void> {
-    // Reset reconnect attempts on successful connection
-    this.reconnectAttempts.set(channelSlug, 0);
+    let manager = this.reconnectManagers.get(channelSlug);
+    if (!manager) {
+      manager = new ReconnectionManager({
+        maxRetries: 10,
+        baseDelayMs: 1000,
+        maxDelayMs: 30000,
+        jitterPercentage: 0.2,
+      });
+      this.reconnectManagers.set(channelSlug, manager);
+    }
+    manager.onSuccessfulConnection();
 
     try {
       const channelInfo = await this.fetchChannelInfo(channelSlug);
@@ -415,16 +431,15 @@ export class KickChatService extends BaseChatProviderService {
       this.logger.info("KickChatService", "Opening WebSocket for", channelSlug);
       this.openSocket(channelSlug, channelInfo.chatroomId);
     } catch (error) {
-      // Increment reconnect attempts for exponential backoff
-      const attempts = this.reconnectAttempts.get(channelSlug) ?? 0;
-      this.reconnectAttempts.set(channelSlug, attempts + 1);
+      const mgr = this.reconnectManagers.get(channelSlug);
+      const attempts = mgr?.getState().attempts ?? 0;
 
       this.logger.error(
         "KickChatService",
         "Failed to connect to",
         channelSlug,
         "attempt:",
-        attempts + 1,
+        attempts,
         "error:",
         error
       );
@@ -541,7 +556,7 @@ export class KickChatService extends BaseChatProviderService {
     text: string,
     account: { username: string; userId: string; accessToken?: string }
   ): void {
-    const timestamp = new Date().toISOString();
+    const timestamp = generateTimestamp();
     const messageId = `kick-outgoing-${Date.now()}`;
 
     this.logger.debug("KickChatService", "Creating outgoing message with author", account.username);

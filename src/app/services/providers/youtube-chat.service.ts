@@ -475,14 +475,11 @@ export class YouTubeChatService extends BaseChatProviderService {
   }
 
   /**
-   * Fetch YouTube chat history
-   * TODO: Implement YouTube history loading via YouTube Live Chat API
-   * Currently returns empty array - feature not yet supported
-   * @see TwitchChatService.fetchHistory() for reference implementation
+   * YouTube chat history is not supported by this application.
+   * YouTube's Live Chat API does not support historical message fetching
+   * for non-premium accounts.
    */
   async fetchHistory(channelId: string): Promise<ChatMessage[]> {
-    // TODO: Implement using YouTube Data API v3 - liveChatMessages.list
-    // Requires OAuth scope: https://www.googleapis.com/auth/youtube.force-ssl
-    return [];
+    return []; // YouTube history not supported
   }
 }

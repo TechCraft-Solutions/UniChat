@@ -11,7 +11,11 @@ import { AuthorizationService } from "@services/features/authorization.service";
 import { MessageTypeDetectorService } from "@services/ui/message-type-detector.service";
 
 /* helpers */
-import { createMessageActionState, getChannelAccountCapabilities } from "@helpers/chat.helper";
+import {
+  createMessageActionState,
+  generateTimestamp,
+  getChannelAccountCapabilities,
+} from "@helpers/chat.helper";
 export interface PlatformChatConfig {
   server?: string;
   port?: number;
@@ -52,7 +56,7 @@ export abstract class BaseChatProviderService {
   };
 
   protected createMessage(channelId: string, data: Partial<ChatMessage>): ChatMessage {
-    const timestamp = new Date().toISOString();
+    const timestamp = generateTimestamp();
     const userId = data.sourceUserId ?? `${this.platform}-user-${Date.now()}`;
     const sourceMessageId = data.sourceMessageId ?? `${this.platform}-${channelId}-${Date.now()}`;
     const messageId = data.id ?? sourceMessageId;
