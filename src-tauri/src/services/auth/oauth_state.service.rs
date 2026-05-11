@@ -1,3 +1,4 @@
+use log;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -20,6 +21,7 @@ impl Default for OAuthStateService {
 
 impl OAuthStateService {
   pub fn new() -> Self {
+    log::debug!("Creating new OAuthStateService");
     Self {
       sessions: Mutex::new(HashMap::new()),
     }
@@ -44,7 +46,8 @@ impl OAuthStateService {
       .sessions
       .lock()
       .map_err(|_| "oauth session lock poisoned".to_string())?;
-    guard.insert(state, session.clone());
+    guard.insert(state.clone(), session.clone());
+    log::debug!("OAuth session created for {:?}, state: {}", platform, state);
     Ok(session)
   }
 
@@ -55,7 +58,14 @@ impl OAuthStateService {
       .map_err(|_| "oauth session lock poisoned".to_string())?;
     guard
       .remove(state)
-      .ok_or_else(|| "oauth state is missing or expired".to_string())
+      .ok_or_else(|| {
+        log::warn!("OAuth session not found or expired: {}", state);
+        "oauth state is missing or expired".to_string()
+      })
+      .map(|session| {
+        log::debug!("OAuth session consumed, state: {}", session.state);
+        session
+      })
   }
 }
 

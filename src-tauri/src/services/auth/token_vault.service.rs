@@ -1,8 +1,9 @@
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use crate::models::auth_account_model::AuthAccountModel;
+use crate::models::auth_account_model::{AuthAccountModel, AuthStatusModel};
 use crate::models::auth_oauth_model::OAuthTokenModel;
 use crate::models::platform_type_model::{PlatformKey, PlatformTypeModel};
 
@@ -18,7 +19,7 @@ struct AccountVaultRecord {
 pub struct TokenVaultService {
   service_name: String,
   /// Cache of tokens to reduce keyring access and provide atomic operations
-  token_cache: Arc<RwLock<Vec<AccountVaultRecord>>>,
+  token_cache: Arc<RwLock<HashMap<String, AccountVaultRecord>>>,
 }
 
 impl Default for TokenVaultService {
@@ -31,7 +32,7 @@ impl TokenVaultService {
   pub fn new() -> Self {
     let service = Self {
       service_name: "unichat".to_string(),
-      token_cache: Arc::new(RwLock::new(Vec::new())),
+      token_cache: Arc::new(RwLock::new(HashMap::new())),
     };
     // Load tokens into cache on startup
     service.load_all_tokens_into_cache();
@@ -74,12 +75,11 @@ impl TokenVaultService {
       .set_password(&serialized)
       .map_err(|e| format!("token save failed: {e}"))?;
 
+    let cache_key = format!("{}-{}", account.platform.as_key(), account.id);
+
     // Update cache atomically
     if let Ok(mut cache) = self.token_cache.write() {
-      // Remove old entry if exists
-      cache.retain(|r| r.account.id != account.id);
-      // Add new entry
-      cache.push(record);
+      cache.insert(cache_key, record);
     }
 
     Ok(())
@@ -91,12 +91,11 @@ impl TokenVaultService {
     platform: &PlatformTypeModel,
     account_id: &str,
   ) -> Result<Option<OAuthTokenModel>, String> {
+    let cache_key = format!("{}-{}", platform.as_key(), account_id);
+
     // Try cache first (fast path)
     if let Ok(cache) = self.token_cache.read() {
-      if let Some(record) = cache
-        .iter()
-        .find(|r| r.account.platform == *platform && r.account.id == account_id)
-      {
+      if let Some(record) = cache.get(&cache_key) {
         return Ok(Some(record.token.clone()));
       }
     }
@@ -129,9 +128,10 @@ impl TokenVaultService {
 
     match entry.delete_credential() {
       Ok(_) | Err(keyring::Error::NoEntry) => {
+        let cache_key = format!("{}-{}", platform.as_key(), account_id);
         // Remove from cache atomically
         if let Ok(mut cache) = self.token_cache.write() {
-          cache.retain(|r| !(r.account.platform == *platform && r.account.id == account_id));
+          cache.remove(&cache_key);
         }
         Ok(())
       }
@@ -226,5 +226,45 @@ impl TokenVaultService {
     entry
       .set_password(&serialized)
       .map_err(|e| format!("token index save failed: {e}"))
+  }
+
+  pub fn validate_token_for_role(&self, token: &str, role: &str) -> Result<(), String> {
+    if token.is_empty() {
+      return Err("token is required".to_string());
+    }
+
+    for platform in &[
+      PlatformTypeModel::Twitch,
+      PlatformTypeModel::Kick,
+      PlatformTypeModel::Youtube,
+    ] {
+      if let Ok(accounts) = self.read_accounts(platform) {
+        for account in accounts {
+          if let Ok(Some(stored_token)) = self.read_token(platform, &account.id) {
+            if token == stored_token.access_token
+              || token
+                == stored_token
+                  .refresh_token
+                  .as_ref()
+                  .unwrap_or(&String::new())
+            {
+              match role {
+                "overlay" => {
+                  return Ok(());
+                }
+                "source" => {
+                  if account.auth_status == AuthStatusModel::Authorized {
+                    return Ok(());
+                  }
+                }
+                _ => {}
+              }
+            }
+          }
+        }
+      }
+    }
+
+    Err("invalid token or insufficient permissions".to_string())
   }
 }

@@ -29,7 +29,7 @@ pub async fn fetch_identity(
       let raw_body = response.text().await.unwrap_or_default();
 
       if !status.is_success() {
-        return Ok(("kick-user".to_string(), "kick-unknown".to_string(), None));
+        return Err(format!("Kick identity request failed: HTTP {}", status));
       }
 
       let payload: Value =

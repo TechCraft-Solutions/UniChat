@@ -21,3 +21,9 @@ pub mod oauth_token_exchange;
 
 #[path = "oauth.identity_fetch.rs"]
 pub mod oauth_identity_fetch;
+
+#[path = "oauth_flow.service.rs"]
+pub mod oauth_flow_service;
+
+#[path = "account.service.rs"]
+pub mod account_service;

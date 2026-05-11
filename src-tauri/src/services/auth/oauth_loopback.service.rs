@@ -1,3 +1,4 @@
+use log;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -33,7 +34,16 @@ impl OAuthLoopbackService {
     callback_path: &str,
   ) -> Result<(), String> {
     let address = format!("{host}:{port}");
-    let listener = TcpListener::bind(&address).map_err(|e| format!("callback bind failed: {e}"))?;
+    log::info!(
+      "Starting OAuth loopback listener for {} on {}:{}",
+      platform_key,
+      host,
+      port
+    );
+    let listener = TcpListener::bind(&address).map_err(|e| {
+      log::error!("Failed to bind loopback listener on {}: {}", address, e);
+      format!("callback bind failed: {e}")
+    })?;
     let (sender, receiver) = mpsc::channel::<String>();
 
     {
@@ -45,7 +55,12 @@ impl OAuthLoopbackService {
     }
 
     let expected_path = callback_path.to_string();
+    let platform_key_owned = platform_key.to_string();
     let handle = std::thread::spawn(move || {
+      log::debug!(
+        "OAuth callback thread started for platform {}",
+        platform_key_owned
+      );
       if let Ok((mut stream, _)) = listener.accept() {
         let mut buffer = [0_u8; 4096];
         let mut callback_url: Option<String> = None;
@@ -78,9 +93,19 @@ impl OAuthLoopbackService {
           );
         let _ = stream.write_all(response.as_bytes());
         if let Some(url) = callback_url {
-          let _ = sender.send(url);
+          log::debug!(
+            "OAuth callback received for platform {}",
+            platform_key_owned
+          );
+          if let Err(e) = sender.send(url) {
+            log::warn!("OAuth callback receiver already dropped: {}", e);
+          }
         }
       }
+      log::debug!(
+        "OAuth callback thread stopped for platform {}",
+        platform_key_owned
+      );
     });
     {
       let mut guard = self
@@ -90,6 +115,10 @@ impl OAuthLoopbackService {
       guard.push(handle);
     }
 
+    log::info!(
+      "OAuth loopback listener started successfully for {}",
+      platform_key
+    );
     Ok(())
   }
 
@@ -98,19 +127,42 @@ impl OAuthLoopbackService {
     platform_key: &str,
     timeout_seconds: u64,
   ) -> Result<String, String> {
+    log::debug!(
+      "Waiting for OAuth callback for platform {} (timeout: {}s)",
+      platform_key,
+      timeout_seconds
+    );
     let receiver = {
       let mut guard = self
         .pending_callbacks
         .lock()
         .map_err(|_| "callback map lock poisoned".to_string())?;
-      guard
-        .remove(platform_key)
-        .ok_or_else(|| "callback listener is not started".to_string())?
+      guard.remove(platform_key).ok_or_else(|| {
+        log::error!(
+          "Callback listener not started for platform {}",
+          platform_key
+        );
+        "callback listener is not started".to_string()
+      })?
     };
 
     let timeout = Duration::from_secs(timeout_seconds);
-    receiver
-      .recv_timeout(timeout)
-      .map_err(|_| "authorization callback timeout".to_string())
+    receiver.recv_timeout(timeout).map_err(|_| {
+      log::warn!(
+        "OAuth callback timeout for platform {} after {}s",
+        platform_key,
+        timeout_seconds
+      );
+      "authorization callback timeout".to_string()
+    })
+  }
+}
+
+impl Drop for OAuthLoopbackService {
+  fn drop(&mut self) {
+    let handles: Vec<_> = self.join_handles.lock().unwrap().drain(..).collect();
+    for handle in handles {
+      let _ = handle.join();
+    }
   }
 }

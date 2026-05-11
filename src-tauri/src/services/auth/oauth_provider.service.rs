@@ -1,36 +1,24 @@
 //! OAuth Provider Service
-//! Orchestrates the OAuth authentication flow across platforms
+//! Facade that delegates to OAuthFlowService, AccountService, and TokenVaultService
 
-use std::collections::HashMap;
-use std::sync::Mutex;
-
-use chrono::{Duration, Utc};
+use log;
 use reqwest::Client;
 use url::Url;
 
-use crate::constants::OAUTH_CALLBACK_TIMEOUT_SECS;
 use crate::helpers::config_helper::SharedConfig;
 use crate::helpers::oauth_config_helper::get_oauth_provider_config;
-use crate::models::auth_account_model::{AuthAccountModel, AuthStatusModel};
-use crate::models::platform_type_model::{PlatformKey, PlatformTypeModel};
-use crate::services::auth::oauth_helpers::{
-  extract_callback_params, parse_loopback_redirect, pkce_challenge,
-};
-use crate::services::auth::oauth_identity_fetch::fetch_identity;
-use crate::services::auth::oauth_loopback_service::OAuthLoopbackService;
-use crate::services::auth::oauth_state_service::OAuthStateService;
-use crate::services::auth::oauth_token_exchange::exchange_code_for_token;
-use crate::services::auth::oauth_token_exchange::refresh_access_token;
+use crate::models::auth_account_model::AuthAccountModel;
+use crate::models::auth_oauth_model::OAuthTokenModel;
+use crate::models::platform_type_model::PlatformTypeModel;
+use crate::services::auth::account_service::AccountService;
+use crate::services::auth::oauth_flow_service::OAuthFlowService;
 use crate::services::auth::token_vault_service::TokenVaultService;
 
-/// OAuth Provider Service - orchestrates OAuth flows
 pub struct OAuthProviderService {
   http: Client,
-  oauth_state_service: OAuthStateService,
-  oauth_loopback_service: OAuthLoopbackService,
+  oauth_flow_service: OAuthFlowService,
+  account_service: AccountService,
   token_vault_service: TokenVaultService,
-  account_store: Mutex<HashMap<String, AuthAccountModel>>,
-  config: SharedConfig,
 }
 
 impl Default for OAuthProviderService {
@@ -40,243 +28,80 @@ impl Default for OAuthProviderService {
 }
 
 impl OAuthProviderService {
-  /// Create a new OAuth provider service
   pub fn new() -> Self {
     Self {
       http: Client::new(),
-      oauth_state_service: OAuthStateService::new(),
-      oauth_loopback_service: OAuthLoopbackService::new(),
+      oauth_flow_service: OAuthFlowService::new(),
+      account_service: AccountService::new(),
       token_vault_service: TokenVaultService::new(),
-      account_store: Mutex::new(HashMap::new()),
-      config: SharedConfig::default(),
     }
   }
 
-  /// Create a new OAuth provider service with config
   pub fn new_with_config(config: SharedConfig) -> Self {
     Self {
       http: Client::new(),
-      oauth_state_service: OAuthStateService::new(),
-      oauth_loopback_service: OAuthLoopbackService::new(),
+      oauth_flow_service: OAuthFlowService::new_with_config(config.clone()),
+      account_service: AccountService::new_with_config(config.clone()),
       token_vault_service: TokenVaultService::new(),
-      account_store: Mutex::new(HashMap::new()),
-      config,
     }
   }
 
-  /// Set the config (called from lib.rs after AppConfig is created)
-  #[allow(dead_code)]
-  pub fn set_config(&mut self, config: SharedConfig) {
-    self.config = config;
-  }
-
-  /// Start OAuth authentication flow
-  /// Returns the authorization URL to redirect the user to
   pub fn start_auth(&self, platform: PlatformTypeModel) -> Result<String, String> {
-    let config = get_oauth_provider_config(&platform, &self.config)?;
-    let (host, port, path) = parse_loopback_redirect(&config.redirect_uri)?;
-    self
-      .oauth_loopback_service
-      .start_listener(platform.as_key(), &host, port, &path)?;
-    let session = self.oauth_state_service.create_session(&platform)?;
-    let code_challenge = pkce_challenge(&session.code_verifier);
-    let scope = config.scopes.join(" ");
-
-    let mut url =
-      Url::parse(&config.authorize_url).map_err(|e| format!("invalid authorize url: {e}"))?;
-    url
-      .query_pairs_mut()
-      .append_pair("client_id", &config.client_id)
-      .append_pair("redirect_uri", &config.redirect_uri)
-      .append_pair("response_type", "code")
-      .append_pair("scope", &scope)
-      .append_pair("state", &session.state)
-      .append_pair("code_challenge", &code_challenge)
-      .append_pair("code_challenge_method", "S256");
-
-    Ok(url.to_string())
+    self.oauth_flow_service.start_auth(platform)
   }
 
-  /// Wait for OAuth callback and complete authentication
   pub async fn await_loopback_and_complete(
     &self,
     platform: PlatformTypeModel,
   ) -> Result<AuthAccountModel, String> {
+    log::debug!("Waiting for OAuth callback for {:?}", platform);
     let callback_url = self
-      .oauth_loopback_service
-      .wait_for_callback(platform.as_key(), OAUTH_CALLBACK_TIMEOUT_SECS)?;
+      .oauth_flow_service
+      .wait_for_callback(platform.clone())?;
     self.complete_auth(platform, callback_url).await
   }
 
-  /// Complete OAuth authentication with callback URL
   pub async fn complete_auth(
     &self,
     platform: PlatformTypeModel,
     callback_url: String,
   ) -> Result<AuthAccountModel, String> {
     let callback = Url::parse(&callback_url).map_err(|e| format!("invalid callback url: {e}"))?;
-    let params = extract_callback_params(&callback);
-
-    if let Some(error_code) = params.get("error") {
-      let description = params
-        .get("error_description")
-        .cloned()
-        .unwrap_or_else(|| "authorization failed at provider".to_string());
-      return Err(format!("{error_code}: {description}"));
-    }
-
-    let code = params
-      .get("code")
-      .ok_or_else(|| "missing code parameter in callback".to_string())?;
-    let state = params
-      .get("state")
-      .ok_or_else(|| "missing state parameter in callback".to_string())?;
-    let session = self.oauth_state_service.consume_session(state)?;
-    let config = get_oauth_provider_config(&platform, &self.config)?;
-
-    let token =
-      exchange_code_for_token(&self.http, &platform, code, &session.code_verifier, &config).await?;
-
-    let (username, user_id, avatar_url) =
-      fetch_identity(&self.http, &platform, &token, &config).await?;
-
-    let expires_at = token
-      .expires_in_seconds
-      .map(|seconds| (Utc::now() + Duration::seconds(seconds)).to_rfc3339());
-    let account = AuthAccountModel {
-      id: format!("acc-{}-{}", platform.as_key(), user_id),
-      platform: platform.clone(),
-      username,
-      user_id,
-      avatar_url,
-      access_token: Some(token.access_token.clone()),
-      refresh_token: token.refresh_token.clone(),
-      auth_status: AuthStatusModel::Authorized,
-      token_expires_at: expires_at,
-      authorized_at: Utc::now().to_rfc3339(),
-    };
-    self.token_vault_service.upsert_account(&account)?;
-    self.token_vault_service.save_token(&account, &token)?;
-
-    let mut guard = self
-      .account_store
-      .lock()
-      .map_err(|_| "account store lock poisoned".to_string())?;
-    guard.insert(account.id.clone(), account.clone());
+    let params: std::collections::HashMap<String, String> =
+      callback.query_pairs().into_owned().collect();
+    let state_param = params.get("state").ok_or("missing state parameter")?;
+    self
+      .oauth_flow_service
+      .get_state_service()
+      .consume_session(state_param)?;
+    let account = self
+      .oauth_flow_service
+      .complete_auth(platform.clone(), callback_url)
+      .await?;
+    self.account_service.upsert_account(&account)?;
+    self.token_vault_service.save_token(
+      &account,
+      &OAuthTokenModel {
+        access_token: account.access_token.clone().unwrap_or_default(),
+        refresh_token: account.refresh_token.clone(),
+        expires_in_seconds: None,
+      },
+    )?;
     Ok(account)
   }
 
-  /// Get authentication status for a platform
   pub fn get_auth_status(
     &self,
     platform: PlatformTypeModel,
   ) -> Result<Vec<AuthAccountModel>, String> {
-    let saved = self.token_vault_service.read_accounts(&platform)?;
-    let mut guard = self
-      .account_store
-      .lock()
-      .map_err(|_| "account store lock poisoned".to_string())?;
-
-    for account in &saved {
-      guard.insert(account.id.clone(), account.clone());
-    }
-
-    Ok(saved)
+    self.account_service.get_auth_status(platform)
   }
 
-  /// Validate authentication status and tokens for a platform
-  /// Returns accounts with updated auth_status if tokens are expired/invalid
   pub async fn validate_auth_status(
     &self,
     platform: PlatformTypeModel,
   ) -> Result<Vec<AuthAccountModel>, String> {
-    let mut accounts = self.get_auth_status(platform.clone())?;
-    let config = get_oauth_provider_config(&platform, &self.config)?;
-    let now = chrono::Utc::now();
-
-    for account in &mut accounts {
-      // Check if token is expired
-      if let Some(expires_at_str) = &account.token_expires_at {
-        if let Ok(expires_at) = chrono::DateTime::parse_from_rfc3339(expires_at_str) {
-          if now >= expires_at {
-            // Token is expired, check if we can refresh
-            if account.refresh_token.is_some() {
-              // Mark as expired but keep account (can refresh)
-              account.auth_status = AuthStatusModel::TokenExpired;
-            } else {
-              // No refresh token, mark as expired
-              account.auth_status = AuthStatusModel::TokenExpired;
-            }
-          }
-        }
-      }
-
-      // Validate token by making a test API call
-      if account.auth_status == AuthStatusModel::Authorized {
-        match self
-          .validate_token_with_api(&platform, &account.access_token, &config)
-          .await
-        {
-          Ok(true) => {
-            // Token is valid
-            account.auth_status = AuthStatusModel::Authorized;
-          }
-          Ok(false) => {
-            // Token is truly invalid/revoked (401/403)
-            account.auth_status = AuthStatusModel::Revoked;
-          }
-          Err(_) => {}
-        }
-      }
-
-      // Update account in store
-      let mut guard = self
-        .account_store
-        .lock()
-        .map_err(|_| "account store lock poisoned".to_string())?;
-      guard.insert(account.id.clone(), account.clone());
-    }
-
-    Ok(accounts)
-  }
-
-  /// Validate token by making a test API call to the platform.
-  /// Returns:
-  ///   Ok(true) — token is valid
-  ///   Ok(false) — token is invalid/revoked (401 unauthorized)
-  ///   Err — API call failed (network error, 500, etc.) — status unknown, don't change auth_status
-  async fn validate_token_with_api(
-    &self,
-    platform: &PlatformTypeModel,
-    access_token: &Option<String>,
-    config: &crate::helpers::oauth_config_helper::OAuthProviderConfig,
-  ) -> Result<bool, String> {
-    let token = access_token
-      .as_ref()
-      .ok_or_else(|| "No access token available".to_string())?;
-
-    let mut request = self.http.get(&config.userinfo_url).bearer_auth(token);
-
-    if matches!(platform, PlatformTypeModel::Twitch) {
-      request = request.header("Client-Id", &config.client_id);
-    }
-
-    let response = request
-      .send()
-      .await
-      .map_err(|e| format!("Validation request failed: {e}"))?;
-
-    let status = response.status();
-
-    if status.is_success() {
-      return Ok(true);
-    }
-
-    if status == 401 || status == 403 {
-      return Ok(false);
-    }
-
-    Err(format!("API error {status}, not marking as revoked"))
+    self.account_service.validate_auth_status(platform).await
   }
 
   pub async fn refresh_token(
@@ -284,64 +109,29 @@ impl OAuthProviderService {
     platform: &PlatformTypeModel,
     account_id: &str,
   ) -> Result<AuthAccountModel, String> {
-    let saved_token = self
-      .token_vault_service
-      .read_token(platform, account_id)?
-      .ok_or_else(|| "No saved token found".to_string())?;
-
-    let refresh_token = saved_token
-      .refresh_token
-      .ok_or_else(|| "No refresh token available. Please re-authenticate.".to_string())?;
-
-    // Get config (borrow needed - PlatformTypeModel is Clone, not Copy)
-    #[allow(clippy::needless_borrow)]
-    let config = get_oauth_provider_config(&platform, &self.config)?;
-
-    // Refresh the token
-    let new_token = refresh_access_token(&self.http, platform, &refresh_token, &config).await?;
-
-    // Get the account from vault
-    let accounts = self.token_vault_service.read_accounts(platform)?;
-    let mut account = accounts
-      .into_iter()
-      .find(|acc| acc.id == account_id)
-      .ok_or_else(|| "Account not found".to_string())?;
-
-    // Update account with new token
-    let expires_at = new_token
-      .expires_in_seconds
-      .map(|seconds| (chrono::Utc::now() + chrono::Duration::seconds(seconds)).to_rfc3339());
-    account.access_token = Some(new_token.access_token.clone());
-    account.refresh_token = new_token.refresh_token.clone();
-    account.token_expires_at = expires_at;
-    account.auth_status = AuthStatusModel::Authorized;
-
-    // Save updated account and token
-    self.token_vault_service.upsert_account(&account)?;
-    self.token_vault_service.save_token(&account, &new_token)?;
-
-    // Update in-memory store
-    let mut guard = self
-      .account_store
-      .lock()
-      .map_err(|_| "account store lock poisoned".to_string())?;
-    guard.insert(account.id.clone(), account.clone());
-
-    Ok(account)
+    self
+      .account_service
+      .refresh_token(platform, account_id)
+      .await
   }
 
-  /// Disconnect an account and revoke tokens
   pub async fn disconnect(
     &self,
     platform: PlatformTypeModel,
     account_id: String,
   ) -> Result<(), String> {
+    log::info!("Disconnecting account {} on {:?}", account_id, platform);
     let token = self
       .token_vault_service
       .read_token(&platform, &account_id)?;
     if let Some(saved_token) = token {
-      let config = get_oauth_provider_config(&platform, &self.config)?;
+      let config = get_oauth_provider_config(&platform, &SharedConfig::default())?;
       if let Some(revoke_url) = config.revoke_url {
+        log::debug!(
+          "Revoking token for account {} on {:?}",
+          account_id,
+          platform
+        );
         let mut form: Vec<(&str, &str)> = vec![
           ("client_id", &config.client_id),
           ("token", &saved_token.access_token),
@@ -349,15 +139,18 @@ impl OAuthProviderService {
         if let Some(ref secret) = config.client_secret {
           form.push(("client_secret", secret));
         }
-        // Attempt token revocation (best effort)
         match self.http.post(revoke_url).form(&form).send().await {
           Ok(response) => {
             if !response.status().is_success() {
-              // Token revocation failed (best effort, ignore)
+              log::warn!("Token revoke request failed for account {}", account_id);
             }
           }
-          Err(_) => {
-            // Token revocation request failed (best effort, ignore)
+          Err(e) => {
+            log::warn!(
+              "Token revoke request error for account {}: {}",
+              account_id,
+              e
+            );
           }
         }
       }
@@ -369,11 +162,13 @@ impl OAuthProviderService {
     self
       .token_vault_service
       .remove_account(&platform, &account_id)?;
-    let mut guard = self
-      .account_store
-      .lock()
-      .map_err(|_| "account store lock poisoned".to_string())?;
-    guard.remove(&account_id);
+    log::info!("Account {} disconnected successfully", account_id);
     Ok(())
+  }
+
+  pub fn validate_token_for_role(&self, token: &str, role: &str) -> Result<(), String> {
+    self
+      .token_vault_service
+      .validate_token_for_role(token, role)
   }
 }
