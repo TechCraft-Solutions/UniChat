@@ -5,8 +5,9 @@
  * and enable offline access to recent messages.
  */
 
-import { Injectable } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
 import { ChatMessage } from "@models/chat.model";
+import { LoggerService } from "@services/core/logger.service";
 
 const DB_NAME = "unichat-chat-history";
 const DB_VERSION = 1;
@@ -24,6 +25,7 @@ interface ChatHistoryStore {
   providedIn: "root",
 })
 export class ChatHistoryDbService {
+  private readonly logger = inject(LoggerService);
   private db: IDBDatabase | null = null;
   private isOpening = false;
   private openPromise: Promise<IDBDatabase> | null = null;
@@ -91,7 +93,7 @@ export class ChatHistoryDbService {
 
       await this.requestToPromise(store.add(record));
     } catch (error) {
-      console.warn("[ChatHistoryDB] Failed to store message:", error);
+      this.logger.warn("[ChatHistoryDB] Failed to store message:", error);
     }
   }
 
@@ -117,7 +119,7 @@ export class ChatHistoryDbService {
 
       await this.transactionToPromise(transaction);
     } catch (error) {
-      console.warn("[ChatHistoryDB] Failed to store messages:", error);
+      this.logger.warn("[ChatHistoryDB] Failed to store messages:", error);
     }
   }
 
@@ -198,7 +200,7 @@ export class ChatHistoryDbService {
         }
       };
     } catch (error) {
-      console.warn("[ChatHistoryDB] Failed to delete channel messages:", error);
+      this.logger.warn("[ChatHistoryDB] Failed to delete channel messages:", error);
     }
   }
 
@@ -212,7 +214,7 @@ export class ChatHistoryDbService {
       const store = transaction.objectStore(STORE_NAME);
       await this.requestToPromise(store.delete(messageId));
     } catch (error) {
-      console.warn("[ChatHistoryDB] Failed to delete message:", error);
+      this.logger.warn("[ChatHistoryDB] Failed to delete message:", error);
     }
   }
 
@@ -226,7 +228,7 @@ export class ChatHistoryDbService {
       const store = transaction.objectStore(STORE_NAME);
       await this.requestToPromise(store.clear());
     } catch (error) {
-      console.warn("[ChatHistoryDB] Failed to clear all messages:", error);
+      this.logger.warn("[ChatHistoryDB] Failed to clear all messages:", error);
     }
   }
 
@@ -299,6 +301,84 @@ export class ChatHistoryDbService {
    */
   isAvailable(): boolean {
     return typeof indexedDB !== "undefined";
+  }
+
+  /**
+   * Get all messages grouped by channelId
+   */
+  async getAllPersistedMessages(): Promise<Record<string, ChatMessage[]>> {
+    try {
+      if (!this.isAvailable()) {
+        return {};
+      }
+
+      const db = await this.openDb();
+      const transaction = db.transaction([STORE_NAME], "readonly");
+      const store = transaction.objectStore(STORE_NAME);
+
+      return new Promise((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => {
+          const records = request.result as ChatHistoryStore[];
+          const grouped: Record<string, ChatMessage[]> = {};
+
+          for (const record of records) {
+            const { channelId, message } = record;
+            if (!grouped[channelId]) {
+              grouped[channelId] = [];
+            }
+            grouped[channelId].push(message);
+          }
+
+          for (const channelId of Object.keys(grouped)) {
+            grouped[channelId].sort(
+              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+          }
+
+          resolve(grouped);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Persist all messages for a channel (replaces existing)
+   */
+  async persistChannelMessages(channelId: string, messages: ChatMessage[]): Promise<void> {
+    try {
+      if (!this.isAvailable()) {
+        return;
+      }
+
+      await this.deleteChannelMessages(channelId);
+
+      if (messages.length === 0) {
+        return;
+      }
+
+      const db = await this.openDb();
+      const transaction = db.transaction([STORE_NAME], "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+
+      for (const message of messages) {
+        const record: ChatHistoryStore = {
+          id: message.id,
+          channelId,
+          platform: message.platform,
+          message,
+          timestamp: new Date(message.timestamp).getTime(),
+        };
+        store.add(record);
+      }
+
+      await this.transactionToPromise(transaction);
+    } catch (error) {
+      console.warn("[ChatHistoryDB] Failed to persist channel messages:", error);
+    }
   }
 
   /**

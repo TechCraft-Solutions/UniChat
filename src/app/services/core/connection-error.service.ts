@@ -7,6 +7,7 @@ import { PlatformType, ChannelConnectionError } from "@models/chat.model";
 /* services */
 import { ChatListService } from "@services/data/chat-list.service";
 import { ConnectionStateService } from "@services/data/connection-state.service";
+import { generateTimestamp } from "@helpers/chat.helper";
 /**
  * Error codes for connection errors
  */
@@ -204,7 +205,7 @@ export class ConnectionErrorService {
   reportError(channelId: string, error: Omit<ChannelConnectionError, "occurredAt">): void {
     this.connectionStateService.reportError(channelId, {
       ...error,
-      occurredAt: new Date().toISOString(),
+      occurredAt: generateTimestamp(),
     });
   }
 

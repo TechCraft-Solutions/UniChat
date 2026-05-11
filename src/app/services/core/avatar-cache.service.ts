@@ -1,95 +1,99 @@
 /* sys lib */
 import { Injectable } from "@angular/core";
-/**
- * Centralized avatar cache service
- * Consolidates caches from multiple components to prevent memory duplication
- * and provide a single source of truth for image caching
- */
+
+interface CacheEntry {
+  url: string;
+  timestamp: number;
+}
+
+const DEFAULT_MAX_SIZE = 500;
+const DEFAULT_TTL_MS = 30 * 60 * 1000;
+
+const AVATAR_CACHE_CONFIG = {
+  maxSize: DEFAULT_MAX_SIZE,
+  ttlMs: DEFAULT_TTL_MS,
+};
+
 @Injectable({
   providedIn: "root",
 })
 export class AvatarCacheService {
-  private userCache = new Map<string, string>();
-  private channelCache = new Map<string, string>();
+  private userCache = new Map<string, CacheEntry>();
+  private channelCache = new Map<string, CacheEntry>();
+  private maxSize = AVATAR_CACHE_CONFIG.maxSize;
+  private ttlMs = AVATAR_CACHE_CONFIG.ttlMs;
 
-  /**
-   * Get cached user avatar URL
-   * @param key - Cache key (typically platform:userId)
-   * @returns Cached URL or undefined
-   */
+  private isExpired(entry: CacheEntry): boolean {
+    return Date.now() - entry.timestamp > this.ttlMs;
+  }
+
+  private evictIfNeeded(cache: Map<string, CacheEntry>): void {
+    if (cache.size >= this.maxSize) {
+      const oldestKey = Array.from(cache.entries())
+        .sort((a, b) => a[1].timestamp - b[1].timestamp)
+        .find(([, entry]) => this.isExpired(entry))?.[0];
+      if (oldestKey) {
+        cache.delete(oldestKey);
+      } else {
+        const firstKey = cache.keys().next().value;
+        if (firstKey !== undefined) {
+          cache.delete(firstKey);
+        }
+      }
+    }
+  }
+
   getUserAvatar(key: string): string | undefined {
-    return this.userCache.get(key);
+    const entry = this.userCache.get(key);
+    if (!entry) return undefined;
+    if (this.isExpired(entry)) {
+      this.userCache.delete(key);
+      return undefined;
+    }
+    return entry.url;
   }
 
-  /**
-   * Cache user avatar URL
-   * @param key - Cache key (typically platform:userId)
-   * @param url - Avatar URL to cache
-   */
   setUserAvatar(key: string, url: string): void {
-    this.userCache.set(key, url);
+    this.evictIfNeeded(this.userCache);
+    this.userCache.set(key, { url, timestamp: Date.now() });
   }
 
-  /**
-   * Get cached channel avatar URL
-   * @param key - Cache key (typically platform:channelId)
-   * @returns Cached URL or undefined
-   */
   getChannelAvatar(key: string): string | undefined {
-    return this.channelCache.get(key);
+    const entry = this.channelCache.get(key);
+    if (!entry) return undefined;
+    if (this.isExpired(entry)) {
+      this.channelCache.delete(key);
+      return undefined;
+    }
+    return entry.url;
   }
 
-  /**
-   * Cache channel avatar URL
-   * @param key - Cache key (typically platform:channelId)
-   * @param url - Avatar URL to cache
-   */
   setChannelAvatar(key: string, url: string): void {
-    this.channelCache.set(key, url);
+    this.evictIfNeeded(this.channelCache);
+    this.channelCache.set(key, { url, timestamp: Date.now() });
   }
 
-  /**
-   * Check if user avatar is cached
-   * @param key - Cache key
-   */
   hasUserAvatar(key: string): boolean {
-    return this.userCache.has(key);
+    return !!this.getUserAvatar(key);
   }
 
-  /**
-   * Check if channel avatar is cached
-   * @param key - Cache key
-   */
   hasChannelAvatar(key: string): boolean {
-    return this.channelCache.has(key);
+    return !!this.getChannelAvatar(key);
   }
 
-  /**
-   * Clear all cached avatars
-   * Useful for memory management or when user logs out
-   */
   clear(): void {
     this.userCache.clear();
     this.channelCache.clear();
   }
 
-  /**
-   * Clear only user avatars
-   */
   clearUserCache(): void {
     this.userCache.clear();
   }
 
-  /**
-   * Clear only channel avatars
-   */
   clearChannelCache(): void {
     this.channelCache.clear();
   }
 
-  /**
-   * Get cache statistics for debugging
-   */
   getStats(): { userCacheSize: number; channelCacheSize: number } {
     return {
       userCacheSize: this.userCache.size,
