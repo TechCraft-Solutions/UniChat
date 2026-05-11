@@ -41,6 +41,11 @@ testem.log
 .last-frontend-build
 .last-rust-build
 
+# Environment files (contain secrets)
+.env
+.env.*
+.env.example
+
 # System files
 .DS_Store
 Thumbs.db
