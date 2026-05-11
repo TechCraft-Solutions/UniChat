@@ -21,9 +21,18 @@ import { ChatProviderCoordinatorService } from "@services/providers/chat-provide
 import {
   buildSplitFeed,
   createMessageActionState,
+  generateTimestamp,
   getChannelAccountCapabilities,
 } from "@helpers/chat.helper";
 import { buildChannelRef } from "@utils/channel-ref.util";
+
+function generateUuidV4(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 /**
  * Chat State Service - Computed State Layer
  *
@@ -168,7 +177,7 @@ export class ChatStateService {
    * Create an optimistic outgoing message for instant UI feedback
    */
   private createOptimisticMessage(platform: PlatformType, channelId: string, text: string): void {
-    const id = `out-${platform}-${channelId}-${Date.now()}`;
+    const id = `out-${platform}-${channelId}-${generateUuidV4()}`;
     const outgoing: ChatMessage = {
       id,
       platform,
@@ -177,7 +186,7 @@ export class ChatStateService {
       sourceUserId: "local-user",
       author: "You",
       text: text,
-      timestamp: new Date().toISOString(),
+      timestamp: generateTimestamp(),
       badges: ["operator"],
       isSupporter: false,
       isOutgoing: true,

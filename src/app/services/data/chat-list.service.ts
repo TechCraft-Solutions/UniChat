@@ -6,9 +6,10 @@ import { ChannelAccountCapabilities, ChatChannel, PlatformType } from "@models/c
 
 /* services */
 import { ChannelImageLoaderService } from "@services/ui/channel-image-loader.service";
+import { AvatarCacheService } from "@services/core/avatar-cache.service";
 
 /* helpers */
-import { normalizeYouTubeProviderInput } from "@helpers/chat.helper";
+import { normalizeYouTubeProviderInput, generateTimestamp } from "@helpers/chat.helper";
 import { buildChannelRef } from "@utils/channel-ref.util";
 import { normalizeChannelId } from "@utils/channel-normalization.util";
 import { LocalStorageService } from "../core/local-storage.service";
@@ -22,9 +23,15 @@ export class ChatListService {
   private readonly localStorageService = inject(LocalStorageService);
   private readonly dashboardPreferencesService = inject(DashboardPreferencesService);
   private readonly injector = inject(Injector);
+  private readonly avatarCache = inject(AvatarCacheService);
+
+  private _channelImageLoaderCache: ChannelImageLoaderService | null = null;
 
   private get channelImageLoader(): ChannelImageLoaderService {
-    return this.injector.get(ChannelImageLoaderService);
+    if (!this._channelImageLoaderCache) {
+      this._channelImageLoaderCache = this.injector.get(ChannelImageLoaderService);
+    }
+    return this._channelImageLoaderCache;
   }
 
   private readonly channelsSignal = signal<ChatChannel[]>(this.loadChannels());
@@ -32,15 +39,14 @@ export class ChatListService {
   readonly channels = this.channelsSignal.asReadonly();
 
   constructor() {
-    // Defer image preloading until after DI finishes constructing the service graph.
     queueMicrotask(() => this.loadMissingChannelImages());
   }
 
   private loadMissingChannelImages(): void {
     const channels = this.channelsSignal();
     for (const channel of channels) {
-      if (!channel.channelImageUrl) {
-        // Trigger async image loading - don't await, fire and forget
+      const cacheKey = `${channel.platform}:${channel.channelId}`;
+      if (!this.avatarCache.hasChannelAvatar(cacheKey)) {
         this.loadChannelImage(channel.id);
       }
     }
@@ -94,14 +100,13 @@ export class ChatListService {
       platform,
       channelId: providerChannelId,
       channelName: normalizedChannelName,
-      channelImageUrl: undefined, // Will be loaded asynchronously
       isAuthorized: !!accountId,
       accountId,
       accountCapabilities: accountId
         ? this.createInitialAccountCapabilities(platform, normalizedChannelName, accountUsername)
         : undefined,
       isVisible: true,
-      addedAt: new Date().toISOString(),
+      addedAt: generateTimestamp(),
     };
 
     this.channelsSignal.update((channels) => {
@@ -197,7 +202,6 @@ export class ChatListService {
           ...ch,
           channelName: newName,
           channelId: this.resolveProviderChannelId(ch.platform, newName),
-          channelImageUrl: undefined,
           accountCapabilities: ch.accountId
             ? this.createInitialAccountCapabilities(ch.platform, newName)
             : ch.accountCapabilities,
@@ -214,15 +218,15 @@ export class ChatListService {
   }
 
   updateChannelAccount(channelId: string, accountId?: string, accountUsername?: string): void {
-    let shouldReloadImage = false;
+    const channel = this.channelsSignal().find((ch) => ch.id === channelId);
+    const needsImageLoad =
+      channel && !this.avatarCache.hasChannelAvatar(`${channel.platform}:${channel.channelId}`);
 
     this.channelsSignal.update((channels) => {
       const next = channels.map((channel) => {
         if (channel.id !== channelId) {
           return channel;
         }
-
-        shouldReloadImage = !channel.channelImageUrl;
 
         return {
           ...channel,
@@ -242,7 +246,7 @@ export class ChatListService {
       return next;
     });
 
-    if (shouldReloadImage) {
+    if (needsImageLoad) {
       void this.loadChannelImage(channelId);
     }
   }
@@ -267,32 +271,16 @@ export class ChatListService {
     const channel = this.channelsSignal().find((ch) => ch.id === channelId);
     if (!channel) return;
 
-    const imageUrl = await this.channelImageLoader.loadChannelImage(
+    const cacheKey = `${channel.platform}:${channel.channelId}`;
+    if (this.avatarCache.hasChannelAvatar(cacheKey)) {
+      return;
+    }
+
+    await this.channelImageLoader.loadChannelImage(
       channel.platform,
       channel.channelName,
       channel.channelId
     );
-
-    if (imageUrl) {
-      this.updateChannelImageUrl(channelId, imageUrl);
-    }
-  }
-
-  /**
-   * Update channel image URL in state
-   */
-  private updateChannelImageUrl(channelId: string, imageUrl: string): void {
-    this.channelsSignal.update((channels) => {
-      const next = channels.map((ch) => {
-        if (ch.id !== channelId || ch.channelImageUrl === imageUrl) {
-          return ch;
-        }
-
-        return { ...ch, channelImageUrl: imageUrl };
-      });
-      this.saveChannels(next);
-      return next;
-    });
   }
 
   private loadChannels(): ChatChannel[] {

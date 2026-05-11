@@ -16,7 +16,7 @@ import { ChatListService } from "@services/data/chat-list.service";
 import { AuthorizationService } from "@services/features/authorization.service";
 
 /* helpers */
-import { getChannelAccountCapabilities } from "@helpers/chat.helper";
+import { getChannelAccountCapabilities, generateTimestamp } from "@helpers/chat.helper";
 import {
   buildChannelRef,
   findChannelByRef,
@@ -113,7 +113,7 @@ export class ConnectionStateService {
       error: {
         code: error.code ?? "unknown",
         message: error.message ?? "An unknown error occurred",
-        occurredAt: error.occurredAt ?? new Date().toISOString(),
+        occurredAt: error.occurredAt ?? generateTimestamp(),
         isRecoverable: error.isRecoverable ?? true,
         ...(existingError ?? {}),
       },
