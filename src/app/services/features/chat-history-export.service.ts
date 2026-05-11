@@ -8,6 +8,7 @@ import { ChatMessage, PlatformType } from "@models/chat.model";
 import { ChatStorageService } from "@services/data/chat-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { buildChannelRef } from "@utils/channel-ref.util";
+import { generateTimestamp } from "@helpers/chat.helper";
 
 /**
  * Export format options
@@ -120,7 +121,7 @@ export class ChatHistoryExportService {
   ): string {
     if (options.format === "json") {
       const exportData = {
-        exportedAt: new Date().toISOString(),
+        exportedAt: generateTimestamp(),
         totalChannels: Object.keys(messagesByChannel).length,
         totalMessages: Object.values(messagesByChannel).reduce((sum, msgs) => sum + msgs.length, 0),
         channels: messagesByChannel,
@@ -143,7 +144,7 @@ export class ChatHistoryExportService {
    */
   private formatJson(messages: ChatMessage[], options: ExportOptions): string {
     const exportData = {
-      exportedAt: new Date().toISOString(),
+      exportedAt: generateTimestamp(),
       messageCount: messages.length,
       messages: messages.map((msg) => ({
         id: msg.id,

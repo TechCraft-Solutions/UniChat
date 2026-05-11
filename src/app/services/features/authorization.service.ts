@@ -67,10 +67,6 @@ export class AuthorizationService {
     });
   }
 
-  ngOnDestroy(): void {
-    this.stopAutoRefresh();
-  }
-
   /**
    * Wait for accounts to be loaded from backend
    */
@@ -450,6 +446,10 @@ export class AuthorizationService {
       this.logger.info("AuthorizationService", "Running periodic token refresh check");
       void this.refreshAllExpiredTokens();
     }, THIRTY_MINUTES);
+
+    this.destroyRef.onDestroy(() => {
+      this.stopAutoRefresh();
+    });
   }
 
   /**
