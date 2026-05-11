@@ -523,15 +523,19 @@ export class OverlayView implements OnDestroy {
             changed = true;
           } else if (!this.pendingChannelAvatarLoads.has(channelCacheKey)) {
             // Fallback: fetch via provider APIs (optional).
-            if (message.platform === "twitch" && channel) {
+            if (
+              channel &&
+              (message.platform === "twitch" ||
+                message.platform === "kick" ||
+                message.platform === "youtube")
+            ) {
               this.pendingChannelAvatarLoads.add(channelCacheKey);
-              void this.fetchTwitchChannelImage(channel.channelName, channelCacheKey);
-            } else if (message.platform === "kick" && channel) {
-              this.pendingChannelAvatarLoads.add(channelCacheKey);
-              void this.fetchKickChannelImage(channel.channelName, channelCacheKey);
-            } else if (message.platform === "youtube" && channel) {
-              this.pendingChannelAvatarLoads.add(channelCacheKey);
-              void this.fetchYouTubeChannelImage(channel.channelName, channelCacheKey);
+              void this.fetchAvatar(
+                message.platform,
+                channel.channelName,
+                channelCacheKey,
+                "channel"
+              );
             }
           }
         }
@@ -554,10 +558,8 @@ export class OverlayView implements OnDestroy {
       ) {
         if (!this.pendingUserAvatarLoads.has(userCacheKey)) {
           this.pendingUserAvatarLoads.add(userCacheKey);
-          if (message.platform === "twitch") {
-            void this.fetchTwitchUserImage(message.author, userCacheKey);
-          } else if (message.platform === "kick") {
-            void this.fetchKickUserImage(message.author, userCacheKey);
+          if (message.platform === "twitch" || message.platform === "kick") {
+            void this.fetchAvatar(message.platform, message.author, userCacheKey, "user");
           }
         }
       }
@@ -618,82 +620,46 @@ export class OverlayView implements OnDestroy {
     return this.avatarCache.getUserAvatar(cacheKey) ?? null;
   }
 
-  /**
-   * Fetch Twitch channel image and cache it
-   */
-  private async fetchTwitchChannelImage(channelName: string, cacheKey: string): Promise<void> {
+  private async fetchAvatar(
+    platform: string,
+    fetchId: string,
+    cacheKey: string,
+    type: "channel" | "user"
+  ): Promise<void> {
     try {
-      const imageUrl = await this.twitchChat.fetchUserProfileImage(channelName);
+      let imageUrl: string | null = null;
+
+      if (platform === "twitch") {
+        imageUrl = await this.twitchChat.fetchUserProfileImage(fetchId);
+      } else if (platform === "kick") {
+        const info = await this.kickChat.fetchUserInfo(fetchId);
+        imageUrl = info?.profile_pic_url ?? null;
+      } else if (platform === "youtube" && type === "channel") {
+        const account = this.authService.getPrimaryAccount("youtube");
+        if (account?.accessToken) {
+          const info = await invoke<YouTubeChannelInfo>("youtubeFetchChannelInfo", {
+            channelName: fetchId,
+            accessToken: account.accessToken,
+          });
+          imageUrl = info?.thumbnailUrl ?? null;
+        }
+      }
+
       if (imageUrl) {
-        this.avatarCache.setChannelAvatar(cacheKey, imageUrl);
-      }
-    } catch {
-      // Ignore errors - channel images are optional
-    } finally {
-      this.pendingChannelAvatarLoads.delete(cacheKey);
-      this.cdr.markForCheck();
-    }
-  }
-
-  private async fetchKickChannelImage(channelName: string, cacheKey: string): Promise<void> {
-    try {
-      const info = await this.kickChat.fetchUserInfo(channelName);
-      if (info?.profile_pic_url) {
-        this.avatarCache.setChannelAvatar(cacheKey, info.profile_pic_url);
-      }
-    } catch {
-      // Ignore errors - channel images are optional
-    } finally {
-      this.pendingChannelAvatarLoads.delete(cacheKey);
-      this.cdr.markForCheck();
-    }
-  }
-
-  private async fetchTwitchUserImage(username: string, cacheKey: string): Promise<void> {
-    try {
-      const imageUrl = await this.twitchChat.fetchUserProfileImage(username);
-      if (imageUrl) {
-        this.avatarCache.setUserAvatar(cacheKey, imageUrl);
-      }
-    } catch {
-      // Ignore errors - author avatars are optional
-    } finally {
-      this.pendingUserAvatarLoads.delete(cacheKey);
-      this.cdr.markForCheck();
-    }
-  }
-
-  private async fetchKickUserImage(username: string, cacheKey: string): Promise<void> {
-    try {
-      const info = await this.kickChat.fetchUserInfo(username);
-      if (info?.profile_pic_url) {
-        this.avatarCache.setUserAvatar(cacheKey, info.profile_pic_url);
-      }
-    } catch {
-      // Ignore errors - author avatars are optional
-    } finally {
-      this.pendingUserAvatarLoads.delete(cacheKey);
-      this.cdr.markForCheck();
-    }
-  }
-
-  private async fetchYouTubeChannelImage(channelName: string, cacheKey: string): Promise<void> {
-    try {
-      // Try to get channel image via YouTube Data API
-      const account = this.authService.getPrimaryAccount("youtube");
-      if (account?.accessToken) {
-        const info = await invoke<YouTubeChannelInfo>("youtubeFetchChannelInfo", {
-          channelName,
-          accessToken: account.accessToken,
-        });
-        if (info?.thumbnailUrl) {
-          this.avatarCache.setChannelAvatar(cacheKey, info.thumbnailUrl);
+        if (type === "channel") {
+          this.avatarCache.setChannelAvatar(cacheKey, imageUrl);
+        } else {
+          this.avatarCache.setUserAvatar(cacheKey, imageUrl);
         }
       }
     } catch {
-      // Ignore errors - channel images are optional
+      // Ignore errors - avatar images are optional
     } finally {
-      this.pendingChannelAvatarLoads.delete(cacheKey);
+      if (type === "channel") {
+        this.pendingChannelAvatarLoads.delete(cacheKey);
+      } else {
+        this.pendingUserAvatarLoads.delete(cacheKey);
+      }
       this.cdr.markForCheck();
     }
   }
@@ -897,9 +863,16 @@ export class OverlayView implements OnDestroy {
   }
 }
 
-function overlayFilterOverrideKey(widgetId: string): string {
-  return `unichat-overlay-filter-override:${widgetId}`;
-}
+import {
+  overlayFilterOverrideKey,
+  overlayCustomCssKey,
+  overlayChannelIdsKey,
+  overlayMaxMessagesKey,
+  overlayTextSizeKey,
+  overlayAnimationTypeKey,
+  overlayAnimationDirectionKey,
+  overlayTransparentBgKey,
+} from "@constants/overlay-storage.constants";
 
 function readOverlayFilterOverride(widgetId: string): WidgetFilter | null {
   const raw = localStorage.getItem(overlayFilterOverrideKey(widgetId));
@@ -909,16 +882,8 @@ function readOverlayFilterOverride(widgetId: string): WidgetFilter | null {
   return null;
 }
 
-function overlayCustomCssKey(widgetId: string): string {
-  return `unichat-overlay-custom-css:${widgetId}`;
-}
-
 function readOverlayCustomCss(widgetId: string): string {
   return localStorage.getItem(overlayCustomCssKey(widgetId)) ?? "";
-}
-
-function overlayChannelIdsKey(widgetId: string): string {
-  return `unichat-overlay-channel-ids:${widgetId}`;
 }
 
 function readOverlayChannelIds(widgetId: string): string[] | null {
@@ -933,10 +898,6 @@ function readOverlayChannelIds(widgetId: string): string[] | null {
   return null;
 }
 
-function overlayMaxMessagesKey(widgetId: string): string {
-  return `unichat-overlay-max-messages:${widgetId}`;
-}
-
 function readOverlayMaxMessages(widgetId: string): number | null {
   const raw = localStorage.getItem(overlayMaxMessagesKey(widgetId));
   if (raw) {
@@ -944,10 +905,6 @@ function readOverlayMaxMessages(widgetId: string): number | null {
     return isNaN(parsed) ? null : parsed;
   }
   return null;
-}
-
-function overlayTextSizeKey(widgetId: string): string {
-  return `unichat-overlay-text-size:${widgetId}`;
 }
 
 function readOverlayTextSize(widgetId: string): number | null {
@@ -959,10 +916,6 @@ function readOverlayTextSize(widgetId: string): number | null {
   return null;
 }
 
-function overlayAnimationTypeKey(widgetId: string): string {
-  return `unichat-overlay-animation-type:${widgetId}`;
-}
-
 function readOverlayAnimationType(widgetId: string): OverlayAnimationType | null {
   const raw = localStorage.getItem(overlayAnimationTypeKey(widgetId));
   if (raw === "none" || raw === "fade" || raw === "slide" || raw === "pop") {
@@ -971,20 +924,12 @@ function readOverlayAnimationType(widgetId: string): OverlayAnimationType | null
   return null;
 }
 
-function overlayAnimationDirectionKey(widgetId: string): string {
-  return `unichat-overlay-animation-direction:${widgetId}`;
-}
-
 function readOverlayAnimationDirection(widgetId: string): OverlayDirection | null {
   const raw = localStorage.getItem(overlayAnimationDirectionKey(widgetId));
   if (raw === "top" || raw === "bottom" || raw === "left" || raw === "right") {
     return raw;
   }
   return null;
-}
-
-function overlayTransparentBgKey(widgetId: string): string {
-  return `unichat-overlay-transparent-bg:${widgetId}`;
 }
 
 function readOverlayTransparentBg(widgetId: string): boolean | null {

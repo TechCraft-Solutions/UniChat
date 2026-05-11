@@ -1,5 +1,5 @@
 /* sys lib */
-import { Component, inject, signal, computed, OnInit } from "@angular/core";
+import { Component, inject, signal, computed, OnInit, OnDestroy } from "@angular/core";
 
 /* services */
 import { ConnectionStateService } from "@services/data/connection-state.service";
@@ -102,7 +102,7 @@ import { buildChannelRef } from "@utils/channel-ref.util";
     class: "block",
   },
 })
-export class DebugPanelComponent implements OnInit {
+export class DebugPanelComponent implements OnInit, OnDestroy {
   private readonly connectionState = inject(ConnectionStateService);
   private readonly authService = inject(AuthorizationService);
   private readonly logger = inject(LoggerService);
@@ -227,5 +227,12 @@ export class DebugPanelComponent implements OnInit {
       const channelRef = buildChannelRef(conn.platform, conn.channelId);
       this.connectionState.clearError(channelRef);
     }
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener("mousemove", this.onMouseMove);
+    document.removeEventListener("mouseup", this.onMouseUp);
+    document.removeEventListener("mousemove", this.onResizeMove);
+    document.removeEventListener("mouseup", this.onResizeEnd);
   }
 }

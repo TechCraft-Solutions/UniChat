@@ -26,42 +26,23 @@ import { ChatListService } from "@services/data/chat-list.service";
 import { DashboardStateService } from "@services/features/dashboard-state.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
 import { ChannelAvatarService } from "@services/ui/channel-avatar.service";
+import { LoggerService } from "@services/core/logger.service";
 import { findChannelByRef, migrateLegacyChannelRefs, toChannelRef } from "@utils/channel-ref.util";
+import { buildOverlayUrl } from "@helpers/chat.helper";
 
 /* components */
 import { CheckboxComponent } from "@components/ui/checkbox/checkbox.component";
 import { SharedHeaderComponent } from "@components/shared-header/shared-header.component";
-function overlayFilterOverrideKey(widgetId: string): string {
-  return `unichat-overlay-filter-override:${widgetId}`;
-}
-
-function overlayCustomCssKey(widgetId: string): string {
-  return `unichat-overlay-custom-css:${widgetId}`;
-}
-
-function overlayChannelIdsKey(widgetId: string): string {
-  return `unichat-overlay-channel-ids:${widgetId}`;
-}
-
-function overlayMaxMessagesKey(widgetId: string): string {
-  return `unichat-overlay-max-messages:${widgetId}`;
-}
-
-function overlayTextSizeKey(widgetId: string): string {
-  return `unichat-overlay-text-size:${widgetId}`;
-}
-
-function overlayAnimationTypeKey(widgetId: string): string {
-  return `unichat-overlay-animation-type:${widgetId}`;
-}
-
-function overlayAnimationDirectionKey(widgetId: string): string {
-  return `unichat-overlay-animation-direction:${widgetId}`;
-}
-
-function overlayTransparentBgKey(widgetId: string): string {
-  return `unichat-overlay-transparent-bg:${widgetId}`;
-}
+import {
+  overlayFilterOverrideKey,
+  overlayCustomCssKey,
+  overlayChannelIdsKey,
+  overlayMaxMessagesKey,
+  overlayTextSizeKey,
+  overlayAnimationTypeKey,
+  overlayAnimationDirectionKey,
+  overlayTransparentBgKey,
+} from "@constants/overlay-storage.constants";
 
 @Component({
   selector: "app-overlay-management-view",
@@ -71,6 +52,7 @@ function overlayTransparentBgKey(widgetId: string): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OverlayManagementView {
+  private readonly logger = inject(LoggerService);
   private readonly route = inject(ActivatedRoute);
   private readonly dashboardState = inject(DashboardStateService);
   private readonly chatList = inject(ChatListService);
@@ -96,7 +78,7 @@ export class OverlayManagementView {
     if (!w) {
       return "";
     }
-    return `http://127.0.0.1:${w.port}/overlay?widgetId=${w.id}`;
+    return buildOverlayUrl(w.port, w.id);
   })();
 
   readonly filterModel = signal<WidgetFilter>("all");
@@ -157,7 +139,7 @@ export class OverlayManagementView {
 
     // Ensure overlay server is started so OBS can load the URL immediately.
     void invoke("startOverlayServer", { port: w.port }).catch((error) => {
-      console.warn("[OverlayManagement] Failed to start overlay server:", error);
+      this.logger.warn("[OverlayManagement] Failed to start overlay server:", error);
     });
   }
 

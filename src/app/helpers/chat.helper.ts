@@ -28,6 +28,10 @@ function getPlatformResolver(): PlatformResolverService {
   return platformResolver;
 }
 
+export function generateTimestamp(): string {
+  return new Date().toISOString();
+}
+
 export function sortMessagesByRecency(messages: ChatMessage[]): ChatMessage[] {
   return [...messages].sort(
     (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
@@ -212,7 +216,7 @@ export function createChatMessage(
   channelId: string,
   options: CreateMessageOptions = {}
 ): ChatMessage {
-  const timestamp = new Date().toISOString();
+  const timestamp = generateTimestamp();
   const userId = options.sourceUserId ?? `${platform}-user-${Date.now()}`;
   const messageId = options.id ?? `${platform}-${channelId}-${Date.now()}`;
   const sourceMessageId = options.sourceMessageId ?? messageId;

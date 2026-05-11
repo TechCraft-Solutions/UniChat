@@ -34,6 +34,7 @@ export const APP_CONFIG = {
   // Memory management
   MEMORY_CHECK_INTERVAL_MS: 60000, // Check every minute
   OLD_MESSAGE_AGE_MS: 30 * 60 * 1000, // 30 minutes
+  PRUNE_INTERVAL_MS: 5 * 60 * 1000, // Prune every 5 minutes
 } as const;
 
 /**
@@ -76,6 +77,14 @@ export const OVERLAY_CONSTANTS = {
   DEFAULT_PORT: 1450,
   MESSAGE_LIMIT_DEFAULT: 50,
   MESSAGE_LIMIT_MAX: 500,
+} as const;
+
+/**
+ * Twitch-specific constants
+ */
+export const TWITCH_CONFIG = {
+  HISTORY_PAGE_SIZE: 800,
+  RECONNECT_DELAYS: { FIRST: 700, SECOND: 900 },
 } as const;
 
 /**
