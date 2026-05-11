@@ -3,7 +3,9 @@
  * Provides consistent error detection and handling across the application
  */
 
+import { inject } from "@angular/core";
 import { APP_CONFIG } from "@config/app.constants";
+import { LoggerService } from "@services/core/logger.service";
 
 /**
  * Base error class for service-level errors
@@ -151,12 +153,12 @@ export async function safeAsync<T>(
   defaultValue: T,
   context?: string
 ): Promise<T> {
+  const logger = inject(LoggerService);
   try {
     return await fn();
   } catch (error) {
-    // Log in development only
     if (!APP_CONFIG.production) {
-      console.warn(`[safeAsync] ${context || "Operation"} failed:`, error);
+      logger.warn(`[safeAsync] ${context || "Operation"} failed:`, error);
     }
     return defaultValue;
   }

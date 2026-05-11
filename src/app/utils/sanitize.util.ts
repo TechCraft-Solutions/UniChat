@@ -54,24 +54,21 @@ export function sanitizeUrl(url: string): string {
  * Converts basic markdown to HTML then sanitizes
  */
 export function sanitizeMarkdown(text: string): string {
-  // Escape HTML first
-  let sanitized = sanitizeText(text);
+  let sanitized = text;
 
-  // Convert basic markdown to HTML
+  // Convert basic markdown to HTML first (while still plain text)
   sanitized = sanitized
-    // Bold: **text** or __text__
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/__(.+?)__/g, "<strong>$1</strong>")
-    // Italic: *text* or _text_
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/_(.+?)_/g, "<em>$1</em>")
-    // Code: `text`
     .replace(/`(.+?)`/g, "<code>$1</code>")
-    // Line breaks
     .replace(/\n/g, "<br>");
 
-  // Final sanitization pass
-  return sanitizeHtml(sanitized);
+  // Then escape any HTML and sanitize
+  sanitized = sanitizeHtml(sanitized);
+
+  return sanitized;
 }
 
 /**
