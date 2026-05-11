@@ -5,6 +5,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::utils::errors::AppError;
+
 #[derive(Debug, Clone)]
 pub struct AppConfig {
   // App metadata
@@ -169,6 +171,19 @@ impl AppConfig {
         Some((key, value))
       })
       .collect()
+  }
+
+  pub fn validate(&self) -> Result<(), AppError> {
+    let has_twitch = self.twitch_client_id.is_some() && self.twitch_client_secret.is_some();
+    let has_kick = self.kick_client_id.is_some() && self.kick_client_secret.is_some();
+    let has_youtube = self.youtube_client_id.is_some() && self.youtube_client_secret.is_some();
+
+    if !has_twitch && !has_kick && !has_youtube {
+      return Err(AppError::Config(
+        "At least one OAuth provider must be configured. Please set credentials for Twitch, Kick, or YouTube.".to_string()
+      ));
+    }
+    Ok(())
   }
 }
 

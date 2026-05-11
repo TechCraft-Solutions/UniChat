@@ -2,15 +2,13 @@ use regex::Regex;
 
 /// Sanitize chat text specifically for overlay rendering.
 ///
-/// Requirements (P0):
-/// - Escape HTML special characters so the text is always treated as plain text.
-/// - Strip URLs (minimal safety) and cap length to keep overlay readable.
+/// Order matters: strip URLs BEFORE escaping HTML to prevent entity reconstruction attacks.
 pub fn sanitize_for_overlay(text: &str) -> String {
   const MAX_LEN: usize = 260;
 
-  let escaped = escape_html(text);
-  let without_links = strip_urls(&escaped);
-  let trimmed = without_links.trim();
+  let without_links = strip_urls(text);
+  let escaped = escape_html(&without_links);
+  let trimmed = escaped.trim();
   cap_string(trimmed, MAX_LEN)
 }
 
@@ -49,8 +47,12 @@ pub fn escape_html(input: &str) -> String {
 }
 
 /// Strip URLs from text to prevent spam in chat overlays
+/// Handles various URL patterns including protocol-relative and edge cases
 pub fn strip_urls(text: &str) -> String {
-  let re = Regex::new(r"(https?://[^\s]+)|(www\.[^\s]+)").unwrap();
+  let re = Regex::new(
+    r#"(https?://[^\s<>"'\)\]]+)|(www\.[^\s<>"'\)\]]+)|([a-zA-Z][a-zA-Z0-9+.-]*://[^\s<>"'\)\]]+)"#,
+  )
+  .unwrap();
   re.replace_all(text, "").to_string()
 }
 

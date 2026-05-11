@@ -38,27 +38,6 @@ pub fn validate_channel_slug(slug: &str) -> ValidationResult<()> {
   Ok(())
 }
 
-/// Validate a username (alphanumeric + underscore + dash)
-#[allow(dead_code)]
-pub fn validate_username(username: &str) -> ValidationResult<()> {
-  if username.is_empty() {
-    return Err(ValidationError::Empty);
-  }
-
-  if username.len() > 30 {
-    return Err(ValidationError::TooLong { max: 30 });
-  }
-
-  if !username
-    .chars()
-    .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-  {
-    return Err(ValidationError::InvalidCharacters);
-  }
-
-  Ok(())
-}
-
 /// Validate a message ID (alphanumeric + dash only)
 pub fn validate_message_id(message_id: &str) -> ValidationResult<()> {
   if message_id.is_empty() {
@@ -92,37 +71,6 @@ pub fn validate_oauth_token(token: &str) -> ValidationResult<()> {
   Ok(())
 }
 
-/// Validate widget ID (alphanumeric + dash + underscore)
-#[allow(dead_code)]
-pub fn validate_widget_id(widget_id: &str) -> ValidationResult<()> {
-  if widget_id.is_empty() {
-    return Err(ValidationError::Empty);
-  }
-
-  if widget_id.len() > 64 {
-    return Err(ValidationError::TooLong { max: 64 });
-  }
-
-  if !widget_id
-    .chars()
-    .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-  {
-    return Err(ValidationError::InvalidCharacters);
-  }
-
-  Ok(())
-}
-
-/// Sanitize a string by removing potentially dangerous characters
-/// This is a basic sanitization - should be used in addition to validation
-#[allow(dead_code)]
-pub fn sanitize_input(input: &str) -> String {
-  input
-    .chars()
-    .filter(|c| c.is_alphanumeric() || c.is_whitespace() || *c == '_' || *c == '-' || *c == ' ')
-    .collect()
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -140,18 +88,5 @@ mod tests {
     assert!(validate_channel_slug("invalid channel").is_err());
     assert!(validate_channel_slug("invalid<script>").is_err());
     assert!(validate_channel_slug(&"a".repeat(51)).is_err());
-  }
-
-  #[test]
-  fn test_valid_username() {
-    assert!(validate_username("user-name_123").is_ok());
-    assert!(validate_username("test").is_ok());
-  }
-
-  #[test]
-  fn test_invalid_username() {
-    assert!(validate_username("").is_err());
-    assert!(validate_username("invalid name").is_err());
-    assert!(validate_username(&"a".repeat(31)).is_err());
   }
 }

@@ -4,6 +4,31 @@
 use crate::helpers::http_client::shared_client;
 use serde::Deserialize;
 
+enum AuthMethod {
+  ApiKey(String),
+  Bearer(String),
+}
+
+impl AuthMethod {
+  fn apply_to_request(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+    match self {
+      AuthMethod::ApiKey(_) => request,
+      AuthMethod::Bearer(token) => request.header("Authorization", format!("Bearer {}", token)),
+    }
+  }
+
+  fn key_param(&self) -> Option<String> {
+    match self {
+      AuthMethod::ApiKey(key) => Some(format!("key={}", key)),
+      AuthMethod::Bearer(_) => None,
+    }
+  }
+}
+
+fn youtube_api_error(context: &str, status: reqwest::StatusCode, error_text: &str) -> String {
+  format!("YouTube {} API error ({}): {}", context, status, error_text)
+}
+
 /// Response from YouTube Data API v3 search endpoint
 #[derive(Debug, Deserialize)]
 pub struct YouTubeSearchResponse {
@@ -143,35 +168,52 @@ pub async fn youtube_fetch_live_video_id_by_api_key(
   channel_name: &str,
   api_key: &str,
 ) -> Result<String, String> {
+  youtube_fetch_live_video_id_internal(channel_name, &AuthMethod::ApiKey(api_key.to_string())).await
+}
+
+/// Fetch live video ID using OAuth access token
+#[allow(dead_code)]
+pub async fn youtube_fetch_live_video_id_with_oauth(
+  channel_name: &str,
+  access_token: &str,
+) -> Result<String, String> {
+  youtube_fetch_live_video_id_internal(channel_name, &AuthMethod::Bearer(access_token.to_string()))
+    .await
+}
+
+async fn youtube_fetch_live_video_id_internal(
+  channel_name: &str,
+  auth: &AuthMethod,
+) -> Result<String, String> {
   let client = shared_client();
 
-  // First, try to get the channel ID from the channel name
   let channel_id = if channel_name.starts_with("UC") && channel_name.len() == 24 {
-    // Already a channel ID
     channel_name.to_string()
   } else {
-    // Search for channel by name
-    fetch_channel_id_by_name(client, channel_name, api_key).await?
+    fetch_channel_id_internal(&client, channel_name, auth).await?
   };
 
-  // Search for live videos from this channel
+  let key_param = auth
+    .key_param()
+    .map(|p| format!("&{}", p))
+    .unwrap_or_default();
   let search_url = format!(
-    "https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={}&type=video&eventType=live&order=relevance&maxResults=1&key={}",
-    channel_id, api_key
+    "https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={}&type=video&eventType=live&order=relevance&maxResults=1{}",
+    channel_id, key_param
   );
 
-  let response = client
-    .get(&search_url)
+  let request = client.get(&search_url);
+  let response = auth
+    .apply_to_request(request)
     .send()
     .await
     .map_err(|e| format!("Failed to search for live video: {}", e))?;
 
   if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube search API error ({}): {}",
-      status, error_text
+    return Err(youtube_api_error(
+      "search",
+      response.status(),
+      &response.text().await.unwrap_or_default(),
     ));
   }
 
@@ -180,7 +222,6 @@ pub async fn youtube_fetch_live_video_id_by_api_key(
     .await
     .map_err(|e| format!("Failed to parse search response: {}", e))?;
 
-  // Find the live video
   if let Some(items) = search_result.items {
     for item in items {
       if let Some(snippet) = item.snippet {
@@ -196,31 +237,33 @@ pub async fn youtube_fetch_live_video_id_by_api_key(
   Err("No live video found for this channel".to_string())
 }
 
-/// Fetch channel ID by channel name or custom URL
-async fn fetch_channel_id_by_name(
+async fn fetch_channel_id_internal(
   client: &reqwest::Client,
   channel_name: &str,
-  api_key: &str,
+  auth: &AuthMethod,
 ) -> Result<String, String> {
-  // Try to find channel by custom URL or username
+  let key_param = auth
+    .key_param()
+    .map(|p| format!("&{}", p))
+    .unwrap_or_default();
   let search_url = format!(
-    "https://www.googleapis.com/youtube/v3/search?part=snippet&q={}&type=channel&maxResults=1&key={}",
+    "https://www.googleapis.com/youtube/v3/search?part=snippet&q={}&type=channel&maxResults=1{}",
     urlencoding::encode(channel_name),
-    api_key
+    key_param
   );
 
-  let response = client
-    .get(&search_url)
+  let request = client.get(&search_url);
+  let response = auth
+    .apply_to_request(request)
     .send()
     .await
     .map_err(|e| format!("Failed to search for channel: {}", e))?;
 
   if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube channel search error ({}): {}",
-      status, error_text
+    return Err(youtube_api_error(
+      "channel search",
+      response.status(),
+      &response.text().await.unwrap_or_default(),
     ));
   }
 
@@ -246,24 +289,51 @@ pub async fn youtube_fetch_live_chat_id_by_api_key(
   api_key: &str,
 ) -> Result<String, String> {
   let client = shared_client();
+  youtube_fetch_live_chat_id_internal(client, video_id, &AuthMethod::ApiKey(api_key.to_string()))
+    .await
+}
 
+/// Fetch live chat ID using OAuth access token
+#[allow(dead_code)]
+pub async fn youtube_fetch_live_chat_id_with_oauth(
+  video_id: &str,
+  access_token: &str,
+) -> Result<String, String> {
+  let client = shared_client();
+  youtube_fetch_live_chat_id_internal(
+    client,
+    video_id,
+    &AuthMethod::Bearer(access_token.to_string()),
+  )
+  .await
+}
+
+async fn youtube_fetch_live_chat_id_internal(
+  client: &reqwest::Client,
+  video_id: &str,
+  auth: &AuthMethod,
+) -> Result<String, String> {
   let url = format!(
-    "https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id={}&key={}",
-    video_id, api_key
+    "https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id={}{}",
+    video_id,
+    auth
+      .key_param()
+      .map(|p| format!("&{}", p))
+      .unwrap_or_default()
   );
 
-  let response = client
-    .get(&url)
+  let request = client.get(&url);
+  let response = auth
+    .apply_to_request(request)
     .send()
     .await
     .map_err(|e| format!("Failed to fetch video details: {}", e))?;
 
   if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube videos API error ({}): {}",
-      status, error_text
+    return Err(youtube_api_error(
+      "videos",
+      response.status(),
+      &response.text().await.unwrap_or_default(),
     ));
   }
 
@@ -309,11 +379,10 @@ pub async fn youtube_fetch_live_chat_messages_by_api_key(
     .map_err(|e| format!("Failed to fetch chat messages: {}", e))?;
 
   if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube live chat messages API error ({}): {}",
-      status, error_text
+    return Err(youtube_api_error(
+      "live chat messages",
+      response.status(),
+      &response.text().await.unwrap_or_default(),
     ));
   }
 
@@ -321,53 +390,6 @@ pub async fn youtube_fetch_live_chat_messages_by_api_key(
     .text()
     .await
     .map_err(|e| format!("Failed to read response body: {}", e))
-}
-
-/// Fetch live chat ID using OAuth access token
-#[allow(dead_code)]
-pub async fn youtube_fetch_live_chat_id_with_oauth(
-  video_id: &str,
-  access_token: &str,
-) -> Result<String, String> {
-  let client = shared_client();
-
-  let url = format!(
-    "https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id={}",
-    video_id
-  );
-
-  let response = client
-    .get(&url)
-    .header("Authorization", format!("Bearer {}", access_token))
-    .send()
-    .await
-    .map_err(|e| format!("Failed to fetch video details: {}", e))?;
-
-  if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube videos API error ({}): {}",
-      status, error_text
-    ));
-  }
-
-  let videos_result: YouTubeVideosResponse = response
-    .json()
-    .await
-    .map_err(|e| format!("Failed to parse videos response: {}", e))?;
-
-  if let Some(items) = videos_result.items {
-    if let Some(first_item) = items.first() {
-      if let Some(details) = &first_item.live_streaming_details {
-        if let Some(chat_id) = &details.active_live_chat_id {
-          return Ok(chat_id.clone());
-        }
-      }
-    }
-  }
-
-  Err("No active live chat found for this video".to_string())
 }
 
 /// Send a chat message using OAuth access token
@@ -401,11 +423,10 @@ pub async fn youtube_send_message_with_oauth(
     .map_err(|e| format!("Failed to send message: {}", e))?;
 
   if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube send message error ({}): {}",
-      status, error_text
+    return Err(youtube_api_error(
+      "send message",
+      response.status(),
+      &response.text().await.unwrap_or_default(),
     ));
   }
 
@@ -438,119 +459,14 @@ pub async fn youtube_delete_message_with_oauth(
     .map_err(|e| format!("Failed to delete message: {}", e))?;
 
   if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube delete message error ({}): {}",
-      status, error_text
+    return Err(youtube_api_error(
+      "delete message",
+      response.status(),
+      &response.text().await.unwrap_or_default(),
     ));
   }
 
   Ok(())
-}
-
-/// Fetch live video ID using OAuth access token
-#[allow(dead_code)]
-pub async fn youtube_fetch_live_video_id_with_oauth(
-  channel_name: &str,
-  access_token: &str,
-) -> Result<String, String> {
-  let client = shared_client();
-
-  // First, try to get the channel ID from the channel name
-  let channel_id = if channel_name.starts_with("UC") && channel_name.len() == 24 {
-    // Already a channel ID
-    channel_name.to_string()
-  } else {
-    // Search for channel by name using OAuth
-    fetch_channel_id_by_name_oauth(client, channel_name, access_token).await?
-  };
-
-  // Search for live videos from this channel
-  let search_url = format!(
-    "https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={}&type=video&eventType=live&order=relevance&maxResults=1",
-    channel_id
-  );
-
-  let response = client
-    .get(&search_url)
-    .header("Authorization", format!("Bearer {}", access_token))
-    .send()
-    .await
-    .map_err(|e| format!("Failed to search for live video: {}", e))?;
-
-  if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube search API error ({}): {}",
-      status, error_text
-    ));
-  }
-
-  let search_result: YouTubeSearchResponse = response
-    .json()
-    .await
-    .map_err(|e| format!("Failed to parse search response: {}", e))?;
-
-  // Find the live video
-  if let Some(items) = search_result.items {
-    for item in items {
-      if let Some(snippet) = item.snippet {
-        if snippet.live_broadcast_content == Some("live".to_string()) {
-          if let Some(video_id) = item.id.video_id {
-            return Ok(video_id);
-          }
-        }
-      }
-    }
-  }
-
-  Err("No live video found for this channel".to_string())
-}
-
-/// Fetch channel ID by channel name using OAuth
-#[allow(dead_code)]
-async fn fetch_channel_id_by_name_oauth(
-  client: &reqwest::Client,
-  channel_name: &str,
-  access_token: &str,
-) -> Result<String, String> {
-  let search_url = format!(
-    "https://www.googleapis.com/youtube/v3/search?part=snippet&q={}&type=channel&maxResults=1",
-    urlencoding::encode(channel_name)
-  );
-
-  let response = client
-    .get(&search_url)
-    .header("Authorization", format!("Bearer {}", access_token))
-    .send()
-    .await
-    .map_err(|e| format!("Failed to search for channel: {}", e))?;
-
-  if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube channel search error ({}): {}",
-      status, error_text
-    ));
-  }
-
-  let search_result: YouTubeSearchResponse = response
-    .json()
-    .await
-    .map_err(|e| format!("Failed to parse channel search response: {}", e))?;
-
-  if let Some(items) = search_result.items {
-    if let Some(first_item) = items.first() {
-      if let Some(channel_id) = &first_item.id.video_id {
-        return Ok(channel_id.clone());
-      }
-    }
-  }
-
-  Err(format!("Channel not found: {}", channel_name))
 }
 
 /// Response structure for YouTube channel info
@@ -568,64 +484,8 @@ pub async fn youtube_fetch_channel_info_by_api_key(
   channel_id_or_name: &str,
   api_key: &str,
 ) -> Result<YouTubeChannelInfo, String> {
-  let client = shared_client();
-
-  // Determine if input is channel ID or name
-  let (id_param, id_value) =
-    if channel_id_or_name.starts_with("UC") && channel_id_or_name.len() == 24 {
-      ("id", channel_id_or_name)
-    } else {
-      ("forUsername", channel_id_or_name)
-    };
-
-  let url = format!(
-    "https://www.googleapis.com/youtube/v3/channels?part=snippet,brandingSettings&{}={}&key={}",
-    id_param,
-    urlencoding::encode(id_value),
-    api_key
-  );
-
-  let response = client
-    .get(&url)
-    .send()
+  youtube_fetch_channel_info_internal(channel_id_or_name, &AuthMethod::ApiKey(api_key.to_string()))
     .await
-    .map_err(|e| format!("Failed to fetch channel info: {}", e))?;
-
-  if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube channel API error ({}): {}",
-      status, error_text
-    ));
-  }
-
-  let data: serde_json::Value = response
-    .json()
-    .await
-    .map_err(|e| format!("Failed to parse channel response: {}", e))?;
-
-  let items = data["items"].as_array();
-  let items =
-    items.ok_or_else(|| format!("No items in response for channel: {}", channel_id_or_name))?;
-  if items.is_empty() {
-    return Err(format!("Channel not found: {}", channel_id_or_name));
-  }
-
-  let channel = &items[0];
-  let snippet = &channel["snippet"];
-  let branding = &channel["brandingSettings"]["channel"];
-
-  let profile_image_url = branding["profileImageUrl"].as_str().map(|s| s.to_string());
-  let banner_image_url = branding["bannerImageUrl"].as_str().map(|s| s.to_string());
-
-  Ok(YouTubeChannelInfo {
-    id: channel["id"].as_str().unwrap_or("").to_string(),
-    title: snippet["title"].as_str().unwrap_or("").to_string(),
-    custom_url: branding["customUrl"].as_str().map(|s| s.to_string()),
-    profile_image_url,
-    banner_image_url,
-  })
 }
 
 /// Fetch channel info including profile image URL using OAuth
@@ -634,9 +494,19 @@ pub async fn youtube_fetch_channel_info_with_oauth(
   channel_id_or_name: &str,
   access_token: &str,
 ) -> Result<YouTubeChannelInfo, String> {
+  youtube_fetch_channel_info_internal(
+    channel_id_or_name,
+    &AuthMethod::Bearer(access_token.to_string()),
+  )
+  .await
+}
+
+async fn youtube_fetch_channel_info_internal(
+  channel_id_or_name: &str,
+  auth: &AuthMethod,
+) -> Result<YouTubeChannelInfo, String> {
   let client = shared_client();
 
-  // Determine if input is channel ID or name
   let (id_param, id_value) =
     if channel_id_or_name.starts_with("UC") && channel_id_or_name.len() == 24 {
       ("id", channel_id_or_name)
@@ -644,25 +514,29 @@ pub async fn youtube_fetch_channel_info_with_oauth(
       ("forUsername", channel_id_or_name)
     };
 
+  let key_param = auth
+    .key_param()
+    .map(|p| format!("&{}", p))
+    .unwrap_or_default();
   let url = format!(
-    "https://www.googleapis.com/youtube/v3/channels?part=snippet,brandingSettings&{}={}",
+    "https://www.googleapis.com/youtube/v3/channels?part=snippet,brandingSettings&{}={}{}",
     id_param,
-    urlencoding::encode(id_value)
+    urlencoding::encode(id_value),
+    key_param
   );
 
-  let response = client
-    .get(&url)
-    .header("Authorization", format!("Bearer {}", access_token))
+  let request = client.get(&url);
+  let response = auth
+    .apply_to_request(request)
     .send()
     .await
     .map_err(|e| format!("Failed to fetch channel info: {}", e))?;
 
   if !response.status().is_success() {
-    let status = response.status();
-    let error_text = response.text().await.unwrap_or_default();
-    return Err(format!(
-      "YouTube channel API error ({}): {}",
-      status, error_text
+    return Err(youtube_api_error(
+      "channel",
+      response.status(),
+      &response.text().await.unwrap_or_default(),
     ));
   }
 

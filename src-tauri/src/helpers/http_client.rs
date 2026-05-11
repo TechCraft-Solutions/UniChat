@@ -13,7 +13,6 @@ static HTTP: Lazy<Client> = Lazy::new(|| {
     .expect("reqwest Client build")
 });
 
-/// Returns a process-wide client reused across Tauri commands.
 pub fn shared_client() -> &'static Client {
   &HTTP
 }

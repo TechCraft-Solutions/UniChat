@@ -1,3 +1,4 @@
+use log;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -37,10 +38,17 @@ pub async fn kickFetchChatroomId(
   channelSlug: String,
   accessToken: Option<String>,
 ) -> Result<KickChannelInfo, String> {
-  validate_channel_slug(&channelSlug).map_err(|e| format!("Invalid channel slug: {}", e))?;
+  log::info!("Fetching chatroom ID for channel: {}", channelSlug);
+  validate_channel_slug(&channelSlug).map_err(|e| {
+    log::error!("Invalid channel slug '{}': {}", channelSlug, e);
+    format!("Invalid channel slug: {}", e)
+  })?;
 
   if let Some(ref token) = accessToken {
-    validate_oauth_token(token).map_err(|e| format!("Invalid access token: {}", e))?;
+    validate_oauth_token(token).map_err(|e| {
+      log::error!("Invalid access token: {}", e);
+      format!("Invalid access token: {}", e)
+    })?;
   }
 
   let client = shared_client();
@@ -57,42 +65,63 @@ pub async fn kickFetchChatroomId(
     request = request.header("Authorization", format!("Bearer {}", token));
   }
 
-  let response = request
-    .send()
-    .await
-    .map_err(|e| format!("Network error: {}", e))?;
+  let response = request.send().await.map_err(|e| {
+    log::error!(
+      "Network error fetching chatroom ID for '{}': {}",
+      channelSlug,
+      e
+    );
+    format!("Network error: {}", e)
+  })?;
 
   let status = response.status();
 
   if status == 404 {
+    log::warn!("Channel '{}' not found on Kick", channelSlug);
     return Err(format!("Channel '{}' not found on Kick", channelSlug));
   } else if status == 429 {
+    log::warn!("Rate limit exceeded for channel '{}'", channelSlug);
     return Err("Rate limit exceeded. Please try again later.".to_string());
   } else if status == 401 || status == 403 {
+    log::error!("Auth failed for channel '{}': {}", channelSlug, status);
     return Err(format!(
       "Kick API returned {}. Authentication may be required.",
       status
     ));
   } else if !status.is_success() {
+    log::error!("Kick API error for channel '{}': {}", channelSlug, status);
     return Err(format!("Kick API error: {}", status));
   }
 
-  let data = response
-    .json::<KickChannelResponse>()
-    .await
-    .map_err(|e| format!("Failed to parse response: {}", e))?;
+  let data = response.json::<KickChannelResponse>().await.map_err(|e| {
+    log::error!("JSON parse error for channel '{}': {}", channelSlug, e);
+    format!("Failed to parse response: {}", e)
+  })?;
 
   let chatroom_id = data
     .chatroom
     .and_then(|c| c.id)
     .or(data.id)
-    .ok_or("Chatroom ID not found in response".to_string())?;
+    .ok_or_else(|| {
+      log::error!(
+        "Chatroom ID not found in response for channel '{}'",
+        channelSlug
+      );
+      "Chatroom ID not found in response".to_string()
+    })?;
 
-  let broadcaster_user_id = data
-    .user
-    .and_then(|u| u.id)
-    .ok_or("User ID not found in response".to_string())?;
+  let broadcaster_user_id = data.user.and_then(|u| u.id).ok_or_else(|| {
+    log::error!(
+      "User ID not found in response for channel '{}'",
+      channelSlug
+    );
+    "User ID not found in response".to_string()
+  })?;
 
+  log::info!(
+    "Successfully fetched chatroom ID for channel: {}",
+    channelSlug
+  );
   Ok(KickChannelInfo {
     chatroomId: chatroom_id,
     broadcasterUserId: broadcaster_user_id,
@@ -143,6 +172,11 @@ pub async fn kickFetchRecentMessages(
   channelSlug: String,
   chatroomId: i64,
 ) -> Result<String, String> {
+  log::info!(
+    "Fetching recent messages for chatroom: {} (channel: {})",
+    chatroomId,
+    channelSlug
+  );
   let client = shared_client();
 
   let url = format!(
@@ -160,6 +194,10 @@ pub async fn kickFetchRecentMessages(
     if response.status().is_success() {
       if let Ok(body) = response.text().await {
         if !body.trim().is_empty() {
+          log::debug!(
+            "Fetched messages from primary endpoint for chatroom {}",
+            chatroomId
+          );
           return Ok(body);
         }
       }
@@ -194,10 +232,18 @@ pub async fn kickFetchRecentMessages(
       .map_err(|e| format!("Failed to read response: {}", e))?;
 
     if !body.trim().is_empty() {
+      log::debug!(
+        "Fetched messages from fallback endpoint for chatroom {}",
+        chatroomId
+      );
       return Ok(body);
     }
   }
 
+  log::debug!(
+    "No messages found for chatroom {}, returning empty array",
+    chatroomId
+  );
   Ok("[]".to_string())
 }
 
@@ -232,6 +278,11 @@ pub async fn kickSendChatMessage(
   broadcaster_user_id: i64,
   reply_to_message_id: Option<String>,
 ) -> Result<KickSendMessageResponseData, String> {
+  log::info!(
+    "Sending chat message for broadcaster: {}, content length: {}",
+    broadcaster_user_id,
+    content.len()
+  );
   let client = shared_client();
 
   let request_body = KickSendMessageRequest {
@@ -247,24 +298,44 @@ pub async fn kickSendChatMessage(
     .json(&request_body)
     .send()
     .await
-    .map_err(|e| format!("Network error: {}", e))?;
+    .map_err(|e| {
+      log::error!("Network error sending chat message: {}", e);
+      format!("Network error: {}", e)
+    })?;
 
   let status = response.status();
 
   if status == 429 {
+    log::warn!(
+      "Rate limit exceeded when sending message for broadcaster: {}",
+      broadcaster_user_id
+    );
     return Err("Rate limit exceeded. Please wait before sending more messages.".to_string());
   }
 
   if !status.is_success() {
     let error_text = response.text().await.unwrap_or_default();
+    log::error!(
+      "Kick API error sending message ({}): {}",
+      status,
+      error_text
+    );
     return Err(format!("Kick API error ({}): {}", status, error_text));
   }
 
   let data = response
     .json::<KickSendMessageResponse>()
     .await
-    .map_err(|e| format!("Failed to parse response: {}", e))?;
+    .map_err(|e| {
+      log::error!("JSON parse error for send message response: {}", e);
+      format!("Failed to parse response: {}", e)
+    })?;
 
+  log::info!(
+    "Message sent successfully for broadcaster: {}, message_id: {}",
+    broadcaster_user_id,
+    data.data.message_id
+  );
   Ok(KickSendMessageResponseData {
     is_sent: data.data.is_sent,
     message_id: data.data.message_id,
@@ -282,8 +353,15 @@ pub async fn kickDeleteChatMessage(
   message_id: String,
   access_token: String,
 ) -> Result<KickDeleteMessageResponseData, String> {
-  validate_message_id(&message_id).map_err(|e| format!("Invalid message ID: {}", e))?;
-  validate_oauth_token(&access_token).map_err(|e| format!("Invalid access token: {}", e))?;
+  log::info!("Deleting chat message: {}", message_id);
+  validate_message_id(&message_id).map_err(|e| {
+    log::error!("Invalid message ID '{}': {}", message_id, e);
+    format!("Invalid message ID: {}", e)
+  })?;
+  validate_oauth_token(&access_token).map_err(|e| {
+    log::error!("Invalid access token for message deletion: {}", e);
+    format!("Invalid access token: {}", e)
+  })?;
 
   let client = shared_client();
 
@@ -292,19 +370,30 @@ pub async fn kickDeleteChatMessage(
     .bearer_auth(&access_token)
     .send()
     .await
-    .map_err(|e| format!("Network error: {e}"))?;
+    .map_err(|e| {
+      log::error!("Network error deleting message {}: {}", message_id, e);
+      format!("Network error: {e}")
+    })?;
 
   let status = response.status();
 
   if status == 429 {
+    log::warn!("Rate limit exceeded when deleting message: {}", message_id);
     return Err("Rate limit exceeded. Please try again later.".to_string());
   }
 
   if !status.is_success() {
     let error_text = response.text().await.unwrap_or_default();
+    log::error!(
+      "Kick API error deleting message {} ({}): {}",
+      message_id,
+      status,
+      error_text
+    );
     return Err(format!("Kick API error {}: {}", status, error_text));
   }
 
+  log::info!("Message deleted successfully: {}", message_id);
   Ok(KickDeleteMessageResponseData {
     is_deleted: true,
     message_id,
@@ -344,6 +433,7 @@ pub struct KickEmoteInfo {
 
 #[tauri::command]
 pub async fn kickFetchChannelEmotes(channelSlug: String) -> Result<Vec<KickEmoteInfo>, String> {
+  log::info!("Fetching channel emotes for: {}", channelSlug);
   let client = shared_client();
 
   let urls = [
@@ -373,6 +463,11 @@ pub async fn kickFetchChannelEmotes(channelSlug: String) -> Result<Vec<KickEmote
             .collect();
 
           if !emotes.is_empty() {
+            log::debug!(
+              "Fetched {} emotes for channel: {}",
+              emotes.len(),
+              channelSlug
+            );
             return Ok(emotes);
           }
         }
@@ -389,6 +484,11 @@ pub async fn kickFetchChannelEmotes(channelSlug: String) -> Result<Vec<KickEmote
             .collect();
 
           if !emotes.is_empty() {
+            log::debug!(
+              "Fetched {} emotes for channel: {}",
+              emotes.len(),
+              channelSlug
+            );
             return Ok(emotes);
           }
         }
@@ -398,6 +498,7 @@ pub async fn kickFetchChannelEmotes(channelSlug: String) -> Result<Vec<KickEmote
     }
   }
 
+  log::debug!("No emotes found for channel: {}", channelSlug);
   Ok(vec![])
 }
 
@@ -419,6 +520,7 @@ pub struct KickChannelInfoWithImage {
 
 #[tauri::command]
 pub async fn kickFetchChannelInfo(channelSlug: String) -> Result<KickChannelInfoWithImage, String> {
+  log::info!("Fetching channel info for: {}", channelSlug);
   let client = shared_client();
 
   let url = format!("https://kick.com/api/v1/channels/{}", channelSlug);
@@ -428,23 +530,45 @@ pub async fn kickFetchChannelInfo(channelSlug: String) -> Result<KickChannelInfo
     .header("Accept", "application/json")
     .send()
     .await
-    .map_err(|e| format!("Network error: {}", e))?;
+    .map_err(|e| {
+      log::error!(
+        "Network error fetching channel info for '{}': {}",
+        channelSlug,
+        e
+      );
+      format!("Network error: {}", e)
+    })?;
 
   let status = response.status();
 
   if status == 404 {
+    log::warn!("Channel '{}' not found on Kick", channelSlug);
     return Err(format!("Channel '{}' not found on Kick", channelSlug));
   } else if !status.is_success() {
+    log::error!(
+      "Kick API error fetching channel info for '{}': {}",
+      channelSlug,
+      status
+    );
     return Err(format!("Kick API error: {}", status));
   }
 
-  let data = response
-    .json::<KickChannelResponse>()
-    .await
-    .map_err(|e| format!("Failed to parse response: {}", e))?;
+  let data = response.json::<KickChannelResponse>().await.map_err(|e| {
+    log::error!("JSON parse error for channel info '{}': {}", channelSlug, e);
+    format!("Failed to parse response: {}", e)
+  })?;
 
-  let user = data.user.ok_or("User info not found in response")?;
-  let user_id = user.id.ok_or("User ID not found")?;
+  let user = data.user.ok_or_else(|| {
+    log::error!(
+      "User data not found in response for channel '{}'",
+      channelSlug
+    );
+    "User info not found in response"
+  })?;
+  let user_id = user.id.ok_or_else(|| {
+    log::error!("User ID not found for channel '{}'", channelSlug);
+    "User ID not found"
+  })?;
   let username = user.username.unwrap_or_else(|| channelSlug.clone());
   let profile_pic_url = user.profile_pic;
 
@@ -452,8 +576,12 @@ pub async fn kickFetchChannelInfo(channelSlug: String) -> Result<KickChannelInfo
     .chatroom
     .and_then(|c| c.id)
     .or(data.id)
-    .ok_or("Channel ID not found in response")?;
+    .ok_or_else(|| {
+      log::error!("Channel ID not found in response for '{}'", channelSlug);
+      "Channel ID not found in response"
+    })?;
 
+  log::info!("Successfully fetched channel info for: {}", channelSlug);
   Ok(KickChannelInfoWithImage {
     id: channel_id,
     user_id,

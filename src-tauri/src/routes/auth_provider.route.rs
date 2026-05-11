@@ -9,7 +9,10 @@ pub async fn authStart(
   state: State<'_, AppState>,
   platform: PlatformTypeModel,
 ) -> Result<AuthCommandResultModel, String> {
-  let auth_url = state.oauth_provider_service.start_auth(platform)?;
+  let auth_url = state
+    .oauth_provider_service
+    .start_auth(platform)
+    .map_err(|e| e.to_string())?;
   Ok(AuthCommandResultModel {
     success: true,
     message: "Authorization URL prepared.".to_string(),
@@ -28,7 +31,8 @@ pub async fn authComplete(
   let account = state
     .oauth_provider_service
     .complete_auth(platform, callbackUrl)
-    .await?;
+    .await
+    .map_err(|e| e.to_string())?;
   Ok(AuthCommandResultModel {
     success: true,
     message: "Authorization completed and account saved.".to_string(),
@@ -46,7 +50,8 @@ pub async fn authAwaitCallback(
   let account = state
     .oauth_provider_service
     .await_loopback_and_complete(platform)
-    .await?;
+    .await
+    .map_err(|e| e.to_string())?;
   Ok(AuthCommandResultModel {
     success: true,
     message: "Authorization callback received and account saved.".to_string(),
@@ -61,7 +66,10 @@ pub async fn authStatus(
   state: State<'_, AppState>,
   platform: PlatformTypeModel,
 ) -> Result<AuthCommandResultModel, String> {
-  let accounts = state.oauth_provider_service.get_auth_status(platform)?;
+  let accounts = state
+    .oauth_provider_service
+    .get_auth_status(platform)
+    .map_err(|e| e.to_string())?;
   Ok(AuthCommandResultModel {
     success: true,
     message: "Authorization status loaded.".to_string(),
@@ -79,7 +87,8 @@ pub async fn authValidate(
   let accounts = state
     .oauth_provider_service
     .validate_auth_status(platform)
-    .await?;
+    .await
+    .map_err(|e| e.to_string())?;
   Ok(AuthCommandResultModel {
     success: true,
     message: "Authorization validated.".to_string(),
@@ -98,7 +107,8 @@ pub async fn authRefresh(
   let account = state
     .oauth_provider_service
     .refresh_token(&platform, &accountId)
-    .await?;
+    .await
+    .map_err(|e| e.to_string())?;
   Ok(AuthCommandResultModel {
     success: true,
     message: "Token refreshed successfully.".to_string(),
@@ -117,7 +127,8 @@ pub async fn authDisconnect(
   state
     .oauth_provider_service
     .disconnect(platform, accountId)
-    .await?;
+    .await
+    .map_err(|e| e.to_string())?;
   Ok(AuthCommandResultModel {
     success: true,
     message: "Authorization disconnected.".to_string(),

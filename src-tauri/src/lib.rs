@@ -8,6 +8,7 @@ pub mod utils;
 use std::sync::Arc;
 use tauri::Manager;
 
+use crate::constants::OVERLAY_SERVER_PORT;
 use crate::helpers::config_helper::{AppConfig, SharedConfig};
 use crate::routes::auth_provider_route::{
   authAwaitCallback, authComplete, authDisconnect, authRefresh, authStart, authStatus, authValidate,
@@ -40,12 +41,16 @@ pub struct AppState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
+  let builder = tauri::Builder::default()
     .plugin(tauri_plugin_opener::init())
     .plugin(tauri_plugin_deep_link::init())
     .plugin(tauri_plugin_mcp_bridge::init())
     .setup(|app| {
       let config = Arc::new(AppConfig::new());
+      config
+        .validate()
+        .map_err(|e| log::error!("Config validation failed: {}", e))
+        .ok();
 
       let frontend_dist_dir = resolve_frontend_dist_dir(app);
 
@@ -53,7 +58,7 @@ pub fn run() {
 
       let overlay_server_clone = overlay_server.clone();
       tauri::async_runtime::spawn(async move {
-        let _ = overlay_server_clone.start(1450).await;
+        let _ = overlay_server_clone.start(OVERLAY_SERVER_PORT).await;
       });
 
       let oauth_service = Arc::new(OAuthProviderService::new_with_config(config.clone()));
@@ -65,7 +70,6 @@ pub fn run() {
         overlay_server_service: overlay_server,
       });
 
-      // Handle deep-link events (for OAuth callbacks in Flatpak)
       let app_handle = app.handle().clone();
       app.deep_link().on_open_url(move |event| {
         let urls = event.urls();
@@ -139,9 +143,12 @@ pub fn run() {
       kickDeleteChatMessage,
       youtubeFetchChannelInfoByApiKey,
       youtubeFetchChannelInfo,
-    ])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    ]);
+
+  if let Err(e) = builder.run(tauri::generate_context!()) {
+    log::error!("Failed to run tauri application: {}", e);
+    std::process::exit(1);
+  }
 }
 
 #[allow(unused_variables)]
