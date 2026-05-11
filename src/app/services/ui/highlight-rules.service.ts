@@ -1,11 +1,12 @@
 /* sys lib */
 import { Injectable, signal, computed, inject, effect } from "@angular/core";
 
-/* services */
+/* helpers */
+import { generateTimestamp } from "@helpers/chat.helper";
+import { RegexCompilationService, RegexRule } from "@services/ui/regex-compilation.service";
 import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { migrateLegacyChannelRefs } from "@utils/channel-ref.util";
-import { RegexCompilationService, RegexRule } from "@services/ui/regex-compilation.service";
 export interface HighlightRule {
   id: string;
   pattern: string;
@@ -105,7 +106,7 @@ export class HighlightRulesService {
     const newRule: HighlightRule = {
       ...rule,
       id: this.generateId(),
-      createdAt: new Date().toISOString(),
+      createdAt: generateTimestamp(),
     };
     this.rulesSignal.update((rules) => [...rules, newRule]);
     this.persistRules();

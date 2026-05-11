@@ -2,7 +2,7 @@
 import { Injectable, inject } from "@angular/core";
 
 /* models */
-import { ChatChannel, PlatformType } from "@models/chat.model";
+import { PlatformType } from "@models/chat.model";
 
 /* services */
 import { AvatarCacheService } from "@services/core/avatar-cache.service";
@@ -18,15 +18,10 @@ export class ChannelAvatarService {
   private readonly pendingEnsures = new Set<string>();
 
   getChannelImage(platform: PlatformType, channelId: string): string | null {
-    const channel = this.findChannel(platform, channelId);
-    if (channel?.channelImageUrl?.trim()) {
-      return channel.channelImageUrl.trim();
-    }
-
     return this.avatarCache.getChannelAvatar(this.cacheKey(platform, channelId)) ?? null;
   }
 
-  getChannelImageForChannel(channel: ChatChannel): string | null {
+  getChannelImageForChannel(channel: { platform: PlatformType; channelId: string }): string | null {
     return this.getChannelImage(channel.platform, channel.channelId);
   }
 
@@ -34,7 +29,7 @@ export class ChannelAvatarService {
     return !!this.getChannelImage(platform, channelId);
   }
 
-  hasChannelImageForChannel(channel: ChatChannel): boolean {
+  hasChannelImageForChannel(channel: { platform: PlatformType; channelId: string }): boolean {
     return this.hasChannelImage(channel.platform, channel.channelId);
   }
 
@@ -47,13 +42,13 @@ export class ChannelAvatarService {
       return;
     }
 
-    const channel = this.findChannel(platform, channelId);
-    if (!channel) {
+    const cacheKey = this.cacheKey(platform, channelId);
+    if (this.pendingEnsures.has(cacheKey)) {
       return;
     }
 
-    const cacheKey = this.cacheKey(platform, channelId);
-    if (this.pendingEnsures.has(cacheKey)) {
+    const channel = this.findChannel(platform, channelId);
+    if (!channel) {
       return;
     }
 
@@ -63,11 +58,15 @@ export class ChannelAvatarService {
     });
   }
 
-  ensureChannelImageForChannel(channel: ChatChannel): void {
+  ensureChannelImageForChannel(channel: {
+    platform: PlatformType;
+    channelId: string;
+    id: string;
+  }): void {
     this.ensureChannelImage(channel.platform, channel.channelId);
   }
 
-  private findChannel(platform: PlatformType, channelId: string): ChatChannel | undefined {
+  private findChannel(platform: PlatformType, channelId: string): { id: string } | undefined {
     return this.chatListService
       .getChannels(platform)
       .find((channel) => channel.channelId === channelId);

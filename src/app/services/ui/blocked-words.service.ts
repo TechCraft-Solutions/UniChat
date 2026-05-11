@@ -6,6 +6,7 @@ import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { migrateLegacyChannelRefs } from "@utils/channel-ref.util";
 import { RegexCompilationService, RegexRule } from "@services/ui/regex-compilation.service";
+import { generateTimestamp } from "@helpers/chat.helper";
 export interface BlockedWordRule {
   id: string;
   pattern: string;
@@ -110,7 +111,7 @@ export class BlockedWordsService {
     const newRule: BlockedWordRule = {
       ...rule,
       id: this.generateId(),
-      createdAt: new Date().toISOString(),
+      createdAt: generateTimestamp(),
     };
     this.rulesSignal.update((rules) => [...rules, newRule]);
     this.persistRules();

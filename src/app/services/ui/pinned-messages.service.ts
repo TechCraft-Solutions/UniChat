@@ -4,6 +4,9 @@ import { Injectable, signal, computed, inject } from "@angular/core";
 /* models */
 import { ChatMessage } from "@models/chat.model";
 
+/* helpers */
+import { generateTimestamp } from "@helpers/chat.helper";
+
 /* services */
 import { LocalStorageService } from "@services/core/local-storage.service";
 export interface PinnedMessage {
@@ -69,7 +72,7 @@ export class PinnedMessagesService {
       author: message.author,
       text: message.text,
       timestamp: message.timestamp,
-      pinnedAt: new Date().toISOString(),
+      pinnedAt: generateTimestamp(),
       note,
     };
 

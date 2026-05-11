@@ -1,9 +1,11 @@
 /* sys lib */
-import { Injectable } from "@angular/core";
+import { Injectable, OnDestroy, inject } from "@angular/core";
 import { invoke } from "@tauri-apps/api/core";
 
 /* models */
 import { ChatMessage, PlatformType } from "@models/chat.model";
+import { ReconnectionManager } from "@utils/reconnection-manager.util";
+import { LoggerService } from "@services/core/logger.service";
 type OverlaySourcePayload = {
   type: "chatMessage";
   message: {
@@ -22,12 +24,15 @@ type OverlaySourcePayload = {
 @Injectable({
   providedIn: "root",
 })
-export class OverlaySourceBridgeService {
+export class OverlaySourceBridgeService implements OnDestroy {
+  private readonly logger = inject(LoggerService);
   private socket: WebSocket | null = null;
   private connectedPort: number | null = null;
-  private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 10; // Increased from 5
-  private readonly reconnectDelay = 2000; // Increased from 1000ms
+  private readonly reconnectionManager = new ReconnectionManager({
+    maxRetries: 10,
+    baseDelayMs: 2000,
+    maxDelayMs: 30000,
+  });
   private connectionState: "disconnected" | "connecting" | "connected" = "disconnected";
   private messageQueue: ChatMessage[] = []; // Queue messages when disconnected
   private connectionPromise: Promise<void> | null = null; // Track connection promise
@@ -50,7 +55,7 @@ export class OverlaySourceBridgeService {
     }
 
     this.connectedPort = port;
-    this.reconnectAttempts = 0;
+    this.reconnectionManager.onSuccessfulConnection();
     this.connectionState = "connecting";
 
     try {
@@ -59,7 +64,12 @@ export class OverlaySourceBridgeService {
       // If invoke fails (e.g. already started), we'll still try to connect WS.
     }
 
-    this.socket?.close();
+    if (this.socket) {
+      this.socket.onopen = null;
+      this.socket.onerror = null;
+      this.socket.close();
+      this.socket = null;
+    }
 
     const wsUrl = `ws://127.0.0.1:${port}/ws/overlay?role=source`;
     this.socket = new WebSocket(wsUrl);
@@ -121,12 +131,11 @@ export class OverlaySourceBridgeService {
    * Attempt to reconnect with exponential backoff
    */
   private async attemptReconnect(port: number): Promise<void> {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+    if (!this.reconnectionManager.shouldRetry()) {
       return;
     }
 
-    this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    const delay = this.reconnectionManager.onConnectionFailed();
 
     await new Promise((resolve) => setTimeout(resolve, delay));
     await this.ensureConnected(port);
@@ -206,9 +215,25 @@ export class OverlaySourceBridgeService {
       // Attempt reconnection on send failure
       if (this.connectedPort) {
         this.attemptReconnect(this.connectedPort).catch((error) => {
-          console.warn("[OverlaySourceBridge] Reconnection attempt failed:", error);
+          this.logger.warn("[OverlaySourceBridge] Reconnection attempt failed:", error);
         });
       }
     }
+  }
+
+  close(): void {
+    if (this.socket) {
+      this.socket.onopen = null;
+      this.socket.onerror = null;
+      this.socket.close();
+      this.socket = null;
+    }
+    this.connectionState = "disconnected";
+    this.connectionPromise = null;
+    this.messageQueue = [];
+  }
+
+  ngOnDestroy(): void {
+    this.close();
   }
 }

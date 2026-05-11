@@ -1,8 +1,9 @@
 /* sys lib */
-import { Injectable, signal } from "@angular/core";
+import { Injectable, OnDestroy, signal } from "@angular/core";
 
 /* models */
 import { WidgetFilter, PlatformType, ChatMessageEmote } from "@models/chat.model";
+import { ReconnectionManager } from "@utils/reconnection-manager.util";
 export interface OverlayChatMessage {
   id: string;
   platform: PlatformType;
@@ -44,14 +45,17 @@ export interface OverlayConnectOptions {
 @Injectable({
   providedIn: "root",
 })
-export class OverlayWsStateService {
+export class OverlayWsStateService implements OnDestroy {
   private socket: WebSocket | null = null;
   private currentKey: string | null = null;
-  private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 10; // Increased from 5 for better reliability
-  private readonly reconnectDelay = 2000; // Increased from 1000ms for stability
+  private readonly reconnectionManager = new ReconnectionManager({
+    maxRetries: 10,
+    baseDelayMs: 2000,
+    maxDelayMs: 30000,
+  });
   private pendingOptions: OverlayConnectOptions | null = null;
   private connectionState: "disconnected" | "connecting" | "connected" = "disconnected";
+  private destroyed = false;
 
   private readonly messagesSignal = signal<OverlayChatMessage[]>([]);
   readonly messages = this.messagesSignal.asReadonly();
@@ -65,20 +69,27 @@ export class OverlayWsStateService {
       return;
     }
 
-    // Close existing connection
-    this.socket?.close();
+    if (this.socket) {
+      this.socket.onopen = null;
+      this.socket.onmessage = null;
+      this.socket.onerror = null;
+      this.socket.onclose = null;
+      this.socket.close();
+      this.socket = null;
+    }
 
     this.currentKey = key;
     this.pendingOptions = opts;
 
     // Only clear messages on initial connect, not on automatic reconnection
     // This prevents messages from disappearing during brief network issues
-    const shouldPreserveMessages = opts.preserveMessages ?? this.reconnectAttempts > 0;
+    const shouldPreserveMessages =
+      opts.preserveMessages ?? this.reconnectionManager.getState().attempts > 0;
     if (!shouldPreserveMessages) {
       this.messagesSignal.set([]);
     }
 
-    this.reconnectAttempts = 0;
+    this.reconnectionManager.onSuccessfulConnection();
     this.connectionState = "connecting";
 
     const wsUrl = `ws://127.0.0.1:${opts.port}/ws/overlay?widgetId=${encodeURIComponent(
@@ -162,7 +173,7 @@ export class OverlayWsStateService {
   }
 
   private async attemptReconnect(opts: OverlayConnectOptions): Promise<void> {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+    if (!this.reconnectionManager.shouldRetry() || this.destroyed) {
       return;
     }
 
@@ -171,15 +182,28 @@ export class OverlayWsStateService {
       return;
     }
 
-    this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    const delay = this.reconnectionManager.onConnectionFailed();
 
     await new Promise((resolve) => setTimeout(resolve, delay));
 
     // Check again after delay
-    if (this.pendingOptions === opts) {
+    if (this.pendingOptions === opts && !this.destroyed) {
       this.connect(opts);
     }
+  }
+
+  close(): void {
+    this.destroyed = true;
+    this.pendingOptions = null;
+    if (this.socket) {
+      this.socket.onclose = null;
+      this.socket.close();
+      this.socket = null;
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.close();
   }
 }
 
