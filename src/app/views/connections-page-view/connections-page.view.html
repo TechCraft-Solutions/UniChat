@@ -5,7 +5,7 @@
   [class.bg-zinc-950]="themeMode() === 'dark'"
   [class.text-zinc-100]="themeMode() === 'dark'"
 >
-  <div class="flex-1 overflow-y-auto p-6">
+  <div class="flex-1 overflow-y-auto p-6 pb-24 md:pb-6">
     <h3
       class="mb-4 text-xl font-bold"
       [class.text-zinc-900]="themeMode() === 'light'"
@@ -104,7 +104,7 @@
       </h3>
 
       <!-- Add Channel Form -->
-      <div class="mb-4 flex items-center gap-2">
+      <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <img
           [src]="presentation.platformIconUrl(selectedPlatform)"
           [alt]="getPlatformLbl(selectedPlatform)"
@@ -128,30 +128,32 @@
             <option [value]="account.id">{{ account.username }}</option>
           }
         </select>
-        <input
-          type="text"
-          [(ngModel)]="newChannelName"
-          [placeholder]="getChannelNamePlaceholder()"
-          class="glass flex-1 rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-100 transition outline-none placeholder:text-zinc-500 focus:border-indigo-500"
-          (keydown.enter)="addChannel()"
-        />
-        <button
-          type="button"
-          (click)="addChannel()"
-          class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
-        >
-          Add
-        </button>
+        <div class="flex flex-1 flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            [(ngModel)]="newChannelName"
+            [placeholder]="getChannelNamePlaceholder()"
+            class="glass flex-1 rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-100 transition outline-none placeholder:text-zinc-500 focus:border-indigo-500"
+            (keydown.enter)="addChannel()"
+          />
+          <button
+            type="button"
+            (click)="addChannel()"
+            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+          >
+            Add
+          </button>
+        </div>
       </div>
 
       <!-- Channel List -->
       <div class="space-y-2">
         @for (channel of channels(); track channel.id) {
           <div
-            class="glass flex items-center justify-between rounded-xl border border-zinc-800 p-3"
+            class="glass flex flex-col items-center justify-between gap-3 rounded-xl border border-zinc-800 p-3 sm:flex-row"
           >
             @if (editingChannelId === channel.id) {
-              <div class="flex flex-1 items-center gap-2">
+              <div class="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
                 <img
                   [src]="presentation.platformIconUrl(channel.platform)"
                   [alt]="getPlatformLbl(channel.platform)"
@@ -167,6 +169,8 @@
                   (keydown.escape)="cancelEditChannel()"
                   autofocus
                 />
+              </div>
+              <div class="flex w-full justify-center gap-2 sm:w-auto sm:justify-end">
                 <button
                   type="button"
                   (click)="saveEditChannel()"
@@ -185,7 +189,7 @@
                 </button>
               </div>
             } @else {
-              <div class="flex items-center gap-3">
+              <div class="flex w-full items-center gap-3 sm:flex-1">
                 <img
                   [src]="presentation.platformIconUrl(channel.platform)"
                   [alt]="getPlatformLbl(channel.platform)"
