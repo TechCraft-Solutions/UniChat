@@ -4,6 +4,81 @@
 @plugin "flowbite/plugin";
 @source "../node_modules/flowbite";
 
+/* ===== Reusable Component Classes ===== */
+
+/* Card component - use class="card" */
+.card {
+  @apply rounded-xl border border-zinc-200 bg-white p-4 shadow-sm;
+}
+.dark .card {
+  @apply border-white/10 bg-white/5;
+}
+
+/* Card text */
+.card-title {
+  @apply text-sm font-semibold;
+}
+.card-text {
+  @apply text-xs text-zinc-600 dark:text-zinc-400;
+}
+
+/* Input fields */
+.input-field {
+  @apply w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-zinc-500;
+}
+
+/* Select fields */
+.select-field {
+  @apply w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/20;
+}
+
+/* Button primary */
+.btn-primary {
+  @apply rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200;
+}
+
+/* Button secondary */
+.btn-secondary {
+  @apply rounded-xl border border-zinc-900/10 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-200 dark:hover:bg-white/5;
+}
+
+/* Button ghost */
+.btn-ghost {
+  @apply rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-white;
+}
+
+/* Badge */
+.badge {
+  @apply inline-flex items-center gap-2 rounded-full border border-zinc-900/10 bg-white px-2.5 py-1 text-xs text-zinc-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200;
+}
+
+/* Pill button */
+.pill-btn {
+  @apply rounded-full border px-3 py-1 text-xs font-medium transition;
+}
+.pill-btn-active {
+  @apply border-emerald-500 bg-emerald-500 text-white;
+}
+.pill-btn-inactive {
+  @apply border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-black/20 dark:text-zinc-300;
+}
+
+/* Section header */
+.section-header {
+  @apply text-sm font-semibold tracking-[0.2em] text-zinc-500 uppercase dark:text-zinc-400;
+}
+.section-description {
+  @apply mt-1 text-sm text-zinc-600 dark:text-zinc-400;
+}
+
+/* Container card */
+.container-card {
+  @apply rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm;
+}
+.dark .container-card {
+  @apply border-white/10 bg-white/5;
+}
+
 /* Full height reset for proper flex layout */
 html,
 body {
@@ -236,4 +311,31 @@ body {
 body {
   margin: 0;
   font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+/* ===== Glass Effect ===== */
+.glass {
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ===== Chat Container Scrollbar ===== */
+.chat-container::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-container::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 10px;
+}
+
+/* ===== Platform Border Accents ===== */
+.platform-twitch {
+  border-left: 4px solid #9146ff;
+}
+.platform-kick {
+  border-left: 4px solid #53fc18;
+}
+.platform-youtube {
+  border-left: 4px solid #ff0000;
 }
