@@ -166,7 +166,7 @@ export class DebugPanelComponent implements OnInit, OnDestroy {
 
   readonly isOpen = signal(false);
   readonly debugEnabled = signal(false);
-  readonly position = signal({ x: 0, y: 0 });
+  readonly position = signal({ x: 16, y: 16 });
   readonly size = signal({ width: 320, height: 280 });
   readonly activityLog = signal<ActivityEntry[]>([]);
   readonly messageCount = signal(0);
@@ -184,18 +184,6 @@ export class DebugPanelComponent implements OnInit, OnDestroy {
   readonly themeMode = this.themeService.themeMode;
 
   ngOnInit(): void {
-    const savedPos = localStorage.getItem("debug-panel-pos");
-    if (savedPos) {
-      try {
-        this.position.set(JSON.parse(savedPos));
-      } catch {}
-    } else {
-      this.position.set({
-        x: window.innerWidth - 340,
-        y: window.innerHeight - 320,
-      });
-    }
-
     const savedSize = localStorage.getItem("debug-panel-size");
     if (savedSize) {
       try {
@@ -283,7 +271,6 @@ export class DebugPanelComponent implements OnInit, OnDestroy {
       x: this.panelStart.x + dx,
       y: this.panelStart.y + dy,
     }));
-    localStorage.setItem("debug-panel-pos", JSON.stringify(this.position()));
   };
 
   private onMouseUp = (): void => {

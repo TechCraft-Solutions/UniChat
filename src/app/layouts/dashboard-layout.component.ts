@@ -21,7 +21,6 @@ import { AppMobileNavComponent } from "@components/app-sidebar/app-mobile-nav.co
 import { DebugPanelComponent } from "@components/debug-panel/debug-panel.component";
 import { RouteAwareHeaderComponent } from "@components/shared-header/route-aware-header.component";
 import { KeyboardShortcutsDialogComponent } from "@components/keyboard-shortcuts-dialog/keyboard-shortcuts-dialog.component";
-import { ENVIRONMENT } from "../../environments/environment";
 
 /** Sidebar width in pixels (matches w-16 = 64px) */
 const SIDEBAR_WIDTH = 64;
