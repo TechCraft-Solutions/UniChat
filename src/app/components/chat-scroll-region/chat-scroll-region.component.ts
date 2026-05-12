@@ -78,6 +78,17 @@ export class ChatScrollRegionComponent implements AfterViewInit {
       .pipe(throttleTime(16), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.onScroll());
 
+    fromEvent(window, "resize", { passive: true })
+      .pipe(throttleTime(100), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (this.pinnedToBottom()) {
+          const n = this.getScrollContainer();
+          if (n) {
+            n.scrollTop = n.scrollHeight;
+          }
+        }
+      });
+
     if (this.pinnedToBottom()) {
       requestAnimationFrame(() => {
         node.scrollTop = node.scrollHeight;
@@ -87,19 +98,6 @@ export class ChatScrollRegionComponent implements AfterViewInit {
   }
 
   constructor() {
-    if (typeof window !== "undefined") {
-      fromEvent(window, "resize", { passive: true })
-        .pipe(throttleTime(100), takeUntilDestroyed(this.destroyRef))
-        .subscribe(() => {
-          if (this.pinnedToBottom()) {
-            const node = this.getScrollContainer();
-            if (node) {
-              node.scrollTop = node.scrollHeight;
-            }
-          }
-        });
-    }
-
     effect(() => {
       this.scrollToken();
       untracked(() => {
