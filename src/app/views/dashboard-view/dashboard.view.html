@@ -1,5 +1,5 @@
 <div
-  class="flex h-full min-h-0 w-full flex-col overflow-hidden"
+  class="flex h-screen min-h-0 w-full flex-col overflow-hidden"
   [class.bg-white]="themeMode() === 'light'"
   [class.text-zinc-900]="themeMode() === 'light'"
   [class.bg-zinc-950]="themeMode() === 'dark'"
@@ -17,7 +17,7 @@
   />
 
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    <app-dashboard-mixed-feed class="flex h-full w-full flex-col overflow-y-auto pb-20 md:pb-0" />
+    <app-dashboard class="mb-22 flex h-full w-full flex-col overflow-y-auto md:mb-0" />
   </div>
 
   <!-- Search Modal Overlay -->
@@ -34,42 +34,16 @@
     </div>
   }
 
-  <!-- Pinned Messages Panel - Desktop: side panel, Mobile: bottom sheet -->
+  <!-- Pinned Messages Panel -->
   @if (showPinned()) {
-    <div
-      class="absolute inset-0 z-50 flex items-end justify-center bg-black/50 p-0 lg:items-start lg:justify-end lg:bg-black/50 lg:p-4"
-      (click)="togglePinned()"
-    >
+    <div class="absolute top-[64px] right-4 z-40" (click)="$event.stopPropagation()">
       <div
-        class="max-h-[85vh] w-full overflow-hidden rounded-t-2xl border shadow-xl lg:max-h-[500px] lg:max-w-lg lg:rounded-xl"
+        class="max-h-[500px] w-full max-w-lg overflow-hidden rounded-xl border shadow-xl"
         [class.border-zinc-200]="themeMode() === 'light'"
         [class.bg-white]="themeMode() === 'light'"
         [class.border-zinc-800]="themeMode() === 'dark'"
         [class.glass]="themeMode() === 'dark'"
-        (click)="$event.stopPropagation()"
       >
-        <div
-          class="flex items-center justify-between border-b px-4 py-3 lg:hidden"
-          [class.border-zinc-200]="themeMode() === 'light'"
-          [class.border-zinc-800]="themeMode() === 'dark'"
-        >
-          <div class="flex items-center gap-2">
-            <mat-icon [fontIcon]="'push_pin'" class="text-amber-500" />
-            <h3 class="text-sm font-semibold">Pinned Messages</h3>
-          </div>
-          <button
-            type="button"
-            (click)="togglePinned()"
-            class="rounded-lg p-1 transition"
-            [class.text-zinc-500]="themeMode() === 'light'"
-            [class.hover:bg-zinc-100]="themeMode() === 'light'"
-            [class.text-zinc-400]="themeMode() === 'dark'"
-            [class.hover:bg-zinc-800]="themeMode() === 'dark'"
-            aria-label="Close"
-          >
-            <mat-icon [fontIcon]="'close'" class="text-lg" />
-          </button>
-        </div>
         <app-pinned-messages-panel (closed)="togglePinned()" />
       </div>
     </div>

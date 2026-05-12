@@ -27,7 +27,7 @@ import { ThemeService } from "@services/core/theme.service";
 /* components */
 import { ChatSearchComponent } from "@components/chat-search/chat-search.component";
 import { DashboardHeaderComponent } from "@components/dashboard-header/dashboard-header.component";
-import { DashboardMixedFeedComponent } from "@components/dashboard-mixed-feed/dashboard-mixed-feed.component";
+import { DashboardComponent } from "@components/dashboard/dashboard.component";
 import { KeyboardShortcutsHelpComponent } from "@components/keyboard-shortcuts-help/keyboard-shortcuts-help.component";
 import { PinnedMessagesPanelComponent } from "@components/pinned-messages-panel/pinned-messages-panel.component";
 import { UserProfilePopoverComponent } from "@components/user-profile-popover/user-profile-popover";
@@ -36,7 +36,7 @@ import { UserProfilePopoverComponent } from "@components/user-profile-popover/us
   standalone: true,
   imports: [
     DashboardHeaderComponent,
-    DashboardMixedFeedComponent,
+    DashboardComponent,
     UserProfilePopoverComponent,
     MatIconModule,
     ChatSearchComponent,
