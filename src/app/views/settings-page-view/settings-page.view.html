@@ -63,6 +63,44 @@
         </div>
       </div>
 
+      <!-- Debug Panel -->
+      <div
+        class="flex items-center justify-between rounded-2xl border p-4"
+        [class.border-zinc-200]="themeMode() === 'light'"
+        [class.bg-white]="themeMode() === 'light'"
+        [class.glass]="themeMode() === 'dark'"
+      >
+        <div>
+          <div
+            class="font-bold"
+            [class.text-zinc-900]="themeMode() === 'light'"
+            [class.text-zinc-100]="themeMode() === 'dark'"
+          >
+            Debug Panel
+          </div>
+          <div
+            class="text-xs"
+            [class.text-zinc-500]="themeMode() === 'light'"
+            [class.text-zinc-400]="themeMode() === 'dark'"
+          >
+            Show debug overlay with connection stats and activity logs.
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="toggleDebugPanel()"
+          class="relative h-6 w-12 rounded-full transition-colors"
+          [class.bg-indigo-600]="debugPanelEnabled()"
+          [class.bg-zinc-400]="!debugPanelEnabled()"
+        >
+          <div
+            class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+            [class.left-0.5]="!debugPanelEnabled()"
+            [class.left-6]="debugPanelEnabled()"
+          ></div>
+        </button>
+      </div>
+
       <!-- Text Size -->
       <div
         class="space-y-4 rounded-2xl border p-4"
@@ -112,37 +150,6 @@
 
     <!-- Existing Settings Sections -->
     <div class="mt-8 flex flex-col gap-y-3">
-      <!-- Debug Panel Section -->
-      <app-settings-section
-        title="Debug Panel"
-        description="Show debug overlay with connection stats and activity logs"
-        sectionId="debugPanel"
-        [collapsedState]="sectionStates()['debugPanel']"
-        (collapsedChange)="updateSectionState('debugPanel', $event)"
-      >
-        <div class="flex items-center justify-between py-2">
-          <div>
-            <div class="text-sm font-medium">Enable Debug Panel</div>
-            <div class="text-xs text-zinc-500 dark:text-zinc-400">
-              Shows timer events, parsing logs, and connection stats
-            </div>
-          </div>
-          <button
-            type="button"
-            (click)="toggleDebugPanel()"
-            class="relative h-6 w-12 rounded-full transition-colors"
-            [class.bg-indigo-600]="debugPanelEnabled()"
-            [class.bg-zinc-400]="!debugPanelEnabled()"
-          >
-            <div
-              class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
-              [class.left-0.5]="!debugPanelEnabled()"
-              [class.left-6]="debugPanelEnabled()"
-            ></div>
-          </button>
-        </div>
-      </app-settings-section>
-
       <!-- Blocked Words Section -->
       <app-settings-section
         title="Blocked Words & Filters"

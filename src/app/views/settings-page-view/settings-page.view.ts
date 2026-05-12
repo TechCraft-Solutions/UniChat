@@ -54,7 +54,6 @@ export class SettingsPageView {
   readonly sectionStates = signal<Record<string, boolean>>({
     blockedWords: true,
     highlightRules: true,
-    debugPanel: true,
   });
 
   /** Collapse all sections */
