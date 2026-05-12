@@ -3,7 +3,6 @@
 
 use log;
 use reqwest::Client;
-use url::Url;
 
 use crate::helpers::config_helper::SharedConfig;
 use crate::helpers::oauth_config_helper::get_oauth_provider_config;
@@ -66,14 +65,6 @@ impl OAuthProviderService {
     platform: PlatformTypeModel,
     callback_url: String,
   ) -> Result<AuthAccountModel, String> {
-    let callback = Url::parse(&callback_url).map_err(|e| format!("invalid callback url: {e}"))?;
-    let params: std::collections::HashMap<String, String> =
-      callback.query_pairs().into_owned().collect();
-    let state_param = params.get("state").ok_or("missing state parameter")?;
-    self
-      .oauth_flow_service
-      .get_state_service()
-      .consume_session(state_param)?;
     let account = self
       .oauth_flow_service
       .complete_auth(platform.clone(), callback_url)

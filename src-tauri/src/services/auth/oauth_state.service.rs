@@ -5,7 +5,9 @@ use std::sync::Mutex;
 use chrono::Utc;
 use rand::{distributions::Alphanumeric, Rng};
 
-use crate::constants::{OAUTH_CODE_VERIFIER_LENGTH, OAUTH_STATE_LENGTH};
+use crate::constants::{
+  OAUTH_CODE_VERIFIER_LENGTH, OAUTH_STATE_EXPIRATION_SECS, OAUTH_STATE_LENGTH,
+};
 use crate::models::auth_oauth_model::OAuthPendingSessionModel;
 use crate::models::platform_type_model::{PlatformKey, PlatformTypeModel};
 
@@ -56,16 +58,25 @@ impl OAuthStateService {
       .sessions
       .lock()
       .map_err(|_| "oauth session lock poisoned".to_string())?;
-    guard
-      .remove(state)
-      .ok_or_else(|| {
-        log::warn!("OAuth session not found or expired: {}", state);
-        "oauth state is missing or expired".to_string()
-      })
-      .map(|session| {
-        log::debug!("OAuth session consumed, state: {}", session.state);
-        session
-      })
+
+    let session = guard.remove(state).ok_or_else(|| {
+      log::warn!("OAuth session not found: {}", state);
+      "oauth state is missing".to_string()
+    })?;
+
+    let now = Utc::now().timestamp();
+    if session.created_at + OAUTH_STATE_EXPIRATION_SECS < now {
+      log::warn!(
+        "OAuth session expired: {} (created: {}, expires: {})",
+        state,
+        session.created_at,
+        session.created_at + OAUTH_STATE_EXPIRATION_SECS
+      );
+      return Err("oauth state expired".to_string());
+    }
+
+    log::debug!("OAuth session consumed, state: {}", session.state);
+    Ok(session)
   }
 }
 
