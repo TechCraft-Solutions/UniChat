@@ -20,6 +20,26 @@ export class MessageTypeDetectorService {
   /** Time threshold for "returning" user detection (5 minutes) */
   private readonly RETURNING_THRESHOLD_MS = 5 * 60 * 1000;
 
+  /** Maximum number of user-channel pairs to track before eviction */
+  private readonly MAX_USER_TRACKING = 10000;
+
+  /** Number of entries to evict when limit is reached (20%) */
+  private readonly EVICTION_BATCH_SIZE = Math.floor(this.MAX_USER_TRACKING * 0.2);
+
+  /**
+   * Evict oldest entries if the Map exceeds the maximum size
+   */
+  private evictIfNeeded(): void {
+    if (this.userLastMessage.size >= this.MAX_USER_TRACKING) {
+      // Remove oldest entries (first 20%)
+      const keysToRemove = Array.from(this.userLastMessage.keys()).slice(
+        0,
+        this.EVICTION_BATCH_SIZE
+      );
+      keysToRemove.forEach((key) => this.userLastMessage.delete(key));
+    }
+  }
+
   /**
    * Detect message type for a new message
    * Should be called before adding message to storage
@@ -62,6 +82,7 @@ export class MessageTypeDetectorService {
       buildChannelRef(message.platform, message.sourceChannelId)
     );
     this.userLastMessage.set(cacheKey, message.timestamp);
+    this.evictIfNeeded();
   }
 
   /**

@@ -3,6 +3,7 @@ import { inject, Injectable, signal } from "@angular/core";
 
 /* services */
 import { InAppLinkBrowserService } from "@services/ui/in-app-link-browser.service";
+import { extractYoutubeVideoId } from "@utils/youtube-url-parser.util";
 export interface LinkPreviewState {
   /** Raw matched text in the message (may omit scheme). */
   displayUrl: string;
@@ -114,42 +115,13 @@ function tryYoutubeEmbedUrl(url: URL): string | null {
     return null;
   }
 
-  const id = extractYoutubeVideoId(url, host);
-  if (!id || !/^[\w-]{11}$/.test(id)) {
+  // Reconstruct the original URL string for the parser
+  const originalUrl = url.toString();
+  const id = extractYoutubeVideoId(originalUrl);
+  if (!id) {
     return null;
   }
   return `https://www.youtube.com/embed/${encodeURIComponent(id)}`;
-}
-
-function extractYoutubeVideoId(url: URL, host: string): string | null {
-  if (host === "youtu.be") {
-    const seg = url.pathname.split("/").filter(Boolean)[0];
-    return seg ?? null;
-  }
-
-  const path = url.pathname;
-  const fromQuery = url.searchParams.get("v");
-  if (fromQuery && /^[\w-]{11}$/.test(fromQuery)) {
-    return fromQuery;
-  }
-
-  const embed = path.match(/^\/embed\/([\w-]{11})(?:\/|$)/);
-  if (embed?.[1]) {
-    return embed[1];
-  }
-  const shorts = path.match(/^\/shorts\/([\w-]{11})(?:\/|$)/);
-  if (shorts?.[1]) {
-    return shorts[1];
-  }
-  const live = path.match(/^\/live\/([\w-]{11})(?:\/|$)/);
-  if (live?.[1]) {
-    return live[1];
-  }
-  const watchPath = path.match(/^\/watch\/([\w-]{11})(?:\/|$)/);
-  if (watchPath?.[1]) {
-    return watchPath[1];
-  }
-  return null;
 }
 
 function isHardNonEmbeddableHost(host: string): boolean {

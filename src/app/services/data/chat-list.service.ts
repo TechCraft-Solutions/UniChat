@@ -14,6 +14,10 @@ import { buildChannelRef } from "@utils/channel-ref.util";
 import { normalizeChannelId } from "@utils/channel-normalization.util";
 import { LocalStorageService } from "../core/local-storage.service";
 import { DashboardPreferencesService } from "../ui/dashboard-preferences.service";
+
+/**
+ * Channel list is stored between sessions using localStorage.
+ */
 const storageKey = "unichat-chat-channels";
 
 @Injectable({
@@ -45,7 +49,7 @@ export class ChatListService {
   private loadMissingChannelImages(): void {
     const channels = this.channelsSignal();
     for (const channel of channels) {
-      const cacheKey = `${channel.platform}:${channel.channelId}`;
+      const cacheKey = `${channel.platform}:${channel.id}`;
       if (!this.avatarCache.hasChannelAvatar(cacheKey)) {
         this.loadChannelImage(channel.id);
       }
@@ -96,7 +100,7 @@ export class ChatListService {
     }
 
     const newChannel: ChatChannel = {
-      id: `ch-${platform}-${Date.now()}`,
+      id: providerChannelId,
       platform,
       channelId: providerChannelId,
       channelName: normalizedChannelName,
@@ -115,7 +119,6 @@ export class ChatListService {
       return next;
     });
 
-    // Auto-load channel image after adding
     this.loadChannelImage(newChannel.id);
   }
 
@@ -128,7 +131,6 @@ export class ChatListService {
       return next;
     });
 
-    // Clean up: remove from enabled lists and overlay configs
     if (channel) {
       const channelRef = buildChannelRef(channel.platform, channel.channelId);
       this.removeEnabledFromDashboard(channelRef);
@@ -149,26 +151,19 @@ export class ChatListService {
     });
 
     if (willBeHidden && channel) {
-      // When hiding a channel: remove from all enabled lists (dashboard + overlay)
-      // Channel will be completely hidden from dashboard and overlay management
       const channelRef = buildChannelRef(channel.platform, channel.channelId);
       this.removeEnabledFromDashboard(channelRef);
       this.removeEnabledFromAllOverlays(channelRef);
     }
-    // When showing a channel: no side effects
-    // Channel appears in settings/dashboard/overlay selector but user controls activation separately
   }
 
   private removeEnabledFromDashboard(channelRef: string): void {
-    // Remove from mixedEnabledChannelIds (disables in dashboard)
     const mixedEnabled = this.dashboardPreferencesService.getMixedEnabledChannelIds();
     const filtered = mixedEnabled.filter((id: string) => id !== channelRef);
     this.dashboardPreferencesService.setMixedEnabledChannelIds(filtered);
   }
 
   private removeEnabledFromAllOverlays(channelRef: string): void {
-    // Iterate through all localStorage keys to find overlay channel configurations
-    // Pattern: unichat-overlay-channel-ids:{widgetId}
     const overlayChannelIdsPattern = /^unichat-overlay-channel-ids:/;
 
     for (let i = 0; i < localStorage.length; i++) {
@@ -220,7 +215,7 @@ export class ChatListService {
   updateChannelAccount(channelId: string, accountId?: string, accountUsername?: string): void {
     const channel = this.channelsSignal().find((ch) => ch.id === channelId);
     const needsImageLoad =
-      channel && !this.avatarCache.hasChannelAvatar(`${channel.platform}:${channel.channelId}`);
+      channel && !this.avatarCache.hasChannelAvatar(`${channel.platform}:${channel.id}`);
 
     this.channelsSignal.update((channels) => {
       const next = channels.map((channel) => {
@@ -264,14 +259,11 @@ export class ChatListService {
     });
   }
 
-  /**
-   * Load channel profile image asynchronously
-   */
   async loadChannelImage(channelId: string): Promise<void> {
     const channel = this.channelsSignal().find((ch) => ch.id === channelId);
     if (!channel) return;
 
-    const cacheKey = `${channel.platform}:${channel.channelId}`;
+    const cacheKey = `${channel.platform}:${channel.id}`;
     if (this.avatarCache.hasChannelAvatar(cacheKey)) {
       return;
     }
@@ -284,44 +276,12 @@ export class ChatListService {
   }
 
   private loadChannels(): ChatChannel[] {
-    const stored = localStorage.getItem(storageKey);
-
-    if (!stored) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(stored) as ChatChannel[];
-      let needsSave = false;
-
-      const migrated = parsed
-        .map((channel) => {
-          // Migrate YouTube channels
-          if (channel.platform === "youtube") {
-            const normalizedChannelId = normalizeYouTubeProviderInput(
-              channel.channelId || channel.channelName
-            );
-            if (normalizedChannelId !== channel.channelId) {
-              channel.channelId = normalizedChannelId;
-              needsSave = true;
-            }
-          }
-          return channel;
-        })
-        .filter((channel) => !!channel.channelId);
-
-      if (needsSave) {
-        this.saveChannels(migrated);
-      }
-
-      return migrated;
-    } catch {
-      return [];
-    }
+    const stored = this.localStorageService.get<ChatChannel[]>(storageKey, []);
+    return Array.isArray(stored) ? stored : [];
   }
 
   private saveChannels(channels: ChatChannel[]): void {
-    localStorage.setItem(storageKey, JSON.stringify(channels));
+    this.localStorageService.set(storageKey, channels);
   }
 
   private resolveProviderChannelId(platform: PlatformType, channelName: string): string {

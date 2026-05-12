@@ -32,15 +32,15 @@ import { buildChannelRef, parseChannelRef } from "@utils/channel-ref.util";
  *
  * Key Features:
  * - Signal-based reactive state management
- * - LocalStorage persistence via ChatPersistenceService
+ * - PERSISTENCE DISABLED: Message history is NOT stored between sessions
  * - Message deduplication and limiting
  * - History load state tracking
  * - Overlay message broadcasting
- * - High-throughput coalescing: live `addMessage` is flushed once per animation frame
+ * - High-throughput coalescing: live ddMessage is flushed once per animation frame
  *   to cut signal churn during 1000+ msg/min bursts (memory + CPU).
  *
  * Delegates to:
- * - ChatPersistenceService: IndexedDB persistence
+ * - ChatPersistenceService: PERSISTENCE DISABLED (all no-ops)
  * - ChatPruningService: Memory management and pruning
  *
  * All other services should read from this service, not duplicate its data.
@@ -80,15 +80,7 @@ export class ChatStorageService {
 
   constructor() {
     this.channelMessagesSignal.set({});
-    this.loadPersistedMessages();
-  }
-
-  private async loadPersistedMessages(): Promise<void> {
-    const persisted = await this.persistence.loadPersistedMessages();
-    if (Object.keys(persisted).length > 0) {
-      this.channelMessagesSignal.set(persisted);
-      this.incrementMessageVersion();
-    }
+    // PERSISTENCE DISABLED: Do not load any persisted messages on startup
   }
 
   /**
@@ -257,7 +249,7 @@ export class ChatStorageService {
 
     this.enforceGlobalCap();
 
-    this.persistence.persistAllChannels(this.channelMessagesSignal());
+    // PERSISTENCE DISABLED: this.persistence.persistAllChannels removed
 
     for (const message of sortedMessages) {
       this.messageTypeDetector.updateLastMessageTime(message);
@@ -283,7 +275,7 @@ export class ChatStorageService {
         [channelId]: channelMessages.filter((msg) => msg.id !== messageId),
       };
     });
-    this.persistence.persistAllChannels(this.channelMessagesSignal());
+    // PERSISTENCE DISABLED: this.persistence.persistAllChannels removed
   }
 
   updateMessage(channelId: string, messageId: string, updates: Partial<ChatMessage>): void {
@@ -320,7 +312,7 @@ export class ChatStorageService {
         [channelId]: messages.map((msg) => (msg.id === messageId ? updated : msg)),
       };
     });
-    this.persistence.persistAllChannels(this.channelMessagesSignal());
+    // PERSISTENCE DISABLED: this.persistence.persistAllChannels removed
 
     if (shouldForward) {
       this.overlayBridge.forwardMessage(updated);
@@ -370,7 +362,7 @@ export class ChatStorageService {
 
     this.incrementMessageVersion();
 
-    this.persistence.persistAllChannels(this.channelMessagesSignal());
+    // PERSISTENCE DISABLED: this.persistence.persistAllChannels removed
 
     for (const incoming of snapshot.values()) {
       for (const message of incoming) {
@@ -434,7 +426,7 @@ export class ChatStorageService {
       newSet.delete(channelId);
       return newSet;
     });
-    this.persistence.clearChannel(channelId);
+    // PERSISTENCE DISABLED: this.persistence.clearChannel removed
   }
 
   /**
@@ -446,7 +438,7 @@ export class ChatStorageService {
     this.channelMessagesSignal.set({});
     this.loadedChannels.set(new Set());
     this.historyLoadState.set({});
-    this.persistence.clearAll();
+    // PERSISTENCE DISABLED: this.persistence.clearAll removed
   }
 
   /**

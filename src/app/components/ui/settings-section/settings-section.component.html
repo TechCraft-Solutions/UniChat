@@ -1,12 +1,26 @@
 <div
-  class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
+  class="rounded-2xl border p-6 shadow-sm"
+  [class.border-zinc-200]="themeMode() === 'light'"
+  [class.bg-white]="themeMode() === 'light'"
+  [class.dark:border-white/10]="themeMode() === 'dark'"
+  [class.dark:bg-zinc-800]="themeMode() === 'dark'"
 >
   <!-- Header with toggle -->
   <div class="flex items-start justify-between">
     <div class="flex-1">
-      <h2 class="text-lg font-semibold">{{ title() }}</h2>
+      <h2
+        class="text-lg font-semibold"
+        [class.text-zinc-900]="themeMode() === 'light'"
+        [class.text-zinc-100]="themeMode() === 'dark'"
+      >
+        {{ title() }}
+      </h2>
       @if (description()) {
-        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        <p
+          class="mt-1 text-sm"
+          [class.text-zinc-600]="themeMode() === 'light'"
+          [class.text-zinc-400]="themeMode() === 'dark'"
+        >
           {{ description() }}
         </p>
       }
@@ -14,7 +28,13 @@
     <button
       type="button"
       (click)="toggle()"
-      class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200"
+      class="rounded-lg p-2 transition"
+      [class.text-zinc-500]="themeMode() === 'light'"
+      [class.hover:bg-zinc-100]="themeMode() === 'light'"
+      [class.hover:text-zinc-700]="themeMode() === 'light'"
+      [class.dark:text-zinc-400]="themeMode() === 'dark'"
+      [class.dark:hover:bg-white/10]="themeMode() === 'dark'"
+      [class.dark:hover:text-zinc-200]="themeMode() === 'dark'"
       [attr.aria-expanded]="!collapsed()"
       [attr.aria-label]="'Toggle ' + title() + ' section'"
     >

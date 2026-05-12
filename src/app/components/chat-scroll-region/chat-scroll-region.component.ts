@@ -1,15 +1,14 @@
 /* sys lib */
 import {
-  afterNextRender,
+  AfterViewInit,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   computed,
   effect,
   inject,
-  Injector,
   input,
-  runInInjectionContext,
   signal,
   untracked,
   viewChild,
@@ -32,55 +31,33 @@ import { ChatMessage } from "@models/chat.model";
   },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ChatScrollRegionComponent {
+export class ChatScrollRegionComponent implements AfterViewInit {
   private static readonly detachFromBottomPx = 100;
   private static readonly reattachToBottomPx = 150;
   private static readonly scrollNoiseThresholdPx = 8;
-  private static readonly scrollBehavior: ScrollBehavior = "smooth";
 
   private readonly destroyRef = inject(DestroyRef);
-  private readonly injector = inject(Injector);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   readonly scrollToken = input.required<string>();
   readonly messages = input.required<readonly ChatMessage[]>();
 
   private readonly scrollContainer = viewChild<HTMLElement>("scrollContainer");
 
-  private readonly pinnedToBottom = signal(true);
+  readonly pinnedToBottom = signal(true);
   readonly pendingNewCount = signal(0);
   private snapshotLength = 0;
   private prevMessageLen = 0;
   private prevNewestMessageId: string | null = null;
   private lastScrollTop = 0;
-  private readonly distanceFromBottomValue = signal(0);
+  readonly distanceFromBottom = signal(0);
 
-  private pendingRenderCallback: (() => void) | null = null;
-  private renderCallbackOwner = 0;
+  readonly showJumpButton = computed(() => {
+    return this.distanceFromBottom() > 10 || this.pendingNewCount() > 0;
+  });
 
-  private scheduleRenderCallback(callback: () => void): void {
-    const owner = ++this.renderCallbackOwner;
-    this.pendingRenderCallback = callback;
-    afterNextRender(() => {
-      if (this.renderCallbackOwner === owner && this.pendingRenderCallback === callback) {
-        this.pendingRenderCallback = null;
-        callback();
-      }
-    });
-    this.destroyRef.onDestroy(() => {
-      if (this.renderCallbackOwner === owner) {
-        this.pendingRenderCallback = null;
-      }
-    });
-  }
-
-  private clearRenderCallback(): void {
-    this.pendingRenderCallback = null;
-    this.renderCallbackOwner++;
-  }
-
-  readonly showJumpButton = computed(() => this.distanceFromBottomValue() > 10);
   readonly showUnreadCount = computed(
-    () => this.distanceFromBottomValue() > 10 && this.pendingNewCount() > 0
+    () => this.distanceFromBottom() > 10 && this.pendingNewCount() > 0
   );
 
   private prevTotalHeight = 0;
@@ -88,10 +65,25 @@ export class ChatScrollRegionComponent {
 
   private getScrollContainer(): HTMLElement | null {
     const container = this.scrollContainer();
-    if (!container) {
-      return null;
+    return container ?? null;
+  }
+
+  ngAfterViewInit(): void {
+    const node = this.getScrollContainer();
+    if (!node) return;
+
+    this.prevTotalHeight = node.scrollHeight;
+
+    fromEvent(node, "scroll", { passive: true })
+      .pipe(throttleTime(16), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.onScroll());
+
+    if (this.pinnedToBottom()) {
+      requestAnimationFrame(() => {
+        node.scrollTop = node.scrollHeight;
+        this.prevTotalHeight = node.scrollHeight;
+      });
     }
-    return container;
   }
 
   constructor() {
@@ -100,42 +92,32 @@ export class ChatScrollRegionComponent {
         .pipe(throttleTime(100), takeUntilDestroyed(this.destroyRef))
         .subscribe(() => {
           if (this.pinnedToBottom()) {
-            this.scrollToBottom();
+            const node = this.getScrollContainer();
+            if (node) {
+              node.scrollTop = node.scrollHeight;
+            }
           }
         });
     }
 
-    afterNextRender(() => {
-      const node = this.getScrollContainer();
-      if (!node) return;
-
-      this.prevTotalHeight = node.scrollHeight;
-      fromEvent(node, "scroll", { passive: true })
-        .pipe(throttleTime(16), takeUntilDestroyed(this.destroyRef))
-        .subscribe(() => this.onScroll());
-    });
-
     effect(() => {
       this.scrollToken();
       untracked(() => {
-        this.clearRenderCallback();
         const node = this.getScrollContainer();
         if (!node) return;
 
         this.lastScrollTop = node.scrollTop ?? 0;
-        this.distanceFromBottomValue.set(0);
+        this.distanceFromBottom.set(0);
         this.snapshotLength = this.messages().length;
         this.prevNewestMessageId = this.getNewestMessageId();
         this.prevOldestMessageId = this.getOldestMessageId();
 
         if (this.pinnedToBottom()) {
           this.pendingNewCount.set(0);
-          runInInjectionContext(this.injector, () => {
-            this.scheduleRenderCallback(() => {
-              queueMicrotask(() => {
-                requestAnimationFrame(() => this.scrollToBottom());
-              });
-            });
+          requestAnimationFrame(() => {
+            node.scrollTop = node.scrollHeight;
+            this.prevTotalHeight = node.scrollHeight;
+            this.cdr.markForCheck();
           });
         } else {
           this.pendingNewCount.set(0);
@@ -145,9 +127,7 @@ export class ChatScrollRegionComponent {
       });
     });
 
-    this.destroyRef.onDestroy(() => {
-      this.clearRenderCallback();
-    });
+    this.destroyRef.onDestroy(() => {});
 
     effect(() => {
       const messages = this.messages();
@@ -185,25 +165,21 @@ export class ChatScrollRegionComponent {
           return;
         }
 
-        runInInjectionContext(this.injector, () => {
-          this.scheduleRenderCallback(() => {
-            requestAnimationFrame(() => {
-              const node = this.getScrollContainer();
-              if (!node) return;
-
-              const shouldAutoScroll = this.pinnedToBottom();
-
-              if (shouldAutoScroll) {
-                this.pendingNewCount.set(0);
-                this.snapshotLength = len;
-                this.scrollToBottom();
-                this.distanceFromBottomValue.set(0);
-              } else {
-                this.pendingNewCount.update((count) => count + delta);
-              }
-            });
+        if (this.pinnedToBottom()) {
+          this.pendingNewCount.set(0);
+          this.snapshotLength = len;
+          requestAnimationFrame(() => {
+            const node = this.getScrollContainer();
+            if (!node) return;
+            node.scrollTop = node.scrollHeight;
+            this.prevTotalHeight = node.scrollHeight;
+            this.distanceFromBottom.set(0);
+            this.cdr.markForCheck();
           });
-        });
+        } else {
+          this.pendingNewCount.update((count) => count + delta);
+          this.cdr.markForCheck();
+        }
       });
     });
   }
@@ -213,8 +189,8 @@ export class ChatScrollRegionComponent {
     if (!node) return;
 
     const scrollTop = node.scrollTop;
-    const distance = this.distanceFromBottom(node);
-    this.distanceFromBottomValue.set(distance);
+    const distance = Math.max(0, node.scrollHeight - node.scrollTop - node.clientHeight);
+    this.distanceFromBottom.set(distance);
 
     const isAtBottom = distance === 0;
     const shouldReattach = distance <= ChatScrollRegionComponent.reattachToBottomPx;
@@ -225,22 +201,28 @@ export class ChatScrollRegionComponent {
       this.pendingNewCount.set(0);
       this.lastScrollTop = scrollTop;
       this.prevTotalHeight = node.scrollHeight;
+      this.cdr.markForCheck();
       return;
     }
 
-    const scrollDelta = Math.abs(scrollTop - this.lastScrollTop);
-    const shouldDetach = distance > ChatScrollRegionComponent.detachFromBottomPx;
+    if (this.pinnedToBottom()) {
+      const scrollDelta = Math.abs(scrollTop - this.lastScrollTop);
 
-    if (scrollDelta < ChatScrollRegionComponent.scrollNoiseThresholdPx) {
-      return;
-    }
+      if (scrollDelta < ChatScrollRegionComponent.scrollNoiseThresholdPx) {
+        return;
+      }
 
-    this.lastScrollTop = scrollTop;
-    this.prevTotalHeight = node.scrollHeight;
+      if (distance > ChatScrollRegionComponent.detachFromBottomPx) {
+        this.pinnedToBottom.set(false);
+        this.snapshotLength = this.messages().length;
+        this.lastScrollTop = scrollTop;
+        this.prevTotalHeight = node.scrollHeight;
+        this.cdr.markForCheck();
+        return;
+      }
 
-    if (this.pinnedToBottom() && shouldDetach) {
-      this.pinnedToBottom.set(false);
-      this.snapshotLength = this.messages().length;
+      this.lastScrollTop = scrollTop;
+      this.prevTotalHeight = node.scrollHeight;
     }
   }
 
@@ -248,45 +230,22 @@ export class ChatScrollRegionComponent {
     const node = this.getScrollContainer();
     if (!node) return;
 
-    this.scrollToBottom(true);
+    node.scrollTop = node.scrollHeight;
     this.pinnedToBottom.set(true);
     this.snapshotLength = this.messages().length;
     this.pendingNewCount.set(0);
-    this.distanceFromBottomValue.set(0);
+    this.distanceFromBottom.set(0);
     this.prevTotalHeight = node.scrollHeight;
-  }
-
-  private scrollToBottom(smooth: boolean = false): void {
-    const scrollEl = this.getScrollContainer();
-    if (!scrollEl) return;
-
-    if (smooth) {
-      scrollEl.scrollTo({
-        top: scrollEl.scrollHeight,
-        behavior: ChatScrollRegionComponent.scrollBehavior,
-      });
-    } else {
-      scrollEl.scrollTop = scrollEl.scrollHeight;
-    }
-    this.prevTotalHeight = scrollEl.scrollHeight;
-  }
-
-  private distanceFromBottom(node: HTMLElement): number {
-    const distance = Math.max(0, node.scrollHeight - node.scrollTop - node.clientHeight);
-    return distance;
+    this.cdr.markForCheck();
   }
 
   private getNewestMessageId(messages: readonly ChatMessage[] = this.messages()): string | null {
-    if (messages.length === 0) {
-      return null;
-    }
+    if (messages.length === 0) return null;
     return messages[messages.length - 1]?.id ?? null;
   }
 
   private getOldestMessageId(messages: readonly ChatMessage[] = this.messages()): string | null {
-    if (messages.length === 0) {
-      return null;
-    }
+    if (messages.length === 0) return null;
     return messages[0]?.id ?? null;
   }
 

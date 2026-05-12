@@ -18,6 +18,7 @@ import {
 
 /* services */
 import { PlatformResolverService } from "@services/core/platform-resolver.service";
+import { extractYoutubeVideoId } from "@utils/youtube-url-parser.util";
 // Create singleton instance for helper functions
 let platformResolver: PlatformResolverService | null = null;
 
@@ -272,34 +273,5 @@ export const YOUTUBE_DATA_API_KEY_STORAGE_KEY = "unichat-youtube-api-key";
  * Canonical id for a YouTube row in channel list: explicit 11-char video id.
  */
 export function normalizeYouTubeProviderInput(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  const studioMatch = trimmed.match(/studio\.youtube\.com\/video\/([a-zA-Z0-9_-]{11})/i);
-  if (studioMatch?.[1]) {
-    return studioMatch[1];
-  }
-
-  const watchMatch = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{11})/i);
-  if (watchMatch?.[1] && /youtube\.com/i.test(trimmed)) {
-    return watchMatch[1];
-  }
-
-  const shortMatch = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{11})(?:\?|#|\/|$)/i);
-  if (shortMatch?.[1]) {
-    return shortMatch[1];
-  }
-
-  const liveMatch = trimmed.match(/youtube\.com\/live\/([a-zA-Z0-9_-]{11})(?:\?|#|\/|$)/i);
-  if (liveMatch?.[1]) {
-    return liveMatch[1];
-  }
-
-  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
-    return trimmed;
-  }
-
-  return "";
+  return extractYoutubeVideoId(raw) ?? "";
 }

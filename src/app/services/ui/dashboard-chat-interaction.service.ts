@@ -7,14 +7,13 @@ import { ChatMessage } from "@models/chat.model";
 /* services */
 import { ChatStateService } from "@services/data/chat-state.service";
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
-import { SplitFeedUiService } from "@services/ui/split-feed-ui.service";
+
 @Injectable({
   providedIn: "root",
 })
 export class DashboardChatInteractionService {
   private readonly chatStateService = inject(ChatStateService);
   private readonly dashboardPreferences = inject(DashboardPreferencesService);
-  private readonly splitFeedUi = inject(SplitFeedUiService);
 
   readonly replyTargetMessageId = signal<string | null>(null);
   readonly highlightMessageId = signal<string | null>(null);
@@ -22,13 +21,6 @@ export class DashboardChatInteractionService {
   onReplyClick(messageId: string): void {
     const msg = this.chatStateService.messages().find((m) => m.id === messageId);
     if (!msg || msg.actions.reply.status !== "available") {
-      return;
-    }
-    if (this.dashboardPreferences.preferences().feedMode === "mixed") {
-      this.replyTargetMessageId.set(messageId);
-      this.highlightMessageId.set(messageId);
-      this.dashboardPreferences.setFeedMode("split");
-      this.splitFeedUi.setActiveChannel(msg.platform, msg.sourceChannelId);
       return;
     }
     this.toggleReplyTarget(messageId);

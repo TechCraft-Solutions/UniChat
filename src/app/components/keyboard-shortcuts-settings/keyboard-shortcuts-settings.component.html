@@ -1,8 +1,8 @@
 <div
-  class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
+  class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
 >
   <h2 class="text-lg font-semibold">Keyboard shortcuts</h2>
-  <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+  <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
     Edit shortcuts below. Use + between keys (e.g. <code class="text-xs">Ctrl+K</code>,
     <code class="text-xs">F1</code>, <code class="text-xs">Escape</code>).
   </p>
@@ -13,10 +13,10 @@
     </p>
   }
 
-  <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
+  <div class="mt-4 overflow-x-auto rounded-xl border border-zinc-200 dark:border-white/10">
     <table class="w-full min-w-[28rem] text-left text-sm">
       <thead
-        class="border-b border-slate-200 bg-slate-50 text-xs tracking-wide text-slate-500 uppercase dark:border-white/10 dark:bg-white/5 dark:text-slate-400"
+        class="border-b border-zinc-200 bg-zinc-50 text-xs tracking-wide text-zinc-500 uppercase dark:border-white/10 dark:bg-white/5 dark:text-zinc-400"
       >
         <tr>
           <th class="px-3 py-2 font-medium">Action</th>
@@ -26,8 +26,8 @@
       </thead>
       <tbody>
         @for (row of shortcuts(); track row.bindingId) {
-          <tr class="border-b border-slate-100 last:border-0 dark:border-white/5">
-            <td class="px-3 py-2.5 text-slate-700 dark:text-slate-300">
+          <tr class="border-b border-zinc-100 last:border-0 dark:border-white/5">
+            <td class="px-3 py-2.5 text-zinc-700 dark:text-zinc-300">
               {{ row.description }}
             </td>
             <td class="px-3 py-2.5">
@@ -36,13 +36,13 @@
                   type="text"
                   [ngModel]="editKeys()"
                   (ngModelChange)="editKeys.set($event)"
-                  class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+                  class="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 font-mono text-xs text-zinc-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
                   (keydown.enter)="saveEdit()"
                   (keydown.escape)="cancelEdit()"
                 />
               } @else {
                 <kbd
-                  class="rounded border border-slate-300 bg-slate-100 px-2 py-1 font-mono text-xs text-slate-700 dark:border-white/20 dark:bg-white/5 dark:text-slate-300"
+                  class="rounded border border-zinc-300 bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300"
                   >{{ row.keys }}</kbd
                 >
               }
@@ -59,7 +59,7 @@
                 <button
                   type="button"
                   (click)="cancelEdit()"
-                  class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 dark:border-white/10 dark:text-slate-300"
+                  class="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 dark:border-white/10 dark:text-zinc-300"
                 >
                   Cancel
                 </button>
@@ -67,7 +67,7 @@
                 <button
                   type="button"
                   (click)="startEdit(row)"
-                  class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+                  class="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
                 >
                   Edit
                 </button>
@@ -82,7 +82,7 @@
   <button
     type="button"
     (click)="resetDefaults()"
-    class="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-black/20 dark:text-slate-200 dark:hover:bg-white/10"
+    class="mt-4 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-white/10 dark:bg-black/20 dark:text-zinc-200 dark:hover:bg-white/10"
   >
     Reset to defaults
   </button>

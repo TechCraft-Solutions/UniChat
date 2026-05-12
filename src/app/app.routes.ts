@@ -28,6 +28,23 @@ export const routes: Routes = [
         resolve: { chatData: ChatDataResolver },
       },
       {
+        path: "connections",
+        loadComponent: () =>
+          import("@views/connections-page-view/connections-page.view").then(
+            (m) => m.ConnectionsPageView
+          ),
+      },
+      {
+        path: "analytics",
+        loadComponent: () =>
+          import("@views/analytics-page-view/analytics-page.view").then((m) => m.AnalyticsPageView),
+      },
+      {
+        path: "export",
+        loadComponent: () =>
+          import("@views/export-page-view/export-page.view").then((m) => m.ExportPageView),
+      },
+      {
         path: "overlay-management",
         loadComponent: () =>
           import("@views/overlay-management-view/overlay-management.view").then(
@@ -38,6 +55,13 @@ export const routes: Routes = [
         path: "settings",
         loadComponent: () =>
           import("@views/settings-page-view/settings-page.view").then((m) => m.SettingsPageView),
+      },
+      {
+        path: "keyboard-shortcuts",
+        loadComponent: () =>
+          import("@views/keyboard-shortcuts-page-view/keyboard-shortcuts-page.view").then(
+            (m) => m.KeyboardShortcutsPageView
+          ),
       },
     ],
   },

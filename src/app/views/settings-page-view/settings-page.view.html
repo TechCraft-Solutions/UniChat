@@ -1,631 +1,169 @@
 <div
-  class="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+  class="flex h-full min-h-0 w-full flex-col overflow-hidden"
+  [class.bg-white]="themeMode() === 'light'"
+  [class.text-zinc-900]="themeMode() === 'light'"
+  [class.bg-zinc-950]="themeMode() === 'dark'"
+  [class.text-zinc-100]="themeMode() === 'dark'"
 >
-  <app-shared-header
-    title="Settings"
-    subtitle="Manage your connections and channels"
-    [showBackButton]="false"
-  />
-
-  <main class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-    <div class="flex flex-1 items-start justify-center px-6 py-8">
-      <div class="w-full max-w-5xl">
-        <!-- Page Header with Collapse/Expand Controls -->
-        <div class="mb-6 flex items-center justify-between">
-          <h1 class="text-2xl font-bold">Settings</h1>
-          <div class="flex gap-2">
-            <button
-              type="button"
-              (click)="collapseAll()"
-              class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-              title="Collapse all sections"
-            >
-              <mat-icon [fontIcon]="'unfold_less'" class="h-7! w-6! text-xl!" />
-              <span class="ml-1">Collapse All</span>
-            </button>
-            <button
-              type="button"
-              (click)="expandAll()"
-              class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-              title="Expand all sections"
-            >
-              <mat-icon [fontIcon]="'unfold_more'" class="h-7! w-6! text-xl!" />
-              <span class="ml-1">Expand All</span>
-            </button>
+  <div class="flex-1 space-y-6 overflow-y-auto p-6">
+    <div class="space-y-6">
+      <!-- Aggregated Chat Mode -->
+      <div
+        class="flex items-center justify-between rounded-2xl border p-4"
+        [class.border-zinc-200]="themeMode() === 'light'"
+        [class.bg-white]="themeMode() === 'light'"
+        [class.glass]="themeMode() === 'dark'"
+      >
+        <div>
+          <div
+            class="font-bold"
+            [class.text-zinc-900]="themeMode() === 'light'"
+            [class.text-zinc-100]="themeMode() === 'dark'"
+          >
+            Aggregated Chat Mode
+          </div>
+          <div
+            class="text-xs"
+            [class.text-zinc-500]="themeMode() === 'light'"
+            [class.text-zinc-400]="themeMode() === 'dark'"
+          >
+            Combine all platform messages into one feed.
           </div>
         </div>
-
-        <div class="flex flex-col gap-y-3">
-          <!-- Authorization Section -->
-          <app-settings-section
-            title="Authorization"
-            description="Connect your accounts to enable replying and moderation"
-            sectionId="authorization"
-            [collapsedState]="sectionStates()['authorization']"
-            (collapsedChange)="updateSectionState('authorization', $event)"
-          >
-            <div class="mt-4 space-y-3">
-              @for (platform of platforms; track platform) {
-                <div
-                  class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"
-                >
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                      <img
-                        [src]="presentation.platformIconUrl(platform)"
-                        [alt]="getPlatformLbl(platform)"
-                        [title]="getPlatformLbl(platform)"
-                        class="h-6 w-6 shrink-0 object-contain"
-                      />
-                      @if (getAuthorizedAccounts(platform).length > 0) {
-                        <span class="text-sm text-emerald-600 dark:text-emerald-400">
-                          {{ getAuthorizedAccounts(platform).length }} account(s) connected
-                        </span>
-                      } @else {
-                        <span class="text-sm text-slate-500 dark:text-slate-400">
-                          Not connected
-                        </span>
-                      }
-                    </div>
-                    <button
-                      type="button"
-                      (click)="authorize(platform)"
-                      class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                    >
-                      {{
-                        getAuthorizedAccounts(platform).length > 0 ? "Connect Another" : "Connect"
-                      }}
-                    </button>
-                  </div>
-
-                  @if (getAuthorizedAccounts(platform).length > 0) {
-                    <div class="mt-3 space-y-2">
-                      @for (account of getAuthorizedAccounts(platform); track account.id) {
-                        <div
-                          class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-black/20"
-                        >
-                          <div class="flex min-w-0 flex-col">
-                            <div class="flex items-center gap-2">
-                              <img
-                                [src]="getAccountIcon(account.id)"
-                                [alt]="account.username"
-                                [title]="account.username"
-                                class="h-6 w-6 shrink-0 rounded-full object-cover"
-                              />
-                              <span
-                                class="truncate text-sm font-medium text-slate-900 dark:text-white"
-                              >
-                                {{ account.username }}
-                              </span>
-                              @if ($first) {
-                                <span
-                                  class="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                  title="Primary account for this platform"
-                                >
-                                  Primary
-                                </span>
-                              }
-                            </div>
-                            <span class="truncate text-xs text-slate-500 dark:text-slate-400">
-                              {{ account.userId }}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            (click)="removeAuthorizedAccount(account)"
-                            class="rounded-md bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
-                            title="Remove this account"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          </app-settings-section>
-
-          <!-- YouTube API Section -->
-          <app-settings-section
-            title="YouTube live chat"
-            description="Connect your YouTube account to receive live chat messages. Video ID is automatically detected from your live stream."
-            sectionId="youtube"
-            [collapsedState]="sectionStates()['youtube']"
-            (collapsedChange)="updateSectionState('youtube', $event)"
-          >
-            <div class="mt-4 space-y-3">
-              <div
-                class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"
-              >
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-3">
-                    <img
-                      [src]="presentation.platformIconUrl('youtube')"
-                      alt="YouTube"
-                      title="YouTube"
-                      class="h-6 w-6 shrink-0 object-contain"
-                    />
-                    @if (getAuthorizedAccounts("youtube").length > 0) {
-                      <span class="text-sm text-emerald-600 dark:text-emerald-400">
-                        {{ getAuthorizedAccounts("youtube").length }} account(s) connected
-                      </span>
-                    } @else {
-                      <span class="text-sm text-slate-500 dark:text-slate-400">
-                        Not connected
-                      </span>
-                    }
-                  </div>
-                  <button
-                    type="button"
-                    (click)="authorize('youtube')"
-                    class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                  >
-                    {{
-                      getAuthorizedAccounts("youtube").length > 0 ? "Connect Another" : "Connect"
-                    }}
-                  </button>
-                </div>
-
-                @if (getAuthorizedAccounts("youtube").length > 0) {
-                  <div class="mt-3 space-y-2">
-                    @for (account of getAuthorizedAccounts("youtube"); track account.id) {
-                      <div
-                        class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-black/20"
-                      >
-                        <div class="flex min-w-0 flex-col">
-                          <div class="flex items-center gap-2">
-                            <img
-                              [src]="getAccountIcon(account.id)"
-                              [alt]="account.username"
-                              [title]="account.username"
-                              class="h-6 w-6 shrink-0 rounded-full object-cover"
-                            />
-                            <span
-                              class="truncate text-sm font-medium text-slate-900 dark:text-white"
-                            >
-                              {{ account.username }}
-                            </span>
-                            @if ($first) {
-                              <span
-                                class="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                title="Primary account for this platform"
-                              >
-                                Primary
-                              </span>
-                            }
-                          </div>
-                          <span class="truncate text-xs text-slate-500 dark:text-slate-400">
-                            {{ account.userId }}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          (click)="removeAuthorizedAccount(account)"
-                          class="rounded-md bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
-                          title="Remove this account"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
-
-              <!-- YouTube API Key Input (optional, for public live chat) -->
-              <div
-                class="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-black/20"
-              >
-                <div class="flex items-center justify-between">
-                  <h3 class="text-sm font-semibold text-slate-900 dark:text-white">
-                    Optional: YouTube Data API Key
-                  </h3>
-                  <button
-                    type="button"
-                    (click)="showYoutubeApiKey = !showYoutubeApiKey"
-                    class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200"
-                    [title]="showYoutubeApiKey ? 'Hide API key' : 'Show API key'"
-                  >
-                    <mat-icon
-                      [fontIcon]="showYoutubeApiKey ? 'visibility_off' : 'visibility'"
-                      class="h-5! w-5! text-xl!"
-                    />
-                  </button>
-                </div>
-                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                  Add a YouTube Data API key to receive chat messages without OAuth (read-only
-                  mode). Not required if you've connected your account above.
-                </p>
-                @if (showYoutubeApiKey) {
-                  <div class="mt-3 flex gap-2">
-                    <input
-                      type="text"
-                      [value]="youtubeApiKey"
-                      (input)="youtubeApiKey = $any($event.target).value"
-                      (blur)="saveYoutubeApiKey()"
-                      placeholder="AIzaSy..."
-                      class="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-slate-500"
-                    />
-                    <button
-                      type="button"
-                      (click)="saveYoutubeApiKey()"
-                      class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                    >
-                      Save
-                    </button>
-                  </div>
-                }
-              </div>
-            </div>
-          </app-settings-section>
-
-          <!-- Channel Management Section -->
-          <app-settings-section
-            title="Channel Management"
-            description="Add channels to display in your chat view"
-            sectionId="channelManagement"
-            [collapsedState]="sectionStates()['channelManagement']"
-            (collapsedChange)="updateSectionState('channelManagement', $event)"
-          >
-            @if (getChannelManagementAccounts().length > 0) {
-              <div
-                class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"
-              >
-                <p
-                  class="text-xs font-medium tracking-[0.15em] text-slate-500 uppercase dark:text-slate-400"
-                >
-                  Authorized Accounts
-                </p>
-                <div class="mt-2 flex flex-wrap gap-2">
-                  @for (account of getChannelManagementAccounts(); track account.id) {
-                    <span
-                      class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-white/10 dark:bg-black/20 dark:text-slate-200"
-                    >
-                      <img
-                        [src]="getAccountIcon(account.id)"
-                        [alt]="account.username"
-                        [title]="account.username"
-                        class="h-5 w-5 shrink-0 rounded-full object-cover"
-                      />
-                      <img
-                        [src]="presentation.platformIconUrl(account.platform)"
-                        [alt]="getPlatformLbl(account.platform)"
-                        [title]="getPlatformLbl(account.platform)"
-                        class="h-4 w-4 shrink-0 object-contain"
-                      />
-                      {{ account.username }}
-                    </span>
-                  }
-                </div>
-              </div>
-            }
-
-            <div class="mt-4 flex items-center gap-2">
-              <img
-                [src]="presentation.platformIconUrl(selectedPlatform)"
-                [alt]="getPlatformLbl(selectedPlatform)"
-                [title]="getPlatformLbl(selectedPlatform)"
-                class="h-6 w-6 shrink-0 object-contain"
-              />
-              <select
-                [(ngModel)]="selectedPlatform"
-                class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
-              >
-                @for (platform of platforms; track platform) {
-                  <option [value]="platform">{{ getPlatformLbl(platform) }}</option>
-                }
-              </select>
-              <select
-                [(ngModel)]="selectedAccountId"
-                class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
-              >
-                <option value="">Watch-only</option>
-                @for (account of getAuthorizedAccounts(selectedPlatform); track account.id) {
-                  <option [value]="account.id">{{ account.username }}</option>
-                }
-              </select>
-              <input
-                type="text"
-                [(ngModel)]="newChannelName"
-                [placeholder]="getChannelNamePlaceholder()"
-                class="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 transition outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-slate-500"
-                (keydown.enter)="addChannel()"
-              />
-              <button
-                type="button"
-                (click)="addChannel()"
-                class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-              >
-                Add
-              </button>
-            </div>
-
-            <!-- Enable/Disable All Buttons -->
-            <div class="mt-3 flex gap-2">
-              <button
-                type="button"
-                (click)="enableAllChannelsInSettings()"
-                class="text-xs text-slate-700 underline decoration-slate-400 underline-offset-2 hover:text-slate-900 dark:text-slate-300 dark:decoration-slate-500 dark:hover:text-white"
-              >
-                Enable all channels
-              </button>
-              <button
-                type="button"
-                (click)="disableAllChannelsInSettings()"
-                class="text-xs text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-              >
-                Disable all channels
-              </button>
-            </div>
-
-            <div class="mt-4 space-y-2">
-              @for (channel of channels(); track channel.id) {
-                <div
-                  class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-black/20"
-                >
-                  @if (editingChannelId === channel.id) {
-                    <!-- Edit Mode -->
-                    <div class="flex flex-1 items-center gap-2">
-                      <input
-                        type="text"
-                        [(ngModel)]="editingChannelName"
-                        [placeholder]="channel.channelName"
-                        class="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                        (keydown.enter)="saveEditChannel()"
-                        (keydown.escape)="cancelEditChannel()"
-                        autofocus
-                      />
-                      <button
-                        type="button"
-                        (click)="saveEditChannel()"
-                        class="rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-500/20 dark:text-emerald-400"
-                        title="Save"
-                      >
-                        <mat-icon [fontIcon]="'check'" class="h-6! w-5! text-xl!" />
-                      </button>
-                      <button
-                        type="button"
-                        (click)="cancelEditChannel()"
-                        class="rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-300 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20"
-                        title="Cancel"
-                      >
-                        <mat-icon [fontIcon]="'close'" class="h-6! w-5! text-xl!" />
-                      </button>
-                    </div>
-                  } @else {
-                    <!-- View Mode -->
-                    <div class="flex items-center gap-3">
-                      <app-checkbox
-                        [checked]="channel.isVisible"
-                        (checkedChange)="toggleChannelVisibility(channel.id)"
-                        inputClass="sr-only"
-                      />
-                      <!-- Platform Icon -->
-                      <img
-                        [src]="presentation.platformIconUrl(channel.platform)"
-                        [alt]="getPlatformLbl(channel.platform)"
-                        [title]="getPlatformLbl(channel.platform)"
-                        class="h-5 w-5 shrink-0 object-contain"
-                      />
-                      <!-- Channel Avatar -->
-                      @if (channelAvatars.getChannelImageForChannel(channel); as channelImage) {
-                        <img
-                          [src]="channelImage"
-                          [alt]="channel.channelName"
-                          [title]="channel.channelName"
-                          class="h-5 w-5 shrink-0 rounded-full object-cover"
-                        />
-                      } @else {
-                        <div
-                          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-700 uppercase dark:bg-white/10 dark:text-slate-200"
-                          [title]="channel.channelName"
-                        >
-                          {{ channelAvatars.getChannelInitial(channel.channelName) }}
-                        </div>
-                      }
-                      <span class="text-sm font-medium text-slate-900 dark:text-white">
-                        {{ channel.channelName }}
-                      </span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <select
-                        [ngModel]="channel.accountId ?? ''"
-                        (ngModelChange)="updateChannelAccount(channel.id, $event)"
-                        class="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                      >
-                        <option value="">Watch-only</option>
-                        @for (
-                          account of getAuthorizedAccounts(channel.platform);
-                          track account.id
-                        ) {
-                          <option [value]="account.id">{{ account.username }}</option>
-                        }
-                      </select>
-                      <button
-                        type="button"
-                        (click)="startEditChannel(channel.id, channel.channelName)"
-                        class="rounded-md bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-500/20 dark:text-blue-400 dark:hover:bg-blue-500/30"
-                        title="Edit channel name"
-                      >
-                        <mat-icon [fontIcon]="'edit'" class="h-6! w-5! text-xl!" />
-                      </button>
-                      <button
-                        type="button"
-                        (click)="removeChannel(channel.id)"
-                        class="rounded-md bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
-                        title="Remove channel"
-                      >
-                        <mat-icon [fontIcon]="'delete'" class="h-6! w-5! text-xl!" />
-                      </button>
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          </app-settings-section>
-
-          <!-- Blocked Words Section -->
-          <app-settings-section
-            title="Blocked Words & Filters"
-            description="Filter out unwanted words or patterns from chat messages"
-            sectionId="blockedWords"
-            [collapsedState]="sectionStates()['blockedWords']"
-            (collapsedChange)="updateSectionState('blockedWords', $event)"
-          >
-            <app-blocked-words-settings />
-          </app-settings-section>
-
-          <!-- Highlight Rules Section -->
-          <app-settings-section
-            title="Highlight Rules"
-            description="Configure message highlighting rules"
-            sectionId="highlightRules"
-            [collapsedState]="sectionStates()['highlightRules']"
-            (collapsedChange)="updateSectionState('highlightRules', $event)"
-          >
-            <app-highlight-rules-settings />
-          </app-settings-section>
-
-          <!-- Keyboard shortcuts -->
-          <app-settings-section
-            title="Keyboard Shortcuts"
-            description="View and customize keyboard shortcuts"
-            sectionId="keyboardShortcuts"
-            [collapsedState]="sectionStates()['keyboardShortcuts']"
-            (collapsedChange)="updateSectionState('keyboardShortcuts', $event)"
-          >
-            <app-keyboard-shortcuts-settings />
-          </app-settings-section>
-
-          <!-- Session Export Section -->
-          <app-settings-section
-            title="Session Export"
-            description="Export chat session data"
-            sectionId="sessionExport"
-            [collapsedState]="sectionStates()['sessionExport']"
-            (collapsedChange)="updateSectionState('sessionExport', $event)"
-          >
-            <app-session-export-settings />
-          </app-settings-section>
-
-          <!-- Chat History Export Section -->
-          <app-settings-section
-            title="Export Chat History"
-            description="Export your chat history to JSON, TXT, or CSV format"
-            sectionId="chatHistoryExport"
-            [collapsedState]="sectionStates()['chatHistoryExport']"
-            (collapsedChange)="updateSectionState('chatHistoryExport', $event)"
-          >
-            <div
-              class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/20"
-            >
-              <!-- Export Statistics -->
-              <div class="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div class="rounded-lg bg-white p-3 text-center dark:bg-white/5">
-                  <div class="text-2xl font-bold text-slate-900 dark:text-white">
-                    {{ exportStats().totalChannels }}
-                  </div>
-                  <div class="text-xs text-slate-500 dark:text-slate-400">Channels</div>
-                </div>
-                <div class="rounded-lg bg-white p-3 text-center dark:bg-white/5">
-                  <div class="text-2xl font-bold text-slate-900 dark:text-white">
-                    {{ exportStats().totalMessages }}
-                  </div>
-                  <div class="text-xs text-slate-500 dark:text-slate-400">Messages</div>
-                </div>
-                <div class="rounded-lg bg-white p-3 text-center dark:bg-white/5">
-                  <div class="text-2xl font-bold text-[#9146FF] dark:text-[#a970ff]">
-                    {{ exportStats().byPlatform.twitch }}
-                  </div>
-                  <div class="text-xs text-slate-500 dark:text-slate-400">Twitch</div>
-                </div>
-                <div class="rounded-lg bg-white p-3 text-center dark:bg-white/5">
-                  <div class="text-2xl font-bold text-[#53FC18] dark:text-[#6eff34]">
-                    {{ exportStats().byPlatform.kick }}
-                  </div>
-                  <div class="text-xs text-slate-500 dark:text-slate-400">Kick</div>
-                </div>
-              </div>
-
-              <!-- Export Options -->
-              <div class="space-y-4">
-                <!-- Format Selection -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
-                    >Format</label
-                  >
-                  <select
-                    [(ngModel)]="exportFormat"
-                    class="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                  >
-                    <option value="txt">Plain Text (TXT)</option>
-                    <option value="json">JSON (Structured)</option>
-                    <option value="csv">CSV (Spreadsheet)</option>
-                  </select>
-                </div>
-
-                <!-- Options -->
-                <div class="grid grid-cols-2 gap-3">
-                  <app-checkbox
-                    [(checked)]="exportIncludeTimestamps"
-                    label="Include Timestamps"
-                    labelClass="text-sm text-slate-700 dark:text-slate-300"
-                  />
-                  <app-checkbox
-                    [(checked)]="exportIncludePlatform"
-                    label="Include Platform"
-                    labelClass="text-sm text-slate-700 dark:text-slate-300"
-                  />
-                  <app-checkbox
-                    [(checked)]="exportIncludeBadges"
-                    label="Include Badges"
-                    labelClass="text-sm text-slate-700 dark:text-slate-300"
-                  />
-                </div>
-
-                <!-- Export Actions -->
-                <div class="flex flex-wrap gap-3 pt-2">
-                  <button
-                    type="button"
-                    (click)="exportAllHistory()"
-                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
-                  >
-                    Export All History
-                  </button>
-                  <button
-                    type="button"
-                    (click)="exportSelectedChannel()"
-                    [disabled]="!selectedExportChannelId"
-                    class="rounded-lg bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-300 disabled:opacity-50 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20"
-                  >
-                    Export Selected Channel
-                  </button>
-                </div>
-
-                <!-- Channel Selection -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300"
-                    >Select Channel (for single export)</label
-                  >
-                  <select
-                    [(ngModel)]="selectedExportChannelId"
-                    class="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
-                  >
-                    <option value="">-- Select a channel --</option>
-                    @for (channel of channels(); track channel.id) {
-                      <option [value]="channel.id">
-                        {{ channel.platform | uppercase }} - {{ channel.channelName }}
-                      </option>
-                    }
-                  </select>
-                </div>
-              </div>
-            </div>
-          </app-settings-section>
+        <div class="flex h-6 w-12 items-center rounded-full bg-indigo-600 px-1">
+          <div class="ml-auto h-4 w-4 rounded-full bg-white"></div>
         </div>
       </div>
+
+      <!-- Filter Profanity -->
+      <div
+        class="flex items-center justify-between rounded-2xl border p-4"
+        [class.border-zinc-200]="themeMode() === 'light'"
+        [class.bg-white]="themeMode() === 'light'"
+        [class.glass]="themeMode() === 'dark'"
+      >
+        <div>
+          <div
+            class="font-bold"
+            [class.text-zinc-900]="themeMode() === 'light'"
+            [class.text-zinc-100]="themeMode() === 'dark'"
+          >
+            Filter Profanity
+          </div>
+          <div
+            class="text-xs"
+            [class.text-zinc-500]="themeMode() === 'light'"
+            [class.text-zinc-400]="themeMode() === 'dark'"
+          >
+            Automatically hide harmful messages.
+          </div>
+        </div>
+        <div class="flex h-6 w-12 items-center rounded-full bg-zinc-400 px-1">
+          <div class="h-4 w-4 rounded-full bg-white"></div>
+        </div>
+      </div>
+
+      <!-- Text Size -->
+      <div
+        class="space-y-4 rounded-2xl border p-4"
+        [class.border-zinc-200]="themeMode() === 'light'"
+        [class.bg-white]="themeMode() === 'light'"
+        [class.glass]="themeMode() === 'dark'"
+      >
+        <div
+          class="text-sm font-bold uppercase"
+          [class.text-zinc-500]="themeMode() === 'light'"
+          [class.text-zinc-400]="themeMode() === 'dark'"
+        >
+          Text Size
+        </div>
+        <input
+          type="range"
+          class="h-1 w-full cursor-pointer appearance-none rounded-lg accent-indigo-600"
+          [class.bg-zinc-300]="themeMode() === 'light'"
+          [class.bg-zinc-700]="themeMode() === 'dark'"
+        />
+        <div
+          class="flex justify-between text-[10px] font-bold"
+          [class.text-zinc-500]="themeMode() === 'light'"
+          [class.text-zinc-400]="themeMode() === 'dark'"
+        >
+          <span>SMALL</span>
+          <span>NORMAL</span>
+          <span>LARGE</span>
+        </div>
+      </div>
+
+      <!-- Reset Button -->
+      <button
+        class="w-full rounded-2xl border py-4 font-bold transition"
+        [class.bg-red-500/10]="themeMode() === 'dark'"
+        [class.text-red-500]="themeMode() === 'dark'"
+        [class.border-red-500/20]="themeMode() === 'dark'"
+        [class.hover-bg-red-500/20]="themeMode() === 'dark'"
+        [class.bg-red-100]="themeMode() === 'light'"
+        [class.text-red-600]="themeMode() === 'light'"
+        [class.border-red-200]="themeMode() === 'light'"
+        [class.hover-bg-red-100]="themeMode() === 'light'"
+      >
+        Reset All Integrations
+      </button>
     </div>
-  </main>
+
+    <!-- Existing Settings Sections -->
+    <div class="mt-8 flex flex-col gap-y-3">
+      <!-- Debug Panel Section -->
+      <app-settings-section
+        title="Debug Panel"
+        description="Show debug overlay with connection stats and activity logs"
+        sectionId="debugPanel"
+        [collapsedState]="sectionStates()['debugPanel']"
+        (collapsedChange)="updateSectionState('debugPanel', $event)"
+      >
+        <div class="flex items-center justify-between py-2">
+          <div>
+            <div class="text-sm font-medium">Enable Debug Panel</div>
+            <div class="text-xs text-zinc-500 dark:text-zinc-400">
+              Shows timer events, parsing logs, and connection stats
+            </div>
+          </div>
+          <button
+            type="button"
+            (click)="toggleDebugPanel()"
+            class="relative h-6 w-12 rounded-full transition-colors"
+            [class.bg-indigo-600]="debugPanelEnabled()"
+            [class.bg-zinc-400]="!debugPanelEnabled()"
+          >
+            <div
+              class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+              [class.left-0.5]="!debugPanelEnabled()"
+              [class.left-6]="debugPanelEnabled()"
+            ></div>
+          </button>
+        </div>
+      </app-settings-section>
+
+      <!-- Blocked Words Section -->
+      <app-settings-section
+        title="Blocked Words & Filters"
+        description="Filter out unwanted words or patterns from chat messages"
+        sectionId="blockedWords"
+        [collapsedState]="sectionStates()['blockedWords']"
+        (collapsedChange)="updateSectionState('blockedWords', $event)"
+      >
+        <app-blocked-words-settings />
+      </app-settings-section>
+
+      <!-- Highlight Rules Section -->
+      <app-settings-section
+        title="Highlight Rules"
+        description="Configure message highlighting rules"
+        sectionId="highlightRules"
+        [collapsedState]="sectionStates()['highlightRules']"
+        (collapsedChange)="updateSectionState('highlightRules', $event)"
+      >
+        <app-highlight-rules-settings />
+      </app-settings-section>
+    </div>
+  </div>
 </div>

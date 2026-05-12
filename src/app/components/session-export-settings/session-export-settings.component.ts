@@ -13,6 +13,7 @@ import { ChatMessage } from "@models/chat.model";
 /* services */
 import { ChatListService } from "@services/data/chat-list.service";
 import { SessionExportService } from "@services/ui/session-export.service";
+import { ThemeService } from "@services/core/theme.service";
 import { buildChannelRef } from "@utils/channel-ref.util";
 
 /* components */
@@ -38,6 +39,8 @@ import { RadioComponent } from "@components/ui/radio/radio.component";
 export class SessionExportSettingsComponent {
   private readonly sessionExportService = inject(SessionExportService);
   private readonly chatListService = inject(ChatListService);
+  readonly themeService = inject(ThemeService);
+  readonly themeMode = this.themeService.themeMode;
 
   readonly format = signal<"json" | "csv">("json");
   readonly includeMetadata = signal(true);

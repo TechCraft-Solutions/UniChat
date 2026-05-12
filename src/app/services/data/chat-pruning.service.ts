@@ -1,8 +1,5 @@
 /* sys lib */
-import { Injectable, inject, OnDestroy, Injector } from "@angular/core";
-
-/* services */
-import { ChatStorageService } from "@services/data/chat-storage.service";
+import { Injectable } from "@angular/core";
 
 /* models */
 import { ChatMessage } from "@models/chat.model";
@@ -22,49 +19,7 @@ import { sortMessagesChronological } from "@helpers/chat.helper";
 @Injectable({
   providedIn: "root",
 })
-export class ChatPruningService implements OnDestroy {
-  private readonly injector = inject(Injector);
-  private _pruneInterval: ReturnType<typeof setInterval> | null = null;
-  private _storageCache: ChatStorageService | null = null;
-
-  private get storage(): ChatStorageService {
-    if (!this._storageCache) {
-      this._storageCache = this.injector.get(ChatStorageService);
-    }
-    return this._storageCache;
-  }
-
-  constructor() {
-    this.startPruneInterval();
-  }
-
-  ngOnDestroy(): void {
-    this.stopPruneInterval();
-  }
-
-  /**
-   * Start periodic pruning interval
-   */
-  startPruneInterval(): void {
-    if (this._pruneInterval !== null) {
-      return;
-    }
-    const storage = this.storage;
-    this._pruneInterval = setInterval(() => {
-      this.pruneOldMessages(storage.channelMessages());
-    }, APP_CONFIG.PRUNE_INTERVAL_MS);
-  }
-
-  /**
-   * Stop periodic pruning interval
-   */
-  stopPruneInterval(): void {
-    if (this._pruneInterval !== null) {
-      clearInterval(this._pruneInterval);
-      this._pruneInterval = null;
-    }
-  }
-
+export class ChatPruningService {
   /**
    * Prune old messages across all channels to prevent memory growth.
    * Trims to MAX_MESSAGES_TOTAL by removing oldest messages first.

@@ -28,7 +28,7 @@ export class AvatarCacheService {
   }
 
   private evictIfNeeded(cache: Map<string, CacheEntry>): void {
-    if (cache.size >= this.maxSize) {
+    while (cache.size >= this.maxSize) {
       const oldestKey = Array.from(cache.entries())
         .sort((a, b) => a[1].timestamp - b[1].timestamp)
         .find(([, entry]) => this.isExpired(entry))?.[0];

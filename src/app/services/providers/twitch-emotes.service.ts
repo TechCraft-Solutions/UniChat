@@ -7,6 +7,7 @@ import { ChatBadgeIcon, ChatMessageEmote } from "@models/chat.model";
 /* services */
 import { EmoteUrlService } from "@services/ui/emote-url.service";
 import { IconsCatalogService } from "@services/ui/icons-catalog.service";
+
 /**
  * Twitch Emotes Service - Emote Parsing and Resolution
  *
@@ -91,10 +92,12 @@ export class TwitchEmotesService {
     badges: Record<string, string | undefined> | undefined,
     roomId: string | undefined
   ): ChatBadgeIcon[] {
-    const badgeEntries = badges ?? {};
+    if (!badges) return [];
+
+    const badgeEntries = Object.entries(badges);
     const icons: ChatBadgeIcon[] = [];
 
-    for (const [badgeKey, badgeVersion] of Object.entries(badgeEntries)) {
+    for (const [badgeKey, badgeVersion] of badgeEntries) {
       if (!badgeVersion) {
         continue;
       }
@@ -119,32 +122,49 @@ export class TwitchEmotesService {
       return [];
     }
 
-    const emotes: ChatMessageEmote[] = [];
-    const emoteList = emotesTag.split("/");
+    const emoteEntries = emotesTag.split("/");
+    const result: ChatMessageEmote[] = [];
 
-    for (const emote of emoteList) {
-      const [id, positions] = emote.split(":");
-      if (!positions) {
+    for (const entry of emoteEntries) {
+      const colonIndex = entry.indexOf(":");
+      if (colonIndex === -1) {
         continue;
       }
 
-      const positionList = positions.split(",");
-      for (const position of positionList) {
-        const [start, end] = position.split("-").map(Number);
-        const code = message.slice(start, end + 1);
+      const emoteId = entry.slice(0, colonIndex);
+      const rangesStr = entry.slice(colonIndex + 1);
 
-        emotes.push({
+      if (!/^\d+$/.test(emoteId)) {
+        continue;
+      }
+
+      const ranges = rangesStr.split(",");
+      for (const range of ranges) {
+        const dashIndex = range.indexOf("-");
+        if (dashIndex === -1) {
+          continue;
+        }
+
+        const start = Number(range.slice(0, dashIndex));
+        const end = Number(range.slice(dashIndex + 1));
+
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start) {
+          continue;
+        }
+
+        const code = message.slice(start, end + 1);
+        result.push({
           provider: "twitch",
-          id,
+          id: emoteId,
           code,
           start,
           end,
-          url: this.getEmoteUrl(id),
+          url: this.emoteUrlService.getTwitchEmote(emoteId),
         });
       }
     }
 
-    return emotes;
+    return result;
   }
 
   /**

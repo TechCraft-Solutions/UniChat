@@ -22,8 +22,17 @@ import { createMessageActionState, generateTimestamp } from "@helpers/chat.helpe
 export class KickChatService extends BaseChatProviderService {
   readonly platform = "kick" as const;
 
+  // Cache limits and TTL
+  private static readonly MAX_CHANNEL_INFO_CACHE = 50;
+  private static readonly CHANNEL_INFO_TTL_MS = 30 * 60 * 1000; // 30 minutes
+  private static readonly MAX_RECENTLY_SENT_MESSAGES = 100;
+  private static readonly RECENTLY_SENT_MESSAGE_TTL_MS = 10 * 1000; // 10 seconds
+
   private readonly socketByChannel = new Map<string, WebSocket>();
-  private readonly channelInfoByChannel = new Map<string, KickChannelInfo>();
+  private readonly channelInfoByChannel = new Map<
+    string,
+    { info: KickChannelInfo; timestamp: number }
+  >();
   private readonly reconnectTimerByChannel = new Map<string, number>();
   private readonly reconnectManagers = new Map<string, ReconnectionManager>();
   private readonly historyNoticeLoggedChannels = new Set<string>();
@@ -56,7 +65,51 @@ export class KickChatService extends BaseChatProviderService {
       window.clearTimeout(reconnectTimer);
       this.reconnectTimerByChannel.delete(normalizedChannel);
     }
+    this.reconnectManagers.delete(normalizedChannel);
     this.historyNoticeLoggedChannels.delete(normalizedChannel);
+    this.recentlySentMessages.delete(normalizedChannel);
+  }
+
+  /**
+   * Clean up expired entries from recentlySentMessages
+   */
+  private cleanupRecentlySentMessages(): void {
+    const now = Date.now();
+    for (const [key, value] of this.recentlySentMessages) {
+      if (now - value.timestamp > KickChatService.RECENTLY_SENT_MESSAGE_TTL_MS) {
+        this.recentlySentMessages.delete(key);
+      }
+    }
+    // Enforce size limit
+    if (this.recentlySentMessages.size > KickChatService.MAX_RECENTLY_SENT_MESSAGES) {
+      const entriesToDelete =
+        this.recentlySentMessages.size - KickChatService.MAX_RECENTLY_SENT_MESSAGES;
+      const keysToDelete = Array.from(this.recentlySentMessages.keys()).slice(0, entriesToDelete);
+      for (const key of keysToDelete) {
+        this.recentlySentMessages.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Clean up expired entries from channelInfoByChannel
+   */
+  private cleanupChannelInfoCache(): void {
+    const now = Date.now();
+    for (const [key, value] of this.channelInfoByChannel) {
+      if (now - value.timestamp > KickChatService.CHANNEL_INFO_TTL_MS) {
+        this.channelInfoByChannel.delete(key);
+      }
+    }
+    // Enforce size limit
+    if (this.channelInfoByChannel.size > KickChatService.MAX_CHANNEL_INFO_CACHE) {
+      const entriesToDelete =
+        this.channelInfoByChannel.size - KickChatService.MAX_CHANNEL_INFO_CACHE;
+      const keysToDelete = Array.from(this.channelInfoByChannel.keys()).slice(0, entriesToDelete);
+      for (const key of keysToDelete) {
+        this.channelInfoByChannel.delete(key);
+      }
+    }
   }
 
   protected override getActionStates() {
@@ -133,9 +186,12 @@ export class KickChatService extends BaseChatProviderService {
   private async fetchChannelInfo(channelSlug: string): Promise<KickChannelInfo> {
     // Check cache first
     const cached = this.channelInfoByChannel.get(channelSlug);
-    if (cached) {
-      return cached;
+    if (cached && Date.now() - cached.timestamp <= KickChatService.CHANNEL_INFO_TTL_MS) {
+      return cached.info;
     }
+
+    // Clean up old entries before adding new one
+    this.cleanupChannelInfoCache();
 
     // Get access token for authenticated request
     const account = this.authorizationService
@@ -154,7 +210,7 @@ export class KickChatService extends BaseChatProviderService {
         throw new Error("missing kick chatroom id");
       }
       // Cache the channel info for future use
-      this.channelInfoByChannel.set(channelSlug, channelInfo);
+      this.channelInfoByChannel.set(channelSlug, { info: channelInfo, timestamp: Date.now() });
       return channelInfo;
     } catch (error) {
       const message = String(error ?? "");
@@ -182,7 +238,7 @@ export class KickChatService extends BaseChatProviderService {
         // Kick API sometimes returns 500 - use cached channel info if available
         if (cached) {
           this.logger.warn("KickChatService", "Using cached channel info for", channelSlug);
-          return cached;
+          return cached.info;
         }
         this.errorService.reportNetworkError(channelSlug, "Kick API temporarily unavailable");
       } else {
@@ -408,6 +464,10 @@ export class KickChatService extends BaseChatProviderService {
     }
     manager.onSuccessfulConnection();
 
+    // Clean up expired entries before connection attempt
+    this.cleanupRecentlySentMessages();
+    this.cleanupChannelInfoCache();
+
     try {
       const channelInfo = await this.fetchChannelInfo(channelSlug);
       if (!channelInfo) {
@@ -422,7 +482,7 @@ export class KickChatService extends BaseChatProviderService {
         "chatroomId:",
         channelInfo.chatroomId
       );
-      this.channelInfoByChannel.set(channelSlug, channelInfo);
+      this.channelInfoByChannel.set(channelSlug, { info: channelInfo, timestamp: Date.now() });
       await this.fetchKickRecentMessagesRest(channelSlug, channelInfo.chatroomId);
       if (!this.connectedChannels.has(channelSlug)) {
         this.logger.warn("KickChatService", "Channel", channelSlug, "disconnected during setup");
@@ -514,6 +574,9 @@ export class KickChatService extends BaseChatProviderService {
       content: trimmed,
       timestamp: Date.now(),
     });
+
+    // Clean up old entries after adding new one
+    this.cleanupRecentlySentMessages();
 
     try {
       // Fetch channel info (includes chatroom ID and broadcaster user ID)

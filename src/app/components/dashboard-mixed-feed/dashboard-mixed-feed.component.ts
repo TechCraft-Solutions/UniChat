@@ -13,7 +13,7 @@ import {
 import { MatIconModule } from "@angular/material/icon";
 
 /* models */
-import { ChatChannel } from "@models/chat.model";
+import { ChatChannel, PlatformType } from "@models/chat.model";
 
 /* services */
 import { LocalStorageService } from "@services/core/local-storage.service";
@@ -28,6 +28,7 @@ import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.servi
 import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.service";
 import { AuthorizationService } from "@services/features/authorization.service";
 import { ChannelAvatarService } from "@services/ui/channel-avatar.service";
+import { ThemeService } from "@services/core/theme.service";
 import { buildChannelRef } from "@utils/channel-ref.util";
 
 /* components */
@@ -67,6 +68,8 @@ export class DashboardMixedFeedComponent {
   private readonly chatStateService = inject(ChatStateService);
   private readonly authorizationService = inject(AuthorizationService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly themeService = inject(ThemeService);
+  readonly themeMode = this.themeService.themeMode;
 
   // Reference to the history header component
   readonly historyHeader = viewChild<
@@ -88,6 +91,13 @@ export class DashboardMixedFeedComponent {
 
   readonly showFilterDropdown = signal(false);
   readonly activeFilterChannelIds = computed(() => this.enabledChannels());
+
+  readonly activePlatformFilter = signal<"all" | PlatformType>("all");
+  readonly platforms: PlatformType[] = ["twitch", "kick", "youtube"];
+
+  setPlatformFilter(filter: "all" | PlatformType): void {
+    this.activePlatformFilter.set(filter);
+  }
 
   private readonly mixedChannelOrderStorageKey = "unichat-mixed-channel-order";
   readonly channelOrder = signal<string[]>(this.hydrateMixedOrder());

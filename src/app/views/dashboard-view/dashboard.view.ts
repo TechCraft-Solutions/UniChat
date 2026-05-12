@@ -11,7 +11,7 @@ import { MatIconModule } from "@angular/material/icon";
 import { Router } from "@angular/router";
 
 /* models */
-import { FeedMode, ChatMessage } from "@models/chat.model";
+import { ChatMessage } from "@models/chat.model";
 
 /* services */
 import { ChatListService } from "@services/data/chat-list.service";
@@ -22,12 +22,12 @@ import { DashboardPreferencesService } from "@services/ui/dashboard-preferences.
 import { KeyboardShortcutsService } from "@services/ui/keyboard-shortcuts.service";
 import { OverlaySourceBridgeService } from "@services/ui/overlay-source-bridge.service";
 import { PinnedMessagesService } from "@services/ui/pinned-messages.service";
+import { ThemeService } from "@services/core/theme.service";
 
 /* components */
 import { ChatSearchComponent } from "@components/chat-search/chat-search.component";
 import { DashboardHeaderComponent } from "@components/dashboard-header/dashboard-header.component";
 import { DashboardMixedFeedComponent } from "@components/dashboard-mixed-feed/dashboard-mixed-feed.component";
-import { DashboardSplitFeedComponent } from "@components/dashboard-split-feed/dashboard-split-feed.component";
 import { KeyboardShortcutsHelpComponent } from "@components/keyboard-shortcuts-help/keyboard-shortcuts-help.component";
 import { PinnedMessagesPanelComponent } from "@components/pinned-messages-panel/pinned-messages-panel.component";
 import { UserProfilePopoverComponent } from "@components/user-profile-popover/user-profile-popover";
@@ -36,7 +36,6 @@ import { UserProfilePopoverComponent } from "@components/user-profile-popover/us
   standalone: true,
   imports: [
     DashboardHeaderComponent,
-    DashboardSplitFeedComponent,
     DashboardMixedFeedComponent,
     UserProfilePopoverComponent,
     MatIconModule,
@@ -58,11 +57,15 @@ export class DashboardView {
   private readonly keyboardShortcutsService = inject(KeyboardShortcutsService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly themeService = inject(ThemeService);
+  readonly themeMode = this.themeService.themeMode;
 
-  // Reference to split feed component for resetting sizes
-  readonly splitFeed = viewChild<DashboardSplitFeedComponent>(DashboardSplitFeedComponent);
+  readonly platformFilter = signal<string>("all");
 
-  readonly feedModes: FeedMode[] = ["mixed", "split"];
+  onPlatformFilterChange(filter: string): void {
+    this.platformFilter.set(filter);
+  }
+
   readonly showSearch = signal(false);
   readonly showPinned = signal(false);
   readonly showShortcuts = signal(false);
@@ -76,7 +79,6 @@ export class DashboardView {
     const cleanups = [
       this.keyboardShortcutsService.registerAction("open-search", () => this.toggleSearch()),
       this.keyboardShortcutsService.registerAction("open-pinned", () => this.togglePinned()),
-      this.keyboardShortcutsService.registerAction("toggle-feed-mode", () => this.toggleFeedMode()),
       this.keyboardShortcutsService.registerAction("close-modals", () => this.closeAllModals()),
       this.keyboardShortcutsService.registerAction("show-shortcuts", () => this.toggleShortcuts()),
       this.keyboardShortcutsService.registerAction("open-overlay-settings", () => {
@@ -104,12 +106,6 @@ export class DashboardView {
     });
   }
 
-  toggleFeedMode(): void {
-    const current = this.getFeedMode();
-    const next: FeedMode = current === "mixed" ? "split" : "mixed";
-    this.setFeedMode(next);
-  }
-
   closeAllModals(): void {
     if (this.showSearch()) {
       this.showSearch.set(false);
@@ -118,18 +114,6 @@ export class DashboardView {
     } else if (this.showShortcuts()) {
       this.showShortcuts.set(false);
     }
-  }
-
-  setFeedMode(feedMode: FeedMode): void {
-    this.dashboardPreferencesService.setFeedMode(feedMode);
-  }
-
-  getFeedMode(): FeedMode {
-    return this.dashboardPreferencesService.preferences().feedMode;
-  }
-
-  resetSplitSizes(): void {
-    this.splitFeed()?.resetBlockSizes();
   }
 
   toggleSearch(): void {

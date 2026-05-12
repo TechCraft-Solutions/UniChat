@@ -1,8 +1,11 @@
 <div
-  class="flex h-full min-h-0 w-full flex-col overflow-hidden bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100"
+  class="flex h-full min-h-0 w-full flex-col overflow-hidden"
+  [class.bg-white]="themeMode() === 'light'"
+  [class.text-zinc-900]="themeMode() === 'light'"
+  [class.bg-zinc-950]="themeMode() === 'dark'"
+  [class.text-zinc-100]="themeMode() === 'dark'"
 >
   <app-dashboard-header
-    [feedMode]="getFeedMode()"
     [pinnedCount]="pinnedCount()"
     [showSearch]="showSearch()"
     [showPinned]="showPinned()"
@@ -10,21 +13,12 @@
     (toggleSearch)="toggleSearch()"
     (togglePinned)="togglePinned()"
     (toggleShortcuts)="toggleShortcuts()"
-    (setFeedMode)="setFeedMode($event)"
-    (resetSizes)="resetSplitSizes()"
+    (platformFilterChange)="onPlatformFilterChange($event)"
   />
 
-  <main
-    class="flex min-h-0 flex-1 flex-col overflow-y-auto pb-20 lg:pb-0"
-    role="main"
-    aria-label="Chat dashboard"
-  >
-    @if (getFeedMode() === "split") {
-      <app-dashboard-split-feed class="flex h-full w-full overflow-hidden" />
-    } @else {
-      <app-dashboard-mixed-feed class="flex h-full w-full flex-col overflow-y-auto" />
-    }
-  </main>
+  <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <app-dashboard-mixed-feed class="flex h-full w-full flex-col overflow-y-auto pb-20 md:pb-0" />
+  </div>
 
   <!-- Search Modal Overlay -->
   @if (showSearch()) {
@@ -47,26 +41,33 @@
       (click)="togglePinned()"
     >
       <div
-        class="max-h-[85vh] w-full rounded-t-2xl border-t border-slate-200 bg-white shadow-xl lg:max-h-[500px] lg:max-w-lg lg:rounded-xl dark:border-white/10 dark:bg-slate-900"
+        class="max-h-[85vh] w-full overflow-hidden rounded-t-2xl border shadow-xl lg:max-h-[500px] lg:max-w-lg lg:rounded-xl"
+        [class.border-zinc-200]="themeMode() === 'light'"
+        [class.bg-white]="themeMode() === 'light'"
+        [class.border-zinc-800]="themeMode() === 'dark'"
+        [class.glass]="themeMode() === 'dark'"
         (click)="$event.stopPropagation()"
       >
         <div
-          class="flex items-center justify-between border-b border-slate-200 px-4 py-3 lg:hidden dark:border-white/10"
+          class="flex items-center justify-between border-b px-4 py-3 lg:hidden"
+          [class.border-zinc-200]="themeMode() === 'light'"
+          [class.border-zinc-800]="themeMode() === 'dark'"
         >
           <div class="flex items-center gap-2">
-            <mat-icon
-              [fontIcon]="'push_pin'"
-              class="h-6! w-5! text-xl! text-amber-600 dark:text-amber-400"
-            />
+            <mat-icon [fontIcon]="'push_pin'" class="text-amber-500" />
             <h3 class="text-sm font-semibold">Pinned Messages</h3>
           </div>
           <button
             type="button"
             (click)="togglePinned()"
-            class="rounded-lg p-1 text-slate-500 transition hover:bg-slate-200 dark:hover:bg-white/10"
+            class="rounded-lg p-1 transition"
+            [class.text-zinc-500]="themeMode() === 'light'"
+            [class.hover:bg-zinc-100]="themeMode() === 'light'"
+            [class.text-zinc-400]="themeMode() === 'dark'"
+            [class.hover:bg-zinc-800]="themeMode() === 'dark'"
             aria-label="Close"
           >
-            <mat-icon [fontIcon]="'close'" class="h-5! w-5!" />
+            <mat-icon [fontIcon]="'close'" class="text-lg" />
           </button>
         </div>
         <app-pinned-messages-panel (closed)="togglePinned()" />

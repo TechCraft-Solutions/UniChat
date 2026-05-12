@@ -56,6 +56,7 @@ export class OverlayWsStateService implements OnDestroy {
   private pendingOptions: OverlayConnectOptions | null = null;
   private connectionState: "disconnected" | "connecting" | "connected" = "disconnected";
   private destroyed = false;
+  private reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   private readonly messagesSignal = signal<OverlayChatMessage[]>([]);
   readonly messages = this.messagesSignal.asReadonly();
@@ -184,17 +185,22 @@ export class OverlayWsStateService implements OnDestroy {
 
     const delay = this.reconnectionManager.onConnectionFailed();
 
-    await new Promise((resolve) => setTimeout(resolve, delay));
-
-    // Check again after delay
-    if (this.pendingOptions === opts && !this.destroyed) {
-      this.connect(opts);
-    }
+    this.reconnectTimeoutId = setTimeout(() => {
+      this.reconnectTimeoutId = null;
+      // Check again after delay
+      if (this.pendingOptions === opts && !this.destroyed) {
+        this.connect(opts);
+      }
+    }, delay);
   }
 
   close(): void {
     this.destroyed = true;
     this.pendingOptions = null;
+    if (this.reconnectTimeoutId !== null) {
+      clearTimeout(this.reconnectTimeoutId);
+      this.reconnectTimeoutId = null;
+    }
     if (this.socket) {
       this.socket.onclose = null;
       this.socket.close();

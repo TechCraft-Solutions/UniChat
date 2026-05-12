@@ -12,6 +12,8 @@ import { ChatHistoryDbService } from "@services/core/chat-history-db.service";
  *
  * Responsibility: Handles persistence of chat messages to IndexedDB via ChatHistoryDbService.
  * Provides async persistence operations that don't block the main thread.
+ *
+ * PERSISTENCE DISABLED - All persistence methods are no-ops
  */
 @Injectable({
   providedIn: "root",
@@ -20,39 +22,38 @@ export class ChatPersistenceService {
   private readonly chatHistoryDb = inject(ChatHistoryDbService);
 
   /**
-   * Persist all messages for a channel to IndexedDB
+   * Persist all messages for a channel to IndexedDB - NO-OP
    */
   persistChannelMessages(channelId: string, messages: ChatMessage[]): void {
-    this.chatHistoryDb.persistChannelMessages(channelId, messages);
+    // Persistence disabled - no-op
   }
 
   /**
-   * Persist all messages across all channels
+   * Persist all messages across all channels - NO-OP
    */
   persistAllChannels(store: Record<string, ChatMessage[]>): void {
-    for (const [channelId, messages] of Object.entries(store)) {
-      this.persistChannelMessages(channelId, messages);
-    }
+    // Persistence disabled - no-op
   }
 
   /**
-   * Load all persisted messages from IndexedDB
+   * Load all persisted messages from IndexedDB - NO-OP
    */
   async loadPersistedMessages(): Promise<Record<string, ChatMessage[]>> {
-    return this.chatHistoryDb.getAllPersistedMessages();
+    // Persistence disabled - return empty
+    return {};
   }
 
   /**
-   * Clear messages for a specific channel from persistence
+   * Clear messages for a specific channel from persistence - NO-OP
    */
   clearChannel(channelId: string): void {
-    this.chatHistoryDb.deleteChannelMessages(channelId);
+    // Persistence disabled - no-op
   }
 
   /**
-   * Clear all persisted messages
+   * Clear all persisted messages - NO-OP
    */
   clearAll(): void {
-    this.chatHistoryDb.clearAll();
+    // Persistence disabled - no-op
   }
 }

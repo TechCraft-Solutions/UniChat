@@ -10,8 +10,11 @@ import { AuthStatus, ChatAccount, PlatformType } from "@models/chat.model";
 
 /* services */
 import { LoggerService } from "@services/core/logger.service";
+import { LocalStorageService } from "@services/core/local-storage.service";
 import { ChatListService } from "@services/data/chat-list.service";
 import { DashboardFeedDataService } from "@services/ui/dashboard-feed-data.service";
+
+const ACCOUNTS_CACHE_KEY = "unichat-accounts-cache";
 interface AuthAccountPayload {
   id: string;
   platform: PlatformType;
@@ -42,6 +45,7 @@ export class AuthorizationService {
   private readonly feedData = inject(DashboardFeedDataService);
   private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly localStorageService = inject(LocalStorageService);
   private accountsLoaded = false;
 
   /**
@@ -242,6 +246,7 @@ export class AuthorizationService {
   async deauthorizeAccount(accountId: string, platform: PlatformType): Promise<void> {
     await invoke<AuthCommandResultPayload>("authDisconnect", { platform, accountId });
     this.accountsSignal.update((accounts) => accounts.filter((acc) => acc.id !== accountId));
+    this.saveAccountsCache();
     for (const channel of this.chatListService.getChannels(platform)) {
       if (channel.accountId === accountId) {
         this.chatListService.updateChannelAccount(channel.id, undefined);
@@ -251,11 +256,18 @@ export class AuthorizationService {
 
   private async refreshStatuses(): Promise<void> {
     const platforms: PlatformType[] = ["twitch", "kick", "youtube"];
+
+    const cachedAccounts = this.loadAccountsCache();
+    if (cachedAccounts.length > 0) {
+      this.accountsSignal.set(cachedAccounts);
+      this.accountsLoaded = true;
+      this.logger.info("AuthorizationService", "Loaded cached accounts", cachedAccounts.length);
+    }
+
     const loaded: ChatAccount[] = [];
 
     for (const platform of platforms) {
       try {
-        // First load status without validation (fast)
         const result = await invoke<AuthCommandResultPayload>("authStatus", { platform });
         if (result.accounts?.length) {
           for (const account of result.accounts) {
@@ -268,14 +280,14 @@ export class AuthorizationService {
       }
     }
 
-    this.accountsSignal.set(loaded);
+    if (loaded.length > 0) {
+      this.accountsSignal.set(loaded);
+      this.saveAccountsCache();
+    }
 
-    // Mark accounts as loaded
     this.accountsLoaded = true;
     this.logger.info("AuthorizationService", "Accounts loaded", loaded.length, "accounts");
 
-    // Then validate tokens in background (async, non-blocking)
-    // After validation completes, auto-refresh any expired tokens
     void this.validateAllPlatforms().then(() => {
       this.logger.info(
         "AuthorizationService",
@@ -284,7 +296,6 @@ export class AuthorizationService {
       void this.refreshAllExpiredTokens();
     });
 
-    // Link any unlinked channels to authorized accounts
     void this.linkAllChannelsToAccounts();
   }
 
@@ -501,6 +512,47 @@ export class AuthorizationService {
       }
       return [...accounts, mapped];
     });
+    this.saveAccountsCache();
+  }
+
+  private saveAccountsCache(): void {
+    const accounts = this.accountsSignal();
+    const cacheData = accounts.map((acc) => ({
+      id: acc.id,
+      platform: acc.platform,
+      username: acc.username,
+      userId: acc.userId,
+      avatarUrl: acc.avatarUrl,
+      authStatus: acc.authStatus,
+      authorizedAt: acc.authorizedAt,
+    }));
+    this.localStorageService.set(ACCOUNTS_CACHE_KEY, cacheData);
+  }
+
+  private loadAccountsCache(): ChatAccount[] {
+    const cached = this.localStorageService.get<
+      Array<{
+        id: string;
+        platform: PlatformType;
+        username: string;
+        userId: string;
+        avatarUrl?: string;
+        authStatus: AuthStatus;
+        authorizedAt: string;
+      }>
+    >(ACCOUNTS_CACHE_KEY, []);
+    if (!Array.isArray(cached) || cached.length === 0) {
+      return [];
+    }
+    return cached.map((acc) => ({
+      id: acc.id,
+      platform: acc.platform,
+      username: acc.username,
+      userId: acc.userId,
+      avatarUrl: acc.avatarUrl,
+      authStatus: acc.authStatus,
+      authorizedAt: acc.authorizedAt,
+    }));
   }
 
   private toChatAccount(account: AuthAccountPayload): ChatAccount {

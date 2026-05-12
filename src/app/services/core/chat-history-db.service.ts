@@ -3,6 +3,8 @@
  *
  * Provides offline storage for chat history to improve performance
  * and enable offline access to recent messages.
+ *
+ * PERSISTENCE DISABLED - All write operations are no-ops
  */
 
 import { Injectable, inject } from "@angular/core";
@@ -75,225 +77,74 @@ export class ChatHistoryDbService {
   }
 
   /**
-   * Store a single message
+   * Store a single message - NO-OP (persistence disabled)
    */
   async storeMessage(message: ChatMessage, channelId: string): Promise<void> {
-    try {
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-
-      const record: ChatHistoryStore = {
-        id: message.id,
-        channelId,
-        platform: message.platform,
-        message,
-        timestamp: Date.now(),
-      };
-
-      await this.requestToPromise(store.add(record));
-    } catch (error) {
-      this.logger.warn("[ChatHistoryDB] Failed to store message:", error);
-    }
+    // Persistence disabled - no-op
   }
 
   /**
-   * Store multiple messages in batch
+   * Store multiple messages in batch - NO-OP (persistence disabled)
    */
   async storeMessages(messages: ChatMessage[], channelId: string): Promise<void> {
-    try {
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-
-      for (const message of messages) {
-        const record: ChatHistoryStore = {
-          id: message.id,
-          channelId,
-          platform: message.platform,
-          message,
-          timestamp: Date.now(),
-        };
-        store.add(record);
-      }
-
-      await this.transactionToPromise(transaction);
-    } catch (error) {
-      this.logger.warn("[ChatHistoryDB] Failed to store messages:", error);
-    }
+    // Persistence disabled - no-op
   }
 
   /**
-   * Get messages for a channel
+   * Get messages for a channel - NO-OP (persistence disabled)
    */
   async getMessages(channelId: string, limit: number = 100): Promise<ChatMessage[]> {
-    try {
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readonly");
-      const store = transaction.objectStore(STORE_NAME);
-      const index = store.index("channelId");
-
-      return new Promise((resolve, reject) => {
-        const request = index.getAll(IDBKeyRange.only(channelId));
-        request.onsuccess = () => {
-          const records = request.result as ChatHistoryStore[];
-          const messages = records
-            .sort((a, b) => b.timestamp - a.timestamp)
-            .slice(0, limit)
-            .map((r) => r.message);
-          resolve(messages);
-        };
-        request.onerror = () => reject(request.error);
-      });
-    } catch {
-      return [];
-    }
+    // Persistence disabled - return empty
+    return [];
   }
 
   /**
-   * Get messages older than a timestamp (for pagination)
+   * Get messages older than a timestamp (for pagination) - NO-OP (persistence disabled)
    */
   async getMessagesBefore(
     channelId: string,
     beforeTimestamp: number,
     limit: number = 100
   ): Promise<ChatMessage[]> {
-    try {
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readonly");
-      const store = transaction.objectStore(STORE_NAME);
-      const index = store.index("channelId");
-
-      return new Promise((resolve, reject) => {
-        const request = index.getAll(IDBKeyRange.only(channelId));
-        request.onsuccess = () => {
-          const records = request.result as ChatHistoryStore[];
-          const messages = records
-            .filter((r) => r.timestamp < beforeTimestamp)
-            .sort((a, b) => b.timestamp - a.timestamp)
-            .slice(0, limit)
-            .map((r) => r.message);
-          resolve(messages);
-        };
-        request.onerror = () => reject(request.error);
-      });
-    } catch {
-      return [];
-    }
+    // Persistence disabled - return empty
+    return [];
   }
 
   /**
-   * Delete messages for a channel
+   * Delete messages for a channel - NO-OP (persistence disabled)
    */
   async deleteChannelMessages(channelId: string): Promise<void> {
-    try {
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      const index = store.index("channelId");
-
-      const request = index.getAllKeys(IDBKeyRange.only(channelId));
-      request.onsuccess = async () => {
-        const keys = request.result as string[];
-        for (const key of keys) {
-          await this.requestToPromise(store.delete(key));
-        }
-      };
-    } catch (error) {
-      this.logger.warn("[ChatHistoryDB] Failed to delete channel messages:", error);
-    }
+    // Persistence disabled - no-op
   }
 
   /**
-   * Delete a single message
+   * Delete a single message - NO-OP (persistence disabled)
    */
   async deleteMessage(messageId: string): Promise<void> {
-    try {
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      await this.requestToPromise(store.delete(messageId));
-    } catch (error) {
-      this.logger.warn("[ChatHistoryDB] Failed to delete message:", error);
-    }
+    // Persistence disabled - no-op
   }
 
   /**
-   * Clear all messages
+   * Clear all messages - NO-OP (persistence disabled)
    */
   async clearAll(): Promise<void> {
-    try {
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      await this.requestToPromise(store.clear());
-    } catch (error) {
-      this.logger.warn("[ChatHistoryDB] Failed to clear all messages:", error);
-    }
+    // Persistence disabled - no-op
   }
 
   /**
-   * Get storage stats
+   * Get storage stats - NO-OP (persistence disabled)
    */
   async getStats(): Promise<{ totalMessages: number; channels: string[] }> {
-    try {
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readonly");
-      const store = transaction.objectStore(STORE_NAME);
-
-      const countRequest = store.count();
-      const channels = await new Promise<string[]>((resolve) => {
-        const request = store.openCursor();
-        const channelSet = new Set<string>();
-        request.onsuccess = (event) => {
-          const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-          if (cursor) {
-            channelSet.add(cursor.value.channelId);
-            cursor.continue();
-          } else {
-            resolve(Array.from(channelSet));
-          }
-        };
-      });
-
-      const totalMessages = await this.requestToPromise<number>(countRequest);
-      return { totalMessages, channels };
-    } catch {
-      return { totalMessages: 0, channels: [] };
-    }
+    // Persistence disabled - return empty stats
+    return { totalMessages: 0, channels: [] };
   }
 
   /**
-   * Clean up old messages (older than 24 hours)
+   * Clean up old messages (older than 24 hours) - NO-OP (persistence disabled)
    */
   async cleanupOldMessages(maxAgeHours: number = 24): Promise<number> {
-    try {
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      const cutoffTime = Date.now() - maxAgeHours * 60 * 60 * 1000;
-
-      let deletedCount = 0;
-      await new Promise<void>((resolve) => {
-        const request = store.openCursor();
-        request.onsuccess = (event) => {
-          const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-          if (cursor) {
-            if (cursor.value.timestamp < cutoffTime) {
-              cursor.delete();
-              deletedCount++;
-            }
-            cursor.continue();
-          } else {
-            resolve();
-          }
-        };
-      });
-
-      return deletedCount;
-    } catch {
-      return 0;
-    }
+    // Persistence disabled - no-op
+    return 0;
   }
 
   /**
@@ -304,81 +155,27 @@ export class ChatHistoryDbService {
   }
 
   /**
-   * Get all messages grouped by channelId
+   * Get all messages grouped by channelId - NO-OP (persistence disabled)
    */
   async getAllPersistedMessages(): Promise<Record<string, ChatMessage[]>> {
-    try {
-      if (!this.isAvailable()) {
-        return {};
-      }
-
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readonly");
-      const store = transaction.objectStore(STORE_NAME);
-
-      return new Promise((resolve, reject) => {
-        const request = store.getAll();
-        request.onsuccess = () => {
-          const records = request.result as ChatHistoryStore[];
-          const grouped: Record<string, ChatMessage[]> = {};
-
-          for (const record of records) {
-            const { channelId, message } = record;
-            if (!grouped[channelId]) {
-              grouped[channelId] = [];
-            }
-            grouped[channelId].push(message);
-          }
-
-          for (const channelId of Object.keys(grouped)) {
-            grouped[channelId].sort(
-              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-            );
-          }
-
-          resolve(grouped);
-        };
-        request.onerror = () => reject(request.error);
-      });
-    } catch {
-      return {};
-    }
+    // Persistence disabled - return empty
+    return {};
   }
 
   /**
-   * Persist all messages for a channel (replaces existing)
+   * Persist all messages for a channel (replaces existing) - NO-OP (persistence disabled)
    */
   async persistChannelMessages(channelId: string, messages: ChatMessage[]): Promise<void> {
-    try {
-      if (!this.isAvailable()) {
-        return;
-      }
+    // Persistence disabled - no-op
+  }
 
-      await this.deleteChannelMessages(channelId);
-
-      if (messages.length === 0) {
-        return;
-      }
-
-      const db = await this.openDb();
-      const transaction = db.transaction([STORE_NAME], "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-
-      for (const message of messages) {
-        const record: ChatHistoryStore = {
-          id: message.id,
-          channelId,
-          platform: message.platform,
-          message,
-          timestamp: new Date(message.timestamp).getTime(),
-        };
-        store.add(record);
-      }
-
-      await this.transactionToPromise(transaction);
-    } catch (error) {
-      console.warn("[ChatHistoryDB] Failed to persist channel messages:", error);
-    }
+  /**
+   * Close IndexedDB connection and clear reference
+   */
+  close(): void {
+    this.db = null;
+    this.isOpening = false;
+    this.openPromise = null;
   }
 
   /**

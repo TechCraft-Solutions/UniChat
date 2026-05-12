@@ -1,15 +1,15 @@
 <div
-  class="flex max-h-[calc(100vh-7rem)] min-h-[400px] w-full max-w-md flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-white/10 dark:bg-slate-900"
+  class="flex max-h-[calc(100vh-7rem)] min-h-[400px] w-full max-w-md flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-white/10 dark:bg-zinc-900"
 >
   <!-- Header -->
   <div
-    class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-slate-900/50"
+    class="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-900/50"
   >
     <h3 class="text-sm font-semibold">Search Messages</h3>
     <button
       type="button"
       (click)="closeSearch.emit()"
-      class="rounded-lg p-1 text-slate-500 transition hover:bg-slate-200 dark:hover:bg-white/10"
+      class="rounded-lg p-1 text-zinc-500 transition hover:bg-zinc-200 dark:hover:bg-white/10"
       aria-label="Close search"
     >
       <mat-icon [fontIcon]="'close'" class="h-5! w-5!" />
@@ -17,7 +17,7 @@
   </div>
 
   <!-- Search Form -->
-  <div class="space-y-3 border-b border-slate-200 p-4 dark:border-white/10">
+  <div class="space-y-3 border-b border-zinc-200 p-4 dark:border-white/10">
     <!-- Main Search Input -->
     <div class="flex gap-2">
       <div class="relative flex-1">
@@ -25,14 +25,14 @@
           type="text"
           [(ngModel)]="searchQuery"
           placeholder="Search messages..."
-          class="w-full rounded-lg border border-slate-200 bg-white py-2 pr-10 pl-3 text-sm text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+          class="w-full rounded-lg border border-zinc-200 bg-white py-2 pr-10 pl-3 text-sm text-zinc-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
           (keydown.enter)="onSearch()"
         />
         @if (searchQuery()) {
           <button
             type="button"
             (click)="onClear()"
-            class="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            class="-tranzinc-y-1/2 absolute top-1/2 right-2 rounded p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
           >
             <mat-icon [fontIcon]="'clear'" class="h-5! w-5!" />
           </button>
@@ -52,11 +52,11 @@
     <div class="flex flex-wrap gap-3">
       <!-- Platform Filter -->
       <div class="flex items-center gap-2">
-        <label class="text-xs text-slate-500 dark:text-slate-400">Platform:</label>
+        <label class="text-xs text-zinc-500 dark:text-zinc-400">Platform:</label>
         <select
           [(ngModel)]="searchPlatform"
           (change)="searchChannel.set('all')"
-          class="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+          class="rounded border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
         >
           <option value="all">All</option>
           @for (platform of platforms(); track platform) {
@@ -67,10 +67,10 @@
 
       <!-- Channel Filter -->
       <div class="flex items-center gap-2">
-        <label class="text-xs text-slate-500 dark:text-slate-400">Channel:</label>
+        <label class="text-xs text-zinc-500 dark:text-zinc-400">Channel:</label>
         <select
           [(ngModel)]="searchChannel"
-          class="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+          class="rounded border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
         >
           <option value="all">All</option>
           @for (channel of channels(); track channel.id) {
@@ -82,12 +82,12 @@
 
     <!-- Author Filter -->
     <div class="flex items-center gap-2">
-      <label class="text-xs text-slate-500 dark:text-slate-400">Author:</label>
+      <label class="text-xs text-zinc-500 dark:text-zinc-400">Author:</label>
       <input
         type="text"
         [(ngModel)]="searchAuthor"
         placeholder="Username..."
-        class="flex-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+        class="flex-1 rounded border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-900 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
         (keydown.enter)="onSearch()"
       />
     </div>
@@ -108,7 +108,7 @@
     } @else if (hasResults()) {
       <div class="flex-1 overflow-y-auto overscroll-contain p-2">
         <div class="mb-2 flex items-center justify-between px-2">
-          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">
+          <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
             {{ resultCount() }} result(s) found
           </span>
         </div>
@@ -117,19 +117,19 @@
             <button
               type="button"
               (click)="onSelectResult(result)"
-              class="flex w-full flex-col items-start gap-1 rounded-lg border border-slate-200 bg-white p-2 text-left transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+              class="flex w-full flex-col items-start gap-1 rounded-lg border border-zinc-200 bg-white p-2 text-left transition hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
             >
               <div class="flex items-center gap-2">
-                <span class="text-xs font-medium text-slate-900 dark:text-white">
+                <span class="text-xs font-medium text-zinc-900 dark:text-white">
                   {{ result.message.author }}
                 </span>
                 <span
-                  class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-white/10 dark:text-slate-400"
+                  class="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-white/10 dark:text-zinc-400"
                 >
                   {{ getMatchTypeLabel(result.matchType) }}
                 </span>
               </div>
-              <p class="line-clamp-2 text-xs text-slate-700 dark:text-slate-300">
+              <p class="line-clamp-2 text-xs text-zinc-700 dark:text-zinc-300">
                 @for (seg of result.highlightedSegments; track $index) {
                   @if (seg.isMatch) {
                     <mark class="rounded bg-emerald-100 px-0.5 text-emerald-700">
@@ -140,7 +140,7 @@
                   }
                 }
               </p>
-              <div class="flex items-center gap-2 text-[10px] text-slate-400">
+              <div class="flex items-center gap-2 text-[10px] text-zinc-400">
                 <span>{{ result.message.platform }}</span>
                 <span>·</span>
                 <span>{{ result.message.timestamp | date: "shortTime" }}</span>
@@ -151,13 +151,11 @@
       </div>
     } @else if (searchQuery()) {
       <div class="flex flex-1 items-center justify-center">
-        <p class="text-sm text-slate-500 dark:text-slate-400">No results found</p>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">No results found</p>
       </div>
     } @else {
       <div class="flex flex-1 items-center justify-center">
-        <p class="text-sm text-slate-500 dark:text-slate-400">
-          Enter a search term to find messages
-        </p>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">Enter a search term to find messages</p>
       </div>
     }
   </div>

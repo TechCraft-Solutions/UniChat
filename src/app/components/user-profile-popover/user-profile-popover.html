@@ -4,7 +4,7 @@
     <div
       role="dialog"
       aria-label="User profile"
-      class="fixed z-[50] flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"
+      class="fixed z-[50] flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-zinc-900"
       [style.top.px]="L.top"
       [style.left.px]="L.left"
       [style.width.px]="L.width"
@@ -13,12 +13,12 @@
     >
       <!-- Drag Handle / Header -->
       <div
-        class="shrink-0 cursor-move border-b border-slate-200 px-3 py-3 select-none dark:border-white/10"
+        class="shrink-0 cursor-move border-b border-zinc-200 px-3 py-3 select-none dark:border-white/10"
         (mousedown)="onStartDrag($event)"
       >
         <div class="flex items-center gap-2">
           <!-- Drag indicator icon -->
-          <div class="flex items-center justify-center text-slate-400 dark:text-slate-500">
+          <div class="flex items-center justify-center text-zinc-400 dark:text-zinc-500">
             <mat-icon [fontIcon]="'drag_indicator'" class="h-5! w-5! text-sm!" />
           </div>
           <div class="min-w-0 flex-1">
@@ -31,7 +31,7 @@
                   >
                     {{ twitchUserInfo()!.display_name }}
                   </p>
-                  <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                     <span
                       class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase"
                       [class]="presentation.messageBadgeClasses(st.message)"
@@ -50,7 +50,7 @@
                   >
                     {{ kickUserInfo()!.username }}
                   </p>
-                  <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                     <span
                       class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase"
                       [class]="presentation.messageBadgeClasses(st.message)"
@@ -69,7 +69,7 @@
                   >
                     {{ youtubeUserInfo()!.name }}
                   </p>
-                  <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                     <span
                       class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase"
                       [class]="presentation.messageBadgeClasses(st.message)"
@@ -82,8 +82,8 @@
             } @else if (
               twitchUserInfoLoading() || kickUserInfoLoading() || youtubeUserInfoLoading()
             ) {
-              <p class="text-base font-semibold text-slate-500 dark:text-slate-400">Loading...</p>
-              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <p class="text-base font-semibold text-zinc-500 dark:text-zinc-400">Loading...</p>
+              <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                 <span
                   class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase"
                   [class]="presentation.messageBadgeClasses(st.message)"
@@ -98,7 +98,7 @@
               >
                 {{ st.message.author }}
               </p>
-              <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                 <span
                   class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase"
                   [class]="presentation.messageBadgeClasses(st.message)"
@@ -108,7 +108,7 @@
               </p>
               @if (channelInfo(); as channel) {
                 <div
-                  class="mt-2 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400"
+                  class="mt-2 flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400"
                 >
                   @if (channel.imageUrl) {
                     <img
@@ -124,7 +124,7 @@
           </div>
           <button
             type="button"
-            class="shrink-0 rounded-lg p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-white/10 dark:hover:text-white"
+            class="shrink-0 rounded-lg p-1 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-white/10 dark:hover:text-white"
             (click)="popover.close()"
             title="Close"
           >
@@ -138,7 +138,7 @@
       >
         @if (twitchUserInfoLoading() || kickUserInfoLoading() || youtubeUserInfoLoading()) {
           <mat-spinner diameter="24" class="mx-auto" />
-          <p class="text-sm text-slate-500 dark:text-slate-400">Loading profile...</p>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400">Loading profile...</p>
         } @else if (twitchUserInfo()) {
           <div class="flex flex-col items-center">
             @if (twitchUserInfo()!.profile_image_url) {
@@ -155,11 +155,11 @@
               {{ twitchUserInfo()!.display_name }}
             </p>
             @if (twitchUserInfo()!.description) {
-              <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
                 {{ twitchUserInfo()!.description }}
               </p>
             }
-            <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <p class="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
               <span
                 class="inline-flex rounded px-2 py-1 text-[10px] font-medium tracking-wider uppercase"
                 [class]="presentation.messageBadgeClasses(st.message)"
@@ -184,11 +184,11 @@
               {{ kickUserInfo()!.username }}
             </p>
             @if (kickUserInfo()!.bio) {
-              <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
                 {{ kickUserInfo()!.bio }}
               </p>
             }
-            <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <p class="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
               <span
                 class="inline-flex rounded px-2 py-1 text-[10px] font-medium tracking-wider uppercase"
                 [class]="presentation.messageBadgeClasses(st.message)"
@@ -212,7 +212,7 @@
             >
               {{ youtubeUserInfo()!.name }}
             </p>
-            <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <p class="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
               <span
                 class="inline-flex rounded px-2 py-1 text-[10px] font-medium tracking-wider uppercase"
                 [class]="presentation.messageBadgeClasses(st.message)"
@@ -222,10 +222,10 @@
             </p>
           </div>
         } @else {
-          <p class="text-sm text-slate-500 dark:text-slate-400">Profile unavailable</p>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400">Profile unavailable</p>
         }
         @if (channelInfo(); as channel) {
-          <div class="mt-2 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <div class="mt-2 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
             @if (channel.imageUrl) {
               <img
                 [src]="channel.imageUrl"

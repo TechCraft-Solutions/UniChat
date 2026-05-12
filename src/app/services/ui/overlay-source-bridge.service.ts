@@ -79,6 +79,8 @@ export class OverlaySourceBridgeService implements OnDestroy {
       const timeout = setTimeout(() => {
         this.connectionState = "disconnected";
         this.connectionPromise = null;
+        // Flush the message queue before clearing it
+        this.flushMessageQueue();
         resolve();
       }, 3000);
 
@@ -86,6 +88,8 @@ export class OverlaySourceBridgeService implements OnDestroy {
         clearTimeout(timeout);
         this.connectionState = "connected";
         this.connectionPromise = null;
+        // Flush the message queue before clearing it
+        this.flushMessageQueue();
 
         this.flushMessageQueue();
         resolve();
@@ -94,12 +98,16 @@ export class OverlaySourceBridgeService implements OnDestroy {
       const onError = () => {
         this.connectionState = "disconnected";
         this.connectionPromise = null;
+        // Flush the message queue before clearing it
+        this.flushMessageQueue();
         clearTimeout(timeout);
         resolve();
       };
 
       if (!this.socket) {
         this.connectionPromise = null;
+        // Flush the message queue before clearing it
+        this.flushMessageQueue();
         resolve();
         return;
       }
@@ -230,6 +238,8 @@ export class OverlaySourceBridgeService implements OnDestroy {
     }
     this.connectionState = "disconnected";
     this.connectionPromise = null;
+    // Flush the message queue before clearing it
+    this.flushMessageQueue();
     this.messageQueue = [];
   }
 

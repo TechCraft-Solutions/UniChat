@@ -44,7 +44,7 @@ export const KEYBOARD_SHORTCUT_ACTIONS: Record<
 > = {
   "open-search": { description: "Open search", category: "navigation" },
   "open-pinned": { description: "Open pinned messages", category: "navigation" },
-  "toggle-feed-mode": { description: "Toggle mixed/split view", category: "navigation" },
+  "toggle-feed-mode": { description: "Toggle feed view", category: "navigation" },
   "close-modals": { description: "Close modal/panel", category: "navigation" },
   "send-message": { description: "Send message", category: "actions" },
   "reply-selected": { description: "Reply to selected message", category: "actions" },

@@ -1,9 +1,9 @@
 @if (visiblePlatforms().length === 0) {
   <div
-    class="flex h-full w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center dark:border-white/15 dark:bg-slate-900/40"
+    class="flex h-full w-full flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white/60 px-6 py-12 text-center dark:border-white/15 dark:bg-zinc-900/40"
   >
-    <p class="text-sm font-medium text-slate-700 dark:text-slate-200">No channels yet</p>
-    <p class="mt-2 max-w-sm text-xs text-slate-500 dark:text-slate-400">
+    <p class="text-sm font-medium text-zinc-700 dark:text-zinc-200">No channels yet</p>
+    <p class="mt-2 max-w-sm text-xs text-zinc-500 dark:text-zinc-400">
       Add channels in Settings or switch to split view after connecting a Twitch, Kick, or YouTube
       channel.
     </p>
@@ -12,18 +12,18 @@
   <div class="flex w-full flex-col overflow-hidden" style="height: calc(100vh - 62px)">
     <!-- Layout Controls Bar -->
     <div
-      class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-slate-900/50"
+      class="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-zinc-900/50"
     >
       <div class="flex items-center gap-2">
         <span
-          class="text-xs font-medium tracking-[0.15em] text-slate-500 uppercase dark:text-slate-400"
+          class="text-xs font-medium tracking-[0.15em] text-zinc-500 uppercase dark:text-zinc-400"
         >
           Split Layout:
         </span>
         <button
           type="button"
           (click)="toggleLayoutOrientation()"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 dark:border-white/20 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           [title]="
             layoutOrientation() === 'row' ? 'Switch to column layout' : 'Switch to row layout'
           "
@@ -83,19 +83,19 @@
           role="region"
         >
           <div
-            class="relative flex h-full w-full flex-col overflow-visible rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900"
+            class="relative flex h-full w-full flex-col overflow-visible rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-zinc-900"
             [class.w-full]="true"
           >
             <!-- Resize Handle - Only show if NOT the last item -->
             @if (!last) {
               <div
-                class="absolute z-20 flex items-center justify-center transition-colors hover:bg-slate-300 dark:hover:bg-slate-600"
+                class="absolute z-20 flex items-center justify-center transition-colors hover:bg-zinc-300 dark:hover:bg-zinc-600"
                 [class]="
                   layoutOrientation() === 'row'
                     ? 'inset-y-0 right-0 w-2 cursor-col-resize'
                     : 'inset-x-0 bottom-0 h-2 cursor-row-resize'
                 "
-                [class.bg-slate-300]="isResizing() && resizeData()?.platform === platform"
+                [class.bg-zinc-300]="isResizing() && resizeData()?.platform === platform"
                 (mousedown)="onResizeStart(platform, $event); $event.stopPropagation()"
                 role="separator"
                 [attr.aria-label]="'Resize ' + platform + ' panel'"
@@ -104,7 +104,7 @@
               >
                 <!-- Simple capsule grip -->
                 <div
-                  class="rounded-full bg-slate-400 dark:bg-slate-500"
+                  class="rounded-full bg-zinc-400 dark:bg-zinc-500"
                   [class]="layoutOrientation() === 'row' ? 'h-6 w-0.5' : 'h-0.5 w-6'"
                 ></div>
               </div>
@@ -113,14 +113,14 @@
             @if (orderedChannels(platform).length > 0) {
               <!-- Platform Header with Filter Button -->
               <div
-                class="relative flex shrink-0 cursor-move items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-slate-900/50"
+                class="relative flex shrink-0 cursor-move items-center justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-zinc-900/50"
               >
                 <div class="flex min-w-0 items-center gap-2">
                   <span class="min-w-0 truncate text-sm font-semibold tracking-tight">
-                    <span class="text-slate-900 dark:text-white">{{
+                    <span class="text-zinc-900 dark:text-white">{{
                       presentation.platformLabel(platform)
                     }}</span>
-                    <span class="font-medium text-slate-500 dark:text-slate-400">
+                    <span class="font-medium text-zinc-500 dark:text-zinc-400">
                       · {{ orderedChannels(platform).length }}
                       @if (orderedChannels(platform).length === 1) {
                         channel
@@ -135,7 +135,7 @@
                   <button
                     type="button"
                     (click)="toggleChannelFilter(platform); $event.stopPropagation()"
-                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 dark:border-white/20 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                    class="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/20 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
                     [attr.aria-haspopup]="'true'"
                     [attr.aria-expanded]="activeFilterPlatform() === platform"
                   >
@@ -143,32 +143,32 @@
                     <span>Filter ({{ getFilteredChannelCount(platform) }})</span>
                     <mat-icon fontIcon="expand_more" class="h-4! w-4! text-base!" />
                   </button>
-                  <mat-icon class="size-4 shrink-0 cursor-grab text-slate-400" cdkDragHandle
+                  <mat-icon class="size-4 shrink-0 cursor-grab text-zinc-400" cdkDragHandle
                     >drag_indicator</mat-icon
                   >
                   <!-- Per-Platform Channel Filter Dropdown -->
                   @if (activeFilterPlatform() === platform) {
                     <div
-                      class="absolute top-full left-0 z-30 w-64 rounded-b-lg border border-t-0 border-slate-200 bg-white shadow-lg dark:border-white/10 dark:bg-slate-900"
+                      class="absolute top-full left-0 z-30 w-64 rounded-b-lg border border-t-0 border-zinc-200 bg-white shadow-lg dark:border-white/10 dark:bg-zinc-900"
                     >
                       <div
-                        class="flex items-center justify-between border-b border-slate-200 px-3 py-2 dark:border-white/10"
+                        class="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-white/10"
                       >
-                        <span class="text-xs font-medium text-slate-600 dark:text-slate-400">
+                        <span class="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                           Filter {{ presentation.platformLabel(platform) }} channels
                         </span>
                         <div class="flex gap-1">
                           <button
                             type="button"
                             (click)="enableAllChannelsForSplitPlatform(platform)"
-                            class="text-[10px] text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                            class="text-[10px] text-zinc-500 underline hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
                           >
                             All
                           </button>
                           <button
                             type="button"
                             (click)="disableAllChannelsForSplitPlatform(platform)"
-                            class="text-[10px] text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                            class="text-[10px] text-zinc-500 underline hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
                           >
                             None
                           </button>
@@ -177,7 +177,7 @@
                       <div class="max-h-48 overflow-y-auto p-2">
                         @for (ch of orderedChannels(platform); track ch.id) {
                           <label
-                            class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-slate-50 dark:hover:bg-white/5"
+                            class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-zinc-50 dark:hover:bg-white/5"
                           >
                             <input
                               type="checkbox"
@@ -187,9 +187,9 @@
                               (change)="
                                 toggleSplitChannelFilter(platform, splitChannelRefFor(platform, ch))
                               "
-                              class="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                              class="h-3.5 w-3.5 rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
                             />
-                            <span class="min-w-0 truncate text-slate-700 dark:text-slate-300">
+                            <span class="min-w-0 truncate text-zinc-700 dark:text-zinc-300">
                               {{ ch.channelName }}
                             </span>
                           </label>
@@ -237,7 +237,7 @@
               <!-- Message Composer -->
               @if (orderedChannels(platform).length > 0 && activeChannel(platform)) {
                 <div
-                  class="flex shrink-0 flex-col border-t border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900"
+                  class="flex shrink-0 flex-col border-t border-zinc-200 bg-white dark:border-white/10 dark:bg-zinc-900"
                 >
                   @if (interactions.replyTargetMessage(); as rt) {
                     @if (rt.platform === platform) {
@@ -253,16 +253,16 @@
                           >
                             Replying to
                           </p>
-                          <p class="line-clamp-2 text-xs text-slate-800 dark:text-slate-100">
+                          <p class="line-clamp-2 text-xs text-zinc-800 dark:text-zinc-100">
                             <span class="font-semibold">{{ rt.author }}</span>
-                            <span class="text-slate-600 dark:text-slate-400"> · </span>
+                            <span class="text-zinc-600 dark:text-zinc-400"> · </span>
                             {{ rt.text }}
                           </p>
                         </div>
                         <button
                           type="button"
                           (click)="interactions.cancelReplyContext()"
-                          class="shrink-0 rounded-lg p-1 text-slate-500 transition hover:bg-emerald-100 dark:hover:bg-white/10"
+                          class="shrink-0 rounded-lg p-1 text-zinc-500 transition hover:bg-emerald-100 dark:hover:bg-white/10"
                           title="Cancel reply"
                         >
                           <mat-icon [fontIcon]="'close'" class="text-lg!" />
@@ -277,7 +277,7 @@
                       [attr.data-unichat-composer]="platform"
                       [placeholder]="composerPlaceholder(platform)"
                       [disabled]="!canSendToPlatform()(platform)"
-                      class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 transition outline-none placeholder:text-slate-400 focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-white/10 dark:bg-slate-950/60 dark:text-white dark:placeholder:text-slate-500 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-500"
+                      class="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 transition outline-none placeholder:text-zinc-400 focus:border-zinc-400 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-white/10 dark:bg-zinc-950/60 dark:text-white dark:placeholder:text-zinc-500 dark:disabled:bg-zinc-800/50 dark:disabled:text-zinc-500"
                       #sendInput
                       (keydown)="onComposerKeydown($event, platform, sendInput)"
                     />
@@ -290,7 +290,7 @@
                       type="button"
                       (click)="sendSplitComposer(platform, sendInput)"
                       [disabled]="!canSendToPlatform()(platform)"
-                      class="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200 dark:disabled:bg-slate-600"
+                      class="shrink-0 rounded-xl bg-zinc-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 dark:disabled:bg-zinc-600"
                     >
                       {{
                         interactions.replyTargetMessageId() &&

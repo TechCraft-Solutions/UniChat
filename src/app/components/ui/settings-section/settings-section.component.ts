@@ -7,8 +7,12 @@ import {
   signal,
   computed,
   effect,
+  inject,
 } from "@angular/core";
 import { MatIconModule } from "@angular/material/icon";
+
+/* services */
+import { ThemeService } from "@services/core/theme.service";
 
 @Component({
   selector: "app-settings-section",
@@ -18,6 +22,9 @@ import { MatIconModule } from "@angular/material/icon";
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsSectionComponent {
+  readonly themeService = inject(ThemeService);
+  readonly themeMode = this.themeService.themeMode;
+
   /** Section title (required) */
   title = input.required<string>();
 

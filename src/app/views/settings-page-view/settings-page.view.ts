@@ -10,114 +10,58 @@ import {
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MatIconModule } from "@angular/material/icon";
-import { UpperCasePipe } from "@angular/common";
 
 /* models */
 import { ChatAccount, PlatformType } from "@models/chat.model";
 
 /* services */
 import { LocalStorageService } from "@services/core/local-storage.service";
-import { ChatListService } from "@services/data/chat-list.service";
 import { AuthorizationService } from "@services/features/authorization.service";
-import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
-import { ChannelAvatarService } from "@services/ui/channel-avatar.service";
-import {
-  ChatHistoryExportService,
-  ExportFormat,
-} from "@services/features/chat-history-export.service";
+import { ThemeService } from "@services/core/theme.service";
 
 /* helpers */
-import {
-  getPlatformBadgeClasses,
-  getPlatformLabel,
-  YOUTUBE_DATA_API_KEY_STORAGE_KEY,
-} from "@helpers/chat.helper";
+import { YOUTUBE_DATA_API_KEY_STORAGE_KEY } from "@helpers/chat.helper";
 
 /* components */
-import { CheckboxComponent } from "@components/ui/checkbox/checkbox.component";
 import { BlockedWordsSettingsComponent } from "@components/blocked-words-settings/blocked-words-settings.component";
 import { HighlightRulesSettingsComponent } from "@components/highlight-rules-settings/highlight-rules-settings.component";
-import { KeyboardShortcutsSettingsComponent } from "@components/keyboard-shortcuts-settings/keyboard-shortcuts-settings.component";
-import { SessionExportSettingsComponent } from "@components/session-export-settings/session-export-settings.component";
 import { SettingsSectionComponent } from "@components/ui/settings-section/settings-section.component";
-import { SharedHeaderComponent } from "@components/shared-header/shared-header.component";
 @Component({
   selector: "app-settings-page-view",
   standalone: true,
   imports: [
     FormsModule,
     MatIconModule,
-    UpperCasePipe,
-    CheckboxComponent,
     BlockedWordsSettingsComponent,
     HighlightRulesSettingsComponent,
-    KeyboardShortcutsSettingsComponent,
-    SessionExportSettingsComponent,
     SettingsSectionComponent,
-    SharedHeaderComponent,
   ],
   templateUrl: "./settings-page.view.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsPageView {
   readonly authorizationService = inject(AuthorizationService);
-  readonly chatListService = inject(ChatListService);
-  readonly presentation = inject(ChatMessagePresentationService);
-  readonly channelAvatars = inject(ChannelAvatarService);
-  private readonly chatHistoryExport = inject(ChatHistoryExportService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly localStorageService = inject(LocalStorageService);
+  private readonly themeService = inject(ThemeService);
+  readonly themeMode = this.themeService.themeMode;
 
-  readonly platforms: PlatformType[] = ["twitch", "kick", "youtube"];
-  readonly getPlatformBadgeClasses = getPlatformBadgeClasses;
-
-  // Local computed signals to avoid direct service signal reads in template
-  readonly channels = computed(() => this.chatListService.channels());
-  readonly visibleChannels = computed(() => this.chatListService.getVisibleChannels());
-
-  newChannelName = "";
-  selectedPlatform: PlatformType = "twitch";
-  selectedAccountId = "";
   youtubeApiKey = "";
   showYoutubeApiKey = false;
-
-  /** Edit mode state */
-  editingChannelId: string | null = null;
-  editingChannelName: string = "";
-
-  /** Export options */
-  exportFormat: ExportFormat = "txt";
-  exportIncludeTimestamps = true;
-  exportIncludePlatform = false;
-  exportIncludeBadges = false;
-  selectedExportChannelId = "";
-
-  /** Export statistics */
-  readonly exportStats = () => this.chatHistoryExport.getExportStats();
+  debugPanelEnabled = signal(false);
 
   /** Section collapse state management */
   readonly sectionStates = signal<Record<string, boolean>>({
-    authorization: true,
-    youtube: true,
     blockedWords: true,
     highlightRules: true,
-    keyboardShortcuts: true,
-    sessionExport: true,
-    channelManagement: true,
-    chatHistoryExport: true,
+    debugPanel: true,
   });
 
   /** Collapse all sections */
   collapseAll(): void {
     this.sectionStates.set({
-      authorization: true,
-      youtube: true,
       blockedWords: true,
       highlightRules: true,
-      keyboardShortcuts: true,
-      sessionExport: true,
-      channelManagement: true,
-      chatHistoryExport: true,
     });
     this.changeDetectorRef.markForCheck();
   }
@@ -125,14 +69,8 @@ export class SettingsPageView {
   /** Expand all sections */
   expandAll(): void {
     this.sectionStates.set({
-      authorization: false,
-      youtube: false,
       blockedWords: false,
       highlightRules: false,
-      keyboardShortcuts: false,
-      sessionExport: false,
-      channelManagement: false,
-      chatHistoryExport: false,
     });
     this.changeDetectorRef.markForCheck();
   }
@@ -166,12 +104,6 @@ export class SettingsPageView {
       this.youtubeApiKey = this.localStorageService.get(YOUTUBE_DATA_API_KEY_STORAGE_KEY, "");
       this.changeDetectorRef.markForCheck();
     });
-
-    effect(() => {
-      for (const channel of this.visibleChannels()) {
-        this.channelAvatars.ensureChannelImageForChannel(channel);
-      }
-    });
   }
 
   saveYoutubeApiKey(): void {
@@ -192,7 +124,7 @@ export class SettingsPageView {
   }
 
   deauthorizeAccount(platform: PlatformType): void {
-    const account = this.getAuthorizedAccounts(platform)[0];
+    const account = this.authorizationService.accounts().find((a) => a.platform === platform);
     if (!account) {
       return;
     }
@@ -203,159 +135,14 @@ export class SettingsPageView {
     void this.authorizationService.deauthorizeAccount(account.id, account.platform);
   }
 
-  addChannel(): void {
-    if (!this.newChannelName.trim()) {
-      return;
-    }
-
-    this.chatListService.addChannel(
-      this.selectedPlatform,
-      this.newChannelName.trim(),
-      undefined,
-      this.selectedAccountId || undefined,
-      this.authorizationService.getAccountByIdSync(this.selectedAccountId)?.username
-    );
-    this.newChannelName = "";
-  }
-
-  removeChannel(channelId: string): void {
-    this.chatListService.removeChannel(channelId);
-  }
-
-  toggleChannelVisibility(channelId: string): void {
-    // Simply toggle channel visibility
-    // This affects getVisibleChannels() which is used everywhere
-    this.chatListService.toggleChannelVisibility(channelId);
-  }
-
-  enableAllChannelsInSettings(): void {
-    // Enable all channels in settings (make them visible)
-    const channels = this.chatListService.channels();
-    for (const channel of channels) {
-      if (!channel.isVisible) {
-        this.chatListService.toggleChannelVisibility(channel.id);
+  toggleDebugPanel(): void {
+    this.debugPanelEnabled.update((v) => !v);
+    if (typeof window !== "undefined" && window.localStorage) {
+      if (this.debugPanelEnabled()) {
+        window.localStorage.setItem("unichat_debug", "true");
+      } else {
+        window.localStorage.removeItem("unichat_debug");
       }
-    }
-  }
-
-  disableAllChannelsInSettings(): void {
-    // Disable all channels in settings (hide them everywhere)
-    const channels = this.chatListService.channels();
-    for (const channel of channels) {
-      if (channel.isVisible) {
-        this.chatListService.toggleChannelVisibility(channel.id);
-      }
-    }
-  }
-
-  updateChannelAccount(channelId: string, accountId: string): void {
-    this.chatListService.updateChannelAccount(
-      channelId,
-      accountId || undefined,
-      this.authorizationService.getAccountByIdSync(accountId)?.username
-    );
-  }
-
-  /** Start editing a channel name */
-  startEditChannel(channelId: string, currentName: string): void {
-    this.editingChannelId = channelId;
-    this.editingChannelName = currentName;
-    this.changeDetectorRef.markForCheck();
-  }
-
-  /** Save edited channel name */
-  saveEditChannel(): void {
-    if (!this.editingChannelId || !this.editingChannelName.trim()) {
-      return;
-    }
-    this.chatListService.updateChannelName(this.editingChannelId, this.editingChannelName.trim());
-    this.editingChannelId = null;
-    this.editingChannelName = "";
-    this.changeDetectorRef.markForCheck();
-  }
-
-  /** Cancel editing */
-  cancelEditChannel(): void {
-    this.editingChannelId = null;
-    this.editingChannelName = "";
-    this.changeDetectorRef.markForCheck();
-  }
-
-  getAuthorizedAccounts(platform: PlatformType) {
-    return this.authorizationService.accounts().filter((account) => account.platform === platform);
-  }
-
-  getChannelManagementAccounts(): ChatAccount[] {
-    return this.authorizationService.accounts();
-  }
-
-  getAccountLabelById(accountId: string | undefined): string | null {
-    if (!accountId) {
-      return null;
-    }
-    const account = this.getChannelManagementAccounts().find((item) => item.id === accountId);
-    return account?.username ?? null;
-  }
-
-  getAccountIcon(accountId: string): string {
-    const account = this.getChannelManagementAccounts().find((item) => item.id === accountId);
-    if (!account) {
-      return "";
-    }
-    // Return account avatar URL if available, otherwise use UI Avatars placeholder
-    if (account.avatarUrl && account.avatarUrl.trim()) {
-      return account.avatarUrl;
-    }
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(account.username)}&background=random&size=32`;
-  }
-
-  getPlatformLbl(platform: PlatformType): string {
-    return getPlatformLabel(platform);
-  }
-
-  getChannelNamePlaceholder(): string {
-    return this.selectedPlatform === "youtube"
-      ? "YouTube live video ID or watch/live URL"
-      : "Channel name...";
-  }
-
-  /** Export all chat history */
-  async exportAllHistory(): Promise<void> {
-    try {
-      await this.chatHistoryExport.exportAllHistory({
-        format: this.exportFormat,
-        includeTimestamps: this.exportIncludeTimestamps,
-        includePlatform: this.exportIncludePlatform,
-        includeBadges: this.exportIncludeBadges,
-        dateFormat: "iso",
-      });
-    } catch {
-      /* export failed — error already surfaced by export service if thrown */
-    }
-  }
-
-  /** Export selected channel history */
-  async exportSelectedChannel(): Promise<void> {
-    const channelId = this.selectedExportChannelId;
-    if (!channelId) {
-      return;
-    }
-
-    const channel = this.chatListService.channels().find((ch) => ch.id === channelId);
-    if (!channel) {
-      return;
-    }
-
-    try {
-      await this.chatHistoryExport.exportChannelHistory(channel.channelId, channel.platform, {
-        format: this.exportFormat,
-        includeTimestamps: this.exportIncludeTimestamps,
-        includePlatform: this.exportIncludePlatform,
-        includeBadges: this.exportIncludeBadges,
-        dateFormat: "time",
-      });
-    } catch {
-      /* export failed */
     }
   }
 }

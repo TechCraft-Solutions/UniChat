@@ -1,27 +1,27 @@
 @if (isOpen()) {
   <div
-    class="absolute right-0 bottom-full z-50 mb-2 w-80 rounded-xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
+    class="absolute right-0 bottom-full z-50 mb-2 w-80 rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900"
   >
     <!-- Header -->
     <div
-      class="flex items-center justify-between border-b border-slate-200 p-3 dark:border-white/10"
+      class="flex items-center justify-between border-b border-zinc-200 p-3 dark:border-white/10"
     >
-      <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Emote Picker</h3>
+      <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Emote Picker</h3>
       <button
         type="button"
         (click)="closePicker.emit()"
-        class="rounded p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
+        class="rounded p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
       >
         <mat-icon [fontIcon]="'close'" class="h-5! w-5!" />
       </button>
     </div>
 
     <!-- Search -->
-    <div class="border-b border-slate-200 p-3 dark:border-white/10">
+    <div class="border-b border-zinc-200 p-3 dark:border-white/10">
       <div class="relative">
         <mat-icon
           [fontIcon]="'search'"
-          class="absolute top-1/2 left-2 h-5! w-5! -translate-y-1/2 text-slate-400"
+          class="absolute top-1/2 left-2 h-5! w-5! -translate-y-1/2 text-zinc-400"
         />
         <input
           #searchInput
@@ -29,13 +29,13 @@
           placeholder="Search emotes..."
           [(ngModel)]="searchQuery"
           (keydown)="onSearchKeydown($event)"
-          class="w-full rounded-lg border border-slate-200 bg-white py-2 pr-3 pl-8 text-sm text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+          class="w-full rounded-lg border border-zinc-200 bg-white py-2 pr-3 pl-8 text-sm text-zinc-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
         />
       </div>
     </div>
 
     <!-- Category Tabs -->
-    <div class="flex gap-1 border-b border-slate-200 px-3 pt-2 dark:border-white/10">
+    <div class="flex gap-1 border-b border-zinc-200 px-3 pt-2 dark:border-white/10">
       @for (cat of categories(); track cat.id) {
         <button
           type="button"
@@ -44,7 +44,7 @@
           [ngClass]="
             selectedCategory() === cat.id
               ? 'bg-emerald-500 text-white'
-              : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5'
+              : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
           "
         >
           {{ cat.name }}
@@ -61,9 +61,9 @@
         <div class="py-8 text-center">
           <mat-icon
             [fontIcon]="'sentiment_dissatisfied'"
-            class="mb-2 h-8 w-8 text-slate-300 dark:text-slate-600"
+            class="mb-2 h-8 w-8 text-zinc-300 dark:text-zinc-600"
           />
-          <p class="text-sm text-slate-500 dark:text-slate-400">
+          <p class="text-sm text-zinc-500 dark:text-zinc-400">
             @if (searchQuery()) {
               No emotes found for "{{ searchQuery() }}"
             } @else {
@@ -77,7 +77,7 @@
             <button
               type="button"
               (click)="onEmoteClick(emote)"
-              class="group relative aspect-square rounded-lg bg-slate-50 p-1 transition hover:bg-emerald-50 dark:bg-white/5 dark:hover:bg-emerald-900/20"
+              class="group relative aspect-square rounded-lg bg-zinc-50 p-1 transition hover:bg-emerald-50 dark:bg-white/5 dark:hover:bg-emerald-900/20"
               [title]="emote.code"
             >
               <img
@@ -100,12 +100,12 @@
     </div>
 
     <!-- Add Emote Button -->
-    <div class="border-t border-slate-200 p-3 dark:border-white/10">
+    <div class="border-t border-zinc-200 p-3 dark:border-white/10">
       @if (!showAddEmoteForm()) {
         <button
           type="button"
           (click)="toggleAddEmoteForm()"
-          class="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 py-2 text-xs font-medium text-slate-600 transition hover:border-emerald-500 hover:text-emerald-600 dark:border-white/10 dark:text-slate-400"
+          class="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 py-2 text-xs font-medium text-zinc-600 transition hover:border-emerald-500 hover:text-emerald-600 dark:border-white/10 dark:text-zinc-400"
         >
           <mat-icon [fontIcon]="'add'" class="h-5! w-5!" />
           Add Custom Emote
@@ -117,13 +117,13 @@
             type="text"
             placeholder="Emote code (e.g., :myemote:)"
             [(ngModel)]="newEmoteCode"
-            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+            class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
           />
           <input
             type="url"
             placeholder="Emote image URL"
             [(ngModel)]="newEmoteUrl"
-            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+            class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 transition outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
           />
           <div class="flex gap-2">
             <button
@@ -136,7 +136,7 @@
             <button
               type="button"
               (click)="cancelAddEmote()"
-              class="flex-1 rounded-lg bg-slate-200 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-white/10 dark:text-slate-300"
+              class="flex-1 rounded-lg bg-zinc-200 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-300 dark:bg-white/10 dark:text-zinc-300"
             >
               Cancel
             </button>
@@ -147,7 +147,7 @@
 
     <!-- Footer Stats -->
     <div
-      class="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"
+      class="flex items-center justify-between border-t border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400"
     >
       <span>{{ filteredEmotes().length }} emotes</span>
       <span>Total: {{ totalEmotes() }}</span>

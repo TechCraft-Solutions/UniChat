@@ -12,6 +12,7 @@ import { BaseChatProviderService } from "@services/providers/base-chat-provider.
 
 /* helpers */
 import { createMessageActionState } from "@helpers/chat.helper";
+import { extractYoutubeVideoId } from "@utils/youtube-url-parser.util";
 interface YouTubeChatApiResponse {
   items?: Array<{
     id: string;
@@ -195,8 +196,7 @@ export class YouTubeChatService extends BaseChatProviderService {
   }
 
   private normalizeVideoId(raw: string): string {
-    const trimmed = raw.trim().replace(/^v:/i, "");
-    return /^[a-zA-Z0-9_-]{11}$/.test(trimmed) ? trimmed : "";
+    return extractYoutubeVideoId(raw) ?? "";
   }
 
   private async drainLiveChat(

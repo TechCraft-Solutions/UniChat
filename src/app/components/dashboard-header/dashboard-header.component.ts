@@ -1,9 +1,23 @@
 /* sys lib */
-import { ChangeDetectionStrategy, Component, input, output } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  output,
+  signal,
+  inject,
+  computed,
+} from "@angular/core";
 import { MatIconModule } from "@angular/material/icon";
 
+/* services */
+import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
+import { ThemeService } from "@services/core/theme.service";
+
 /* models */
-import { FeedMode } from "@models/chat.model";
+import { PlatformType } from "@models/chat.model";
+
+type PlatformFilter = "all" | "twitch" | "kick" | "youtube";
 
 @Component({
   selector: "app-dashboard-header",
@@ -13,8 +27,11 @@ import { FeedMode } from "@models/chat.model";
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardHeaderComponent {
+  readonly presentation = inject(ChatMessagePresentationService);
+  readonly themeService = inject(ThemeService);
+  readonly themeMode = this.themeService.themeMode;
+
   // Inputs
-  readonly feedMode = input.required<FeedMode>();
   readonly pinnedCount = input.required<number>();
   readonly showSearch = input.required<boolean>();
   readonly showPinned = input.required<boolean>();
@@ -24,12 +41,13 @@ export class DashboardHeaderComponent {
   readonly toggleSearch = output<void>();
   readonly togglePinned = output<void>();
   readonly toggleShortcuts = output<void>();
-  readonly setFeedMode = output<FeedMode>();
-  readonly resetSizes = output<void>();
+  readonly platformFilterChange = output<PlatformFilter>();
 
-  readonly feedModes: FeedMode[] = ["mixed", "split"];
+  readonly activeFilter = signal<PlatformFilter>("all");
+  readonly platforms: PlatformType[] = ["twitch", "kick", "youtube"];
 
-  getFeedModeLabel(mode: FeedMode): string {
-    return mode === "mixed" ? "Mixed" : "Split";
+  setActiveFilter(filter: PlatformFilter): void {
+    this.activeFilter.set(filter);
+    this.platformFilterChange.emit(filter);
   }
 }

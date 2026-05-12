@@ -1,8 +1,9 @@
 /* sys lib */
 import { CdkDragDrop, DragDropModule, moveItemInArray } from "@angular/cdk/drag-drop";
 import {
-  ChangeDetectionStrategy,
+  OnDestroy,
   ChangeDetectorRef,
+  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   HostListener,
@@ -67,7 +68,7 @@ interface SplitPlatformViewModel {
   templateUrl: "./dashboard-split-feed.component.html",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DashboardSplitFeedComponent {
+export class DashboardSplitFeedComponent implements OnDestroy {
   readonly feedData = inject(DashboardFeedDataService);
   readonly presentation = inject(ChatMessagePresentationService);
   readonly interactions = inject(DashboardChatInteractionService);
@@ -84,6 +85,8 @@ export class DashboardSplitFeedComponent {
   private readonly authorizationService = inject(AuthorizationService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
+  private _resizeMouseMoveHandler: ((event: MouseEvent) => void) | null = null;
+  private _resizeMouseUpHandler: (() => void) | null = null;
 
   @HostListener("document:click")
   onDocumentClick(): void {
@@ -333,7 +336,9 @@ export class DashboardSplitFeedComponent {
       document.removeEventListener("mouseup", onMouseUp);
     };
 
+    this._resizeMouseMoveHandler = onMouseMove;
     document.addEventListener("mousemove", onMouseMove);
+    this._resizeMouseUpHandler = onMouseUp;
     document.addEventListener("mouseup", onMouseUp);
   }
 
@@ -649,6 +654,18 @@ export class DashboardSplitFeedComponent {
       return [];
     }
     return this.feedData.getMessagesForChannel(platform, channelId);
+  }
+
+  ngOnDestroy(): void {
+    if (this._resizeMouseMoveHandler) {
+      document.removeEventListener("mousemove", this._resizeMouseMoveHandler);
+      this._resizeMouseMoveHandler = null;
+    }
+    if (this._resizeMouseUpHandler) {
+      document.removeEventListener("mouseup", this._resizeMouseUpHandler);
+      this._resizeMouseUpHandler = null;
+    }
+    this.onResizeEnd();
   }
 
   private platformState(platform: PlatformType): SplitPlatformViewModel {
