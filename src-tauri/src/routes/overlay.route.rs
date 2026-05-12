@@ -163,6 +163,18 @@ lazy_static! {
 
 const MAX_OVERLAY_IDS: usize = 100;
 
+/// Enforce the maximum number of overlay IDs by evicting the oldest entry if needed.
+async fn enforce_max_overlay_ids() {
+  let mut configs = OVERLAY_CONFIGS.write().await;
+  if configs.len() >= MAX_OVERLAY_IDS {
+    if let Some(oldest_id) = configs.keys().next().cloned() {
+      configs.remove(&oldest_id);
+      let mut messages = OVERLAY_MESSAGES.write().await;
+      messages.remove(&oldest_id);
+    }
+  }
+}
+
 /// Emit overlay configuration changed event to all windows and store in backend.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -194,14 +206,8 @@ pub async fn emitOverlayConfigChanged(
   };
 
   {
+    enforce_max_overlay_ids().await;
     let mut configs = OVERLAY_CONFIGS.write().await;
-    if configs.len() >= MAX_OVERLAY_IDS {
-      if let Some(oldest_id) = configs.keys().next().cloned() {
-        configs.remove(&oldest_id);
-        let mut messages = OVERLAY_MESSAGES.write().await;
-        messages.remove(&oldest_id);
-      }
-    }
     configs.insert(widget_id.clone(), config);
   }
 
@@ -258,14 +264,8 @@ pub async fn initOverlayConfigFromStorage(
   };
 
   {
+    enforce_max_overlay_ids().await;
     let mut configs = OVERLAY_CONFIGS.write().await;
-    if configs.len() >= MAX_OVERLAY_IDS {
-      if let Some(oldest_id) = configs.keys().next().cloned() {
-        configs.remove(&oldest_id);
-        let mut messages = OVERLAY_MESSAGES.write().await;
-        messages.remove(&oldest_id);
-      }
-    }
     configs.insert(widget_id, config);
   }
 

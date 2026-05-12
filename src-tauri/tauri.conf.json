@@ -19,7 +19,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss: https:; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self' wss: https:; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';"
     }
   },
   "bundle": {
@@ -32,16 +32,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": {
-      "../dist/unichat/browser": ""
-    }
+    "resources": []
   },
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "unichat"
-        ]
+        "schemes": ["unichat"]
       }
     }
   }
