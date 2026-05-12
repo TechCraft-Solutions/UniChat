@@ -48,7 +48,9 @@ export class SettingsPageView {
 
   youtubeApiKey = "";
   showYoutubeApiKey = false;
-  debugPanelEnabled = signal(false);
+  debugPanelEnabled = signal(
+    typeof window !== "undefined" && window.localStorage?.getItem("unichat_debug") === "true"
+  );
 
   /** Section collapse state management */
   readonly sectionStates = signal<Record<string, boolean>>({
