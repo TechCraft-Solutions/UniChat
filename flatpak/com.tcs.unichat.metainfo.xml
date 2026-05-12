@@ -29,6 +29,27 @@
   </provides>
 
   <releases>
+    <release version="0.2.0" date="2026-05-13">
+      <description>
+        <p>Release version 0.2.0 with Twitch integration, OAuth improvements, chat persistence, and major UI refinements:</p>
+        <ul>
+          <li>Added Twitch connection service for managing Twitch WebSocket connections with room state handling</li>
+          <li>Added Twitch message parser for processing chat messages with badges, emotes, and bits support</li>
+          <li>Added account service for unified account management across platforms</li>
+          <li>Enhanced OAuth flow with middleware support for secure token handling</li>
+          <li>Added chat persistence service for storing chat history locally with SQLite</li>
+          <li>Added chat pruning service for automatic cleanup of old messages</li>
+          <li>Added reconnection manager with exponential backoff for automatic reconnection</li>
+          <li>New dashboard with redesigned layout and component integration</li>
+          <li>Added channel filter dropdown for filtering channels across views</li>
+          <li>Refactored settings page with updated UI components</li>
+          <li>Added mobile navigation component for better mobile experience</li>
+          <li>Fixed chat scroll region and app sidebar templates</li>
+          <li>Applied Prettier formatting to all Angular components, services, and views</li>
+          <li>Formatted Rust and Tauri configuration files</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.7" date="2026-05-03">
       <description>
         <p>Release version 0.1.7 with OAuth improvements, debug panel, and Flatpak fixes:</p>
