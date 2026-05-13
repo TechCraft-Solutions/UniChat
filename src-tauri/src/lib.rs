@@ -23,6 +23,9 @@ use crate::routes::overlay_route::{
   openOverlayWindow, startOverlayServer, stopOverlayServer,
 };
 use crate::routes::twitch_route::twitchDeleteMessage;
+use crate::routes::update_route::{
+  checkForUpdate, downloadUpdate, getCurrentVersion, installUpdate,
+};
 use crate::routes::youtube_route::{
   youtubeDeleteMessage, youtubeFetchChannelInfo, youtubeFetchChannelInfoByApiKey,
   youtubeFetchChatMessages, youtubeFetchLiveChatId, youtubeFetchLiveVideoId,
@@ -45,6 +48,7 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     .plugin(tauri_plugin_deep_link::init())
     .plugin(tauri_plugin_mcp_bridge::init())
+    .plugin(tauri_plugin_shell::init())
     .setup(|app| {
       let config = Arc::new(AppConfig::new());
       config
@@ -143,6 +147,10 @@ pub fn run() {
       kickDeleteChatMessage,
       youtubeFetchChannelInfoByApiKey,
       youtubeFetchChannelInfo,
+      checkForUpdate,
+      downloadUpdate,
+      installUpdate,
+      getCurrentVersion,
     ]);
 
   if let Err(e) = builder.run(tauri::generate_context!()) {

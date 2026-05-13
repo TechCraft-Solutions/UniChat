@@ -18,3 +18,6 @@ pub mod kick_route;
 
 #[path = "twitch.route.rs"]
 pub mod twitch_route;
+
+#[path = "update.route.rs"]
+pub mod update_route;

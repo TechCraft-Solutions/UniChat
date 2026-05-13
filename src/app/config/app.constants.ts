@@ -88,6 +88,12 @@ export const TWITCH_CONFIG = {
 } as const;
 
 /**
+ * GitHub repository for update checks
+ */
+export const GITHUB_REPO = "rusnakdima/UniChat";
+export const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+
+/**
  * Type-safe access to app config
  */
 export type AppConfig = typeof APP_CONFIG;

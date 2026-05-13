@@ -29,6 +29,7 @@ export class AppSidebarComponent implements OnInit, OnDestroy {
     { path: "/analytics", icon: "bar_chart", label: "Analytics" },
     { path: "/export", icon: "download", label: "Export Chat" },
     { path: "/settings", icon: "settings", label: "Settings" },
+    { path: "/updates", icon: "system_update", label: "Updates" },
   ];
 
   readonly themeMode = this.themeService.themeMode;

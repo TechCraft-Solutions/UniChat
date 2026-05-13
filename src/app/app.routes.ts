@@ -57,6 +57,11 @@ export const routes: Routes = [
           import("@views/settings-page-view/settings-page.view").then((m) => m.SettingsPageView),
       },
       {
+        path: "updates",
+        loadComponent: () =>
+          import("@views/updates-page-view/updates-page.view").then((m) => m.UpdatesPageView),
+      },
+      {
         path: "keyboard-shortcuts",
         loadComponent: () =>
           import("@views/keyboard-shortcuts-page-view/keyboard-shortcuts-page.view").then(

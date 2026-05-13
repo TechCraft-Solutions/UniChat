@@ -4,3 +4,5 @@
 pub mod auth;
 
 pub mod overlay_server;
+
+pub mod update_service;
