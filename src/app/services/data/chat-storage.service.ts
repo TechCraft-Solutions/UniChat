@@ -73,6 +73,7 @@ export class ChatStorageService {
     version: 0,
     messages: [],
   };
+  private _lastChannelMessages: Record<string, ChatMessage[]> = {};
 
   readonly channelMessages = this.channelMessagesSignal.asReadonly();
   readonly loadedChannelsSet = this.loadedChannels.asReadonly();
@@ -92,16 +93,23 @@ export class ChatStorageService {
 
   readonly allMessages = computed(() => {
     const currentVersion = this.allMessagesVersion();
+    const currentChannelMessages = this.channelMessagesSignal();
 
     if (this._allMessagesCache.version === currentVersion) {
       return this._allMessagesCache.messages;
     }
 
     const allMessages: ChatMessage[] = [];
-    const messagesByChannel = this.channelMessagesSignal();
 
-    for (const messages of Object.values(messagesByChannel)) {
+    for (const [channelId, messages] of Object.entries(currentChannelMessages)) {
       allMessages.push(...messages);
+      this._lastChannelMessages[channelId] = messages;
+    }
+
+    for (const channelId of Object.keys(this._lastChannelMessages)) {
+      if (!currentChannelMessages[channelId]) {
+        delete this._lastChannelMessages[channelId];
+      }
     }
 
     const sorted = [...allMessages].sort(
@@ -317,6 +325,38 @@ export class ChatStorageService {
     if (shouldForward) {
       this.overlayBridge.forwardMessage(updated);
     }
+  }
+
+  /**
+   * Batch update messages for a channel without triggering multiple signal updates.
+   * More efficient than calling updateMessage multiple times.
+   */
+  batchUpdateMessagesForChannel(
+    channelId: string,
+    updates: Array<{ messageId: string; changes: Partial<ChatMessage> }>
+  ): void {
+    if (updates.length === 0) return;
+
+    this.channelMessagesSignal.update((store) => {
+      const messages = store[channelId];
+      if (!messages) {
+        return store;
+      }
+
+      const messageMap = new Map(messages.map((msg) => [msg.id, msg]));
+
+      for (const { messageId, changes } of updates) {
+        const existing = messageMap.get(messageId);
+        if (existing) {
+          messageMap.set(messageId, { ...existing, ...changes });
+        }
+      }
+
+      return {
+        ...store,
+        [channelId]: [...messageMap.values()],
+      };
+    });
   }
 
   private scheduleBatchFlush(): void {

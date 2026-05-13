@@ -12,6 +12,7 @@ const storageKey = "unichat-dashboard-preferences";
 const defaultPreferences: DashboardPreferences = {
   feedMode: "mixed",
   densityMode: "comfortable",
+  autoScroll: true,
   mixedEnabledChannelIds: [],
   splitLayout: {
     orderedPlatforms: ["twitch", "kick", "youtube"],
@@ -59,6 +60,13 @@ export class DashboardPreferencesService implements OnDestroy {
     this.updatePreferences({
       ...this.preferencesSignal(),
       feedMode,
+    });
+  }
+
+  setAutoScroll(autoScroll: boolean): void {
+    this.updatePreferences({
+      ...this.preferencesSignal(),
+      autoScroll,
     });
   }
 
@@ -279,6 +287,7 @@ export class DashboardPreferencesService implements OnDestroy {
       if (
         (parsed.feedMode === "mixed" || parsed.feedMode === "split") &&
         (parsed.densityMode === "compact" || parsed.densityMode === "comfortable") &&
+        typeof parsed.autoScroll === "boolean" &&
         Array.isArray(parsed.splitLayout?.orderedPlatforms) &&
         Array.isArray(parsed.splitLayout?.hiddenPlatforms) &&
         typeof parsed.splitLayout?.columnWidths === "object"
@@ -330,6 +339,7 @@ export class DashboardPreferencesService implements OnDestroy {
 
         return {
           ...parsed,
+          autoScroll: parsed.autoScroll ?? true,
           mixedEnabledChannelIds: mixedEnabled,
           splitLayout: {
             ...parsed.splitLayout,

@@ -342,6 +342,11 @@ export class ChatStateService {
     const channels = this.chatListService.getVisibleChannels();
     const allMessages = this.messages();
 
+    const updatesByChannel = new Map<
+      string,
+      Array<{ messageId: string; changes: Partial<ChatMessage> }>
+    >();
+
     for (const message of allMessages) {
       const channel = channels.find(
         (ch) => ch.platform === message.platform && ch.channelId === message.sourceChannelId
@@ -351,14 +356,12 @@ export class ChatStateService {
         continue;
       }
 
-      // Note: Uses sync version - accounts are loaded when channels are connected
       const account = this.authorizationService.getAccountByIdSync(channel.accountId);
       const capabilities = getChannelAccountCapabilities(channel, account);
 
-      this.chatStorageService.updateMessage(
-        buildChannelRef(message.platform, message.sourceChannelId),
-        message.id,
-        {
+      const messageUpdate = {
+        messageId: message.id,
+        changes: {
           actions: {
             reply: createMessageActionState(
               "reply",
@@ -371,8 +374,17 @@ export class ChatStateService {
               capabilities.canDelete ? undefined : "This channel cannot delete messages."
             ),
           },
-        }
-      );
+        },
+      };
+
+      const channelRef = buildChannelRef(message.platform, message.sourceChannelId);
+      const existing = updatesByChannel.get(channelRef) ?? [];
+      existing.push(messageUpdate);
+      updatesByChannel.set(channelRef, existing);
+    }
+
+    for (const [channelRef, updates] of updatesByChannel) {
+      this.chatStorageService.batchUpdateMessagesForChannel(channelRef, updates);
     }
   }
 

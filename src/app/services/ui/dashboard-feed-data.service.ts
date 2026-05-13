@@ -20,6 +20,12 @@ export class DashboardFeedDataService {
   private readonly dashboardPreferencesService = inject(DashboardPreferencesService);
   private readonly chatStorageService = inject(ChatStorageService);
 
+  readonly platformFilter = signal<"all" | PlatformType>("all");
+
+  setPlatformFilter(filter: "all" | PlatformType): void {
+    this.platformFilter.set(filter);
+  }
+
   // Signal that updates whenever channel messages change
   // Components can read this to force dependency on message updates
   readonly messageVersion = computed(() => {
@@ -48,15 +54,24 @@ export class DashboardFeedDataService {
   /**
    * Channels filtered for mixed feed (only includes enabled channels).
    * mixedEnabledChannelIds stores which channels are toggled on in mixed feed.
+   * Also filters by platform if platformFilter is set to a specific platform.
    */
   readonly mixedFeedChannels = computed(() => {
     const visible = this.chatListService.getVisibleChannels();
     const enabled = new Set(this.dashboardPreferencesService.preferences().mixedEnabledChannelIds);
-    // If no enabled channels set, show none (user must manually enable)
+    const platformFilter = this.platformFilter();
     if (enabled.size === 0) {
       return [];
     }
-    return visible.filter((ch) => enabled.has(buildChannelRef(ch.platform, ch.channelId)));
+    return visible.filter((ch) => {
+      if (!enabled.has(buildChannelRef(ch.platform, ch.channelId))) {
+        return false;
+      }
+      if (platformFilter !== "all" && ch.platform !== platformFilter) {
+        return false;
+      }
+      return true;
+    });
   });
 
   readonly channelsByPlatform = computed(() => groupChannelsByPlatform(this.allVisibleChannels()));

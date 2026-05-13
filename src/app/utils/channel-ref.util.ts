@@ -3,7 +3,7 @@ import { ChatChannel, PlatformType } from "@models/chat.model";
 export type ChannelRef = `${PlatformType}:${string}`;
 
 export function buildChannelRef(platform: PlatformType, providerChannelId: string): ChannelRef {
-  return `${platform}:${providerChannelId}` as ChannelRef;
+  return `${platform}:${providerChannelId.toLowerCase()}` as ChannelRef;
 }
 
 export function parseChannelRef(channelRef: string): {
@@ -78,8 +78,8 @@ export function migrateLegacyChannelRefs(
         channel.channelName.toLowerCase() === normalized.toLowerCase()
     );
 
-    if (exactMatches.length === 1) {
-      migrated.add(toChannelRef(exactMatches[0]));
+    for (const match of exactMatches) {
+      migrated.add(toChannelRef(match));
     }
   }
 

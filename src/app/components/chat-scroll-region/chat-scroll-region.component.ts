@@ -41,6 +41,7 @@ export class ChatScrollRegionComponent implements AfterViewInit {
 
   readonly scrollToken = input.required<string>();
   readonly messages = input.required<readonly ChatMessage[]>();
+  readonly autoScroll = input<boolean>(true);
 
   private readonly scrollContainer = viewChild<HTMLElement>("scrollContainer");
 
@@ -63,9 +64,11 @@ export class ChatScrollRegionComponent implements AfterViewInit {
   private prevTotalHeight = 0;
   private prevOldestMessageId: string | null = null;
 
+  private pendingRaf = false;
+  private pendingScrollTop: number | null = null;
+
   private getScrollContainer(): HTMLElement | null {
-    const container = this.scrollContainer();
-    return container ?? null;
+    return this.scrollContainer() ?? null;
   }
 
   ngAfterViewInit(): void {
@@ -81,20 +84,32 @@ export class ChatScrollRegionComponent implements AfterViewInit {
     fromEvent(window, "resize", { passive: true })
       .pipe(throttleTime(100), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
-        if (this.pinnedToBottom()) {
-          const n = this.getScrollContainer();
-          if (n) {
-            n.scrollTop = n.scrollHeight;
-          }
+        if (this.pinnedToBottom() && !this.pendingRaf) {
+          this.pendingScrollTop = this.getScrollContainer()?.scrollHeight ?? null;
         }
       });
 
-    if (this.pinnedToBottom()) {
-      requestAnimationFrame(() => {
-        node.scrollTop = node.scrollHeight;
-        this.prevTotalHeight = node.scrollHeight;
-      });
+    if (this.pinnedToBottom() && this.autoScroll()) {
+      this.pendingScrollTop = node.scrollHeight;
     }
+  }
+
+  private scheduleScrollTop(target: number): void {
+    if (this.pendingRaf) {
+      return;
+    }
+    this.pendingRaf = true;
+    this.pendingScrollTop = target;
+    requestAnimationFrame(() => {
+      this.pendingRaf = false;
+      const node = this.getScrollContainer();
+      if (node && this.pendingScrollTop !== null) {
+        node.scrollTop = this.pendingScrollTop;
+        this.prevTotalHeight = node.scrollHeight;
+      }
+      this.pendingScrollTop = null;
+      this.cdr.markForCheck();
+    });
   }
 
   constructor() {
@@ -110,13 +125,9 @@ export class ChatScrollRegionComponent implements AfterViewInit {
         this.prevNewestMessageId = this.getNewestMessageId();
         this.prevOldestMessageId = this.getOldestMessageId();
 
-        if (this.pinnedToBottom()) {
+        if (this.pinnedToBottom() && this.autoScroll()) {
           this.pendingNewCount.set(0);
-          requestAnimationFrame(() => {
-            node.scrollTop = node.scrollHeight;
-            this.prevTotalHeight = node.scrollHeight;
-            this.cdr.markForCheck();
-          });
+          this.scheduleScrollTop(node.scrollHeight);
         } else {
           this.pendingNewCount.set(0);
         }
@@ -163,17 +174,13 @@ export class ChatScrollRegionComponent implements AfterViewInit {
           return;
         }
 
-        if (this.pinnedToBottom()) {
+        if (this.pinnedToBottom() && this.autoScroll()) {
           this.pendingNewCount.set(0);
           this.snapshotLength = len;
-          requestAnimationFrame(() => {
-            const node = this.getScrollContainer();
-            if (!node) return;
-            node.scrollTop = node.scrollHeight;
-            this.prevTotalHeight = node.scrollHeight;
-            this.distanceFromBottom.set(0);
-            this.cdr.markForCheck();
-          });
+          const node = this.getScrollContainer();
+          if (node) {
+            this.scheduleScrollTop(node.scrollHeight);
+          }
         } else {
           this.pendingNewCount.update((count) => count + delta);
           this.cdr.markForCheck();
@@ -194,12 +201,15 @@ export class ChatScrollRegionComponent implements AfterViewInit {
     const shouldReattach = distance <= ChatScrollRegionComponent.reattachToBottomPx;
 
     if (!this.pinnedToBottom() && (isAtBottom || shouldReattach)) {
+      const wasPinned = this.pinnedToBottom();
       this.pinnedToBottom.set(true);
       this.snapshotLength = this.messages().length;
       this.pendingNewCount.set(0);
       this.lastScrollTop = scrollTop;
       this.prevTotalHeight = node.scrollHeight;
-      this.cdr.markForCheck();
+      if (!wasPinned) {
+        this.cdr.markForCheck();
+      }
       return;
     }
 
@@ -211,11 +221,14 @@ export class ChatScrollRegionComponent implements AfterViewInit {
       }
 
       if (distance > ChatScrollRegionComponent.detachFromBottomPx) {
+        const wasPinned = this.pinnedToBottom();
         this.pinnedToBottom.set(false);
         this.snapshotLength = this.messages().length;
         this.lastScrollTop = scrollTop;
         this.prevTotalHeight = node.scrollHeight;
-        this.cdr.markForCheck();
+        if (wasPinned) {
+          this.cdr.markForCheck();
+        }
         return;
       }
 
@@ -228,13 +241,11 @@ export class ChatScrollRegionComponent implements AfterViewInit {
     const node = this.getScrollContainer();
     if (!node) return;
 
-    node.scrollTop = node.scrollHeight;
     this.pinnedToBottom.set(true);
     this.snapshotLength = this.messages().length;
     this.pendingNewCount.set(0);
     this.distanceFromBottom.set(0);
-    this.prevTotalHeight = node.scrollHeight;
-    this.cdr.markForCheck();
+    this.scheduleScrollTop(node.scrollHeight);
   }
 
   private getNewestMessageId(messages: readonly ChatMessage[] = this.messages()): string | null {
@@ -254,8 +265,8 @@ export class ChatScrollRegionComponent implements AfterViewInit {
     const newTotalHeight = node.scrollHeight;
     const heightDelta = newTotalHeight - this.prevTotalHeight;
 
-    if (heightDelta > 0) {
-      node.scrollTop += heightDelta;
+    if (heightDelta > 0 && this.pendingScrollTop === null) {
+      this.pendingScrollTop = node.scrollTop + heightDelta;
     }
 
     this.prevTotalHeight = newTotalHeight;

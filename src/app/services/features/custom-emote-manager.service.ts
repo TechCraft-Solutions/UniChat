@@ -54,6 +54,9 @@ export class CustomEmoteManagerService {
   readonly categories = this.categoriesSignal.asReadonly();
   readonly emotesRevision = this.emotesRevisionSignal.asReadonly();
 
+  private prefixLookupCache = new Map<string, CustomEmote[]>();
+  private lastRevision = -1;
+
   /**
    * Load emotes from localStorage
    */
@@ -121,6 +124,7 @@ export class CustomEmoteManagerService {
   /**
    * Emotes applied when rendering chat for a provider (global customs + platform-specific).
    * Sorted longest-code first for greedy matching.
+   * Uses prefix-based lookup cache for O(1) emote finding by first character.
    */
   getEmotesForMessageRendering(platform: PlatformType): CustomEmote[] {
     const applicable = this.emotesSignal().filter((e) => !e.platform || e.platform === platform);
@@ -138,6 +142,48 @@ export class CustomEmoteManagerService {
       }
     }
     return out;
+  }
+
+  /**
+   * Get emotes that start with a given prefix (for fast text matching).
+   * Returns emotes sorted by code length (longest first).
+   */
+  getEmotesStartingWith(prefix: string): CustomEmote[] {
+    const currentRevision = this.emotesRevisionSignal();
+    if (currentRevision !== this.lastRevision) {
+      this.prefixLookupCache.clear();
+      this.lastRevision = currentRevision;
+    }
+
+    if (!prefix) {
+      return this.getEmotesForMessageRendering("twitch");
+    }
+
+    const cacheKey = prefix.toLowerCase();
+    if (this.prefixLookupCache.has(cacheKey)) {
+      return this.prefixLookupCache.get(cacheKey)!;
+    }
+
+    const allEmotes = this.getEmotesForMessageRendering("twitch");
+    const matching = allEmotes.filter((e) => e.code.toLowerCase().startsWith(cacheKey));
+    const sorted = matching.sort((a, b) => b.code.length - a.code.length);
+
+    this.prefixLookupCache.set(cacheKey, sorted);
+    return sorted;
+  }
+
+  /**
+   * Get all unique starting characters of emotes for fast candidate filtering.
+   */
+  getEmoteStartChars(): Set<string> {
+    const emotes = this.emotesSignal();
+    const chars = new Set<string>();
+    for (const e of emotes) {
+      if (e.code.length > 0) {
+        chars.add(e.code[0].toLowerCase());
+      }
+    }
+    return chars;
   }
 
   private bumpEmotesRevision(): void {

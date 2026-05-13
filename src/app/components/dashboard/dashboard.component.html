@@ -83,7 +83,7 @@
           </div>
 
           <app-channel-filter-dropdown
-            [channels]="orderedVisibleChannels()"
+            [channels]="platformFilteredChannels()"
             [enabledChannelIds]="enabledChannels()"
             [visibleChannelCount]="visibleChannelCount()"
             (enabledChannelIdsChange)="onFilterChannelIdsChange($event)"
@@ -109,6 +109,7 @@
         <app-chat-scroll-region
           [scrollToken]="feedData.mixedScrollToken()"
           [messages]="mixedMessages()"
+          [autoScroll]="autoScroll()"
         >
           <div class="flex flex-col gap-y-2 px-3 py-3 sm:px-4">
             @for (message of mixedMessages(); track message.id) {

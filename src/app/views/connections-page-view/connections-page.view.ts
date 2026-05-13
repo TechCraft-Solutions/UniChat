@@ -1,5 +1,5 @@
 /* sys lib */
-import { ChangeDetectionStrategy, Component, computed, inject } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MatIconModule } from "@angular/material/icon";
 
@@ -46,7 +46,16 @@ export class ConnectionsPageView {
   editingChannelId: string | null = null;
   editingChannelName = "";
 
+  selectedChannelFilter = signal<PlatformType | "all">("all");
+
   readonly channels = computed(() => this.chatListService.channels());
+
+  readonly filteredChannels = computed(() => {
+    if (this.selectedChannelFilter() === "all") {
+      return this.channels();
+    }
+    return this.channels().filter((ch) => ch.platform === this.selectedChannelFilter());
+  });
 
   readonly connections = computed(() => {
     return this.platforms.map((platform) => {

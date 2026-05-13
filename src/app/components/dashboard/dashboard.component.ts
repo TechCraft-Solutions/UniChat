@@ -65,7 +65,7 @@ export class DashboardComponent {
   readonly interactions = inject(DashboardChatInteractionService);
   readonly connectionStateService = inject(ConnectionStateService);
   readonly channelAvatars = inject(ChannelAvatarService);
-  private readonly dashboardPreferences = inject(DashboardPreferencesService);
+  readonly dashboardPreferences = inject(DashboardPreferencesService);
   private readonly twitchChat = inject(TwitchChatService);
   private readonly chatStorage = inject(ChatStorageService);
   private readonly localStorageService = inject(LocalStorageService);
@@ -93,11 +93,26 @@ export class DashboardComponent {
 
   readonly activeFilterChannelIds = computed(() => this.enabledChannels());
 
-  readonly activePlatformFilter = signal<"all" | PlatformType>("all");
+  readonly activePlatformFilter = this.feedData.platformFilter;
   readonly platforms: PlatformType[] = ["twitch", "kick", "youtube"];
 
+  readonly autoScroll = computed(() => this.dashboardPreferences.preferences().autoScroll);
+
+  readonly platformFilteredChannels = computed(() => {
+    const filter = this.activePlatformFilter();
+    const channels = this.orderedVisibleChannels();
+    if (filter === "all") {
+      return channels;
+    }
+    return channels.filter((ch) => ch.platform === filter);
+  });
+
   setPlatformFilter(filter: "all" | PlatformType): void {
-    this.activePlatformFilter.set(filter);
+    this.feedData.setPlatformFilter(filter);
+  }
+
+  toggleAutoScroll(): void {
+    this.dashboardPreferences.setAutoScroll(!this.autoScroll());
   }
 
   private readonly mixedChannelOrderStorageKey = "unichat-mixed-channel-order";
@@ -324,23 +339,29 @@ export class DashboardComponent {
 
   async onLoadHistory(event: { channelId: string | undefined; count: number }): Promise<void> {
     // For mixed feed, load history for all enabled channels (channelId is ignored)
-    const channels = this.enabledVisibleChannels();
+    const channels = this.enabledVisibleChannels().filter((ch) => ch.platform === "twitch");
+    if (channels.length === 0) {
+      this.historyHeader()?.setLoadingComplete(true, false);
+      return;
+    }
+
+    // Load all Twitch channels in parallel
+    const loadPromises = channels.map((channel) =>
+      this.twitchChat.loadChannelHistory(channel.channelId, event.count)
+    );
+
+    const results = await Promise.all(loadPromises);
+
     let totalLoaded = 0;
-
-    for (const channel of channels) {
-      // Only Twitch supports history loading via Robotty
-      if (channel.platform === "twitch") {
-        const messages = await this.twitchChat.loadChannelHistory(channel.channelId, event.count);
-
-        if (messages.length > 0) {
-          this.chatStorage.prependMessages(channel.channelId, messages);
-          totalLoaded += messages.length;
-        }
+    for (let i = 0; i < channels.length; i++) {
+      const messages = results[i];
+      if (messages.length > 0) {
+        this.chatStorage.prependMessages(channels[i].channelId, messages);
+        totalLoaded += messages.length;
       }
     }
 
     const hasMore = totalLoaded >= event.count;
-    // Notify the history header that loading is complete
     this.historyHeader()?.setLoadingComplete(true, hasMore);
   }
 

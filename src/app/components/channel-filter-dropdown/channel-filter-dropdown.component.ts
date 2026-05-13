@@ -28,7 +28,14 @@ import { buildChannelRef } from "@utils/channel-ref.util";
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChannelFilterDropdownComponent implements AfterViewInit {
-  @Input() channels: ChatChannel[] = [];
+  private readonly channelsSource = signal<ChatChannel[]>([]);
+
+  @Input()
+  set channels(value: ChatChannel[]) {
+    this.channelsSource.set(value);
+  }
+
+  readonly channelsSignal = computed(() => this.channelsSource());
   @Input() enabledChannelIds: Set<string> = new Set();
   @Input() visibleChannelCount: number = 0;
   @Output() enabledChannelIdsChange = new EventEmitter<Set<string>>();
@@ -65,10 +72,11 @@ export class ChannelFilterDropdownComponent implements AfterViewInit {
 
   readonly filteredChannels = computed(() => {
     const query = this.filterSearchQuery().toLowerCase().trim();
+    const channels = this.channelsSignal();
     if (!query) {
-      return this.channels;
+      return channels;
     }
-    return this.channels.filter((ch) => ch.channelName.toLowerCase().includes(query));
+    return channels.filter((ch) => ch.channelName.toLowerCase().includes(query));
   });
 
   readonly selectedCount = computed(() => this.enabledChannelIds.size);

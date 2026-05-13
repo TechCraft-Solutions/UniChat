@@ -127,6 +127,7 @@ export interface SplitLayout {
 export interface DashboardPreferences {
   feedMode: FeedMode;
   densityMode: DensityMode;
+  autoScroll: boolean;
   splitLayout: SplitLayout;
   /** Canonical channel refs (`platform:providerChannelId`) enabled in mixed feed; empty = none enabled */
   mixedEnabledChannelIds: string[];

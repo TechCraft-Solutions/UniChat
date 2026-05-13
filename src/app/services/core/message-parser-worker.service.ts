@@ -50,7 +50,7 @@ export class MessageParserWorkerService implements OnDestroy {
     (results: Array<{ messageId: string; result: ParsedMessage }>) => void
   >();
   private pendingBatchTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
-  private readonly workerThreshold = 10; // Use worker for batches > 10 messages
+  private readonly workerThreshold = 3; // Use worker for batches > 3 messages
 
   constructor() {
     this.initializeWorker();

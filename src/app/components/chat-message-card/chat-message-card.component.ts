@@ -1,6 +1,6 @@
 /* sys lib */
 import { NgClass } from "@angular/common";
-import { ChangeDetectionStrategy, Component, effect, inject, input } from "@angular/core";
+import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from "@angular/core";
 import { MatIconModule } from "@angular/material/icon";
 import { MatTooltipModule } from "@angular/material/tooltip";
 
@@ -31,6 +31,17 @@ import { isSafeRemoteImageUrl, silenceBrokenChatImage } from "@helpers/chat.help
 })
 export class ChatMessageCardComponent {
   private static readonly blockedBadgeUrls = new Set<string>();
+  private static readonly avatarFetchBatchSize = 5;
+  private static pendingAvatarFetches: Array<{
+    cacheKey: string;
+    platform: string;
+    userId: string;
+    username: string;
+    resolve: (url: string | null) => void;
+  }> = [];
+  private static avatarBatchRafId: number | null = null;
+  private static twitchChatRef: TwitchChatService | null = null;
+  private static avatarCacheRef: AvatarCacheService | null = null;
 
   readonly message = input.required<ChatMessage>();
   readonly highlighted = input(false);
@@ -51,6 +62,11 @@ export class ChatMessageCardComponent {
   readonly isSafeRemoteImageUrl = isSafeRemoteImageUrl;
 
   constructor() {
+    if (!ChatMessageCardComponent.twitchChatRef) {
+      ChatMessageCardComponent.twitchChatRef = inject(TwitchChatService);
+      ChatMessageCardComponent.avatarCacheRef = inject(AvatarCacheService);
+    }
+
     effect(() => {
       if (!this.channelLabel()) {
         return;
@@ -119,36 +135,119 @@ export class ChatMessageCardComponent {
   }
 
   /** Get user profile image URL */
-  async getUserImageUrl(): Promise<string | null> {
+  getUserImageUrl(): string | null {
     const msg = this.message();
     const cacheKey = `${msg.platform}:${msg.sourceUserId}`;
 
-    // Check centralized cache first
     const cached = this.avatarCache.getUserAvatar(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // For Kick and YouTube, avatar is already set in the message
     if (msg.authorAvatarUrl) {
       this.avatarCache.setUserAvatar(cacheKey, msg.authorAvatarUrl);
       return msg.authorAvatarUrl;
     }
 
-    // For Twitch, fetch from CDN
-    if (msg.platform === "twitch") {
-      try {
-        const imageUrl = await this.twitchChat.fetchUserProfileImage(msg.author);
-        if (imageUrl) {
-          this.avatarCache.setUserAvatar(cacheKey, imageUrl);
-          return imageUrl;
+    return null;
+  }
+
+  private static scheduleAvatarBatchFetch(): void {
+    if (ChatMessageCardComponent.avatarBatchRafId !== null) {
+      return;
+    }
+    ChatMessageCardComponent.avatarBatchRafId = requestAnimationFrame(() => {
+      ChatMessageCardComponent.avatarBatchRafId = null;
+      ChatMessageCardComponent.processAvatarBatch();
+    });
+  }
+
+  private static async processAvatarBatch(): Promise<void> {
+    const batch = ChatMessageCardComponent.pendingAvatarFetches.splice(
+      0,
+      ChatMessageCardComponent.avatarFetchBatchSize
+    );
+    if (batch.length === 0) {
+      return;
+    }
+
+    const twitchMessages = batch.filter((m) => m.platform === "twitch");
+    const nonTwitchMessages = batch.filter((m) => m.platform !== "twitch");
+
+    for (const msg of nonTwitchMessages) {
+      msg.resolve(null);
+    }
+
+    if (twitchMessages.length > 0) {
+      const chatRef = ChatMessageCardComponent.twitchChatRef;
+      const cacheRef = ChatMessageCardComponent.avatarCacheRef;
+      if (!chatRef || !cacheRef) {
+        for (const msg of twitchMessages) {
+          msg.resolve(null);
         }
-      } catch {
-        // Ignore all errors - profile images are optional
+      } else {
+        const username = twitchMessages[0].username;
+        try {
+          const imageUrl = await chatRef.fetchUserProfileImage(username);
+          for (const msg of twitchMessages) {
+            if (imageUrl) {
+              cacheRef.setUserAvatar(msg.cacheKey, imageUrl);
+            }
+            msg.resolve(imageUrl);
+          }
+        } catch {
+          for (const msg of twitchMessages) {
+            msg.resolve(null);
+          }
+        }
       }
     }
 
-    return null;
+    if (ChatMessageCardComponent.pendingAvatarFetches.length > 0) {
+      ChatMessageCardComponent.scheduleAvatarBatchFetch();
+    }
+  }
+
+  private static fetchUserImageBatched(
+    cacheKey: string,
+    platform: string,
+    userId: string,
+    username: string
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      ChatMessageCardComponent.pendingAvatarFetches.push({
+        cacheKey,
+        platform,
+        userId,
+        username,
+        resolve,
+      });
+      ChatMessageCardComponent.scheduleAvatarBatchFetch();
+    });
+  }
+
+  /** Load user image on demand with batching */
+  loadUserImage(): void {
+    const msg = this.message();
+    const cacheKey = `${msg.platform}:${msg.sourceUserId}`;
+
+    if (this.avatarCache.hasUserAvatar(cacheKey)) {
+      return;
+    }
+
+    if (msg.authorAvatarUrl) {
+      this.avatarCache.setUserAvatar(cacheKey, msg.authorAvatarUrl);
+      return;
+    }
+
+    if (msg.platform === "twitch") {
+      void ChatMessageCardComponent.fetchUserImageBatched(
+        cacheKey,
+        msg.platform,
+        msg.sourceUserId,
+        msg.author
+      );
+    }
   }
 
   /** Check if user image is cached */
@@ -163,13 +262,6 @@ export class ChatMessageCardComponent {
     const msg = this.message();
     const cacheKey = `${msg.platform}:${msg.sourceUserId}`;
     return this.avatarCache.getUserAvatar(cacheKey) ?? null;
-  }
-
-  /** Load user image on demand */
-  loadUserImage(): void {
-    if (!this.hasUserImage()) {
-      void this.getUserImageUrl();
-    }
   }
 
   loadChannelImage(): void {

@@ -123,7 +123,16 @@ export class ChatRichTextService {
       }
     };
 
+    const startChars = this.customEmotes.getEmoteStartChars();
+
     while (i < text.length) {
+      const char = text[i].toLowerCase();
+      if (!startChars.has(char)) {
+        textBuf += text[i];
+        i++;
+        continue;
+      }
+
       const found = this.findCustomEmoteAt(text, i, emoteList);
       if (found) {
         flushText();

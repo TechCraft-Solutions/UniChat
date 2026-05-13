@@ -107,6 +107,8 @@ export class TwitchChatService extends BaseChatProviderService {
     }
 
     this.connectedChannels.add(normalizedChannel);
+
+    void this.iconsCatalog.ensureChannelLoaded(normalizedChannel);
   }
 
   override disconnect(channelId: string): void {

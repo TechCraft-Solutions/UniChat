@@ -103,6 +103,30 @@
         Active Channels
       </h3>
 
+      <div class="mb-4 flex items-center gap-3">
+        <span
+          class="text-sm font-medium"
+          [class.text-zinc-400]="themeMode() === 'dark'"
+          [class.text-zinc-600]="themeMode() === 'light'"
+        >
+          Filter:
+        </span>
+        <select
+          [ngModel]="selectedChannelFilter()"
+          (ngModelChange)="selectedChannelFilter.set($event)"
+          class="glass rounded-lg border border-zinc-800 px-3 py-1.5 text-sm text-zinc-100 transition outline-none focus:border-indigo-500"
+          [class.border-zinc-300]="themeMode() === 'light'"
+          [class.bg-white]="themeMode() === 'light'"
+          [class.text-zinc-900]="themeMode() === 'light'"
+        >
+          <option value="all">All Platforms</option>
+          @for (platform of platforms; track platform) {
+            <option [value]="platform">{{ getPlatformLbl(platform) }}</option>
+          }
+        </select>
+        <span class="text-sm text-zinc-500"> ({{ filteredChannels().length }} channels) </span>
+      </div>
+
       <!-- Add Channel Form -->
       <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <img
@@ -148,7 +172,7 @@
 
       <!-- Channel List -->
       <div class="space-y-2">
-        @for (channel of channels(); track channel.id) {
+        @for (channel of filteredChannels(); track channel.id) {
           <div
             class="glass flex flex-col items-center justify-between gap-3 rounded-xl border border-zinc-800 p-3 sm:flex-row"
           >
