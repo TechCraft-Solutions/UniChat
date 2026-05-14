@@ -71,21 +71,44 @@
           </div>
         }
 
-        <!-- Twitch / 7TV icons catalog -->
+        <!-- Twitch emote tabs -->
         @if (platform() === "twitch") {
-          @if (twitchIconsError()) {
+          <div class="mb-2 flex gap-1">
+            <button
+              type="button"
+              (click)="activeTwitchTab.set('7tv')"
+              class="rounded px-2 py-1 text-[11px] font-medium transition"
+              [class]="
+                activeTwitchTab() === '7tv'
+                  ? 'bg-sky-500 text-white'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:hover:bg-white/20'
+              "
+            >
+              7TV
+            </button>
+            <button
+              type="button"
+              (click)="activeTwitchTab.set('twitch'); loadTwitchChannelEmotes()"
+              class="rounded px-2 py-1 text-[11px] font-medium transition"
+              [class]="
+                activeTwitchTab() === 'twitch'
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:hover:bg-white/20'
+              "
+            >
+              Twitch
+            </button>
+          </div>
+
+          @if (twitchIconsError() && activeTwitchTab() === "7tv") {
             <p
               class="mb-2 rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-800 dark:text-amber-200"
             >
               {{ twitchIconsError() }} Showing global set only.
             </p>
           }
-          @if (!loading() && twitchList().length > 0) {
-            <p
-              class="mb-1.5 px-1 text-[10px] font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400"
-            >
-              Twitch / 7TV
-            </p>
+
+          @if (activeTwitchTab() === "7tv" && !loading() && twitchList().length > 0) {
             <div class="grid grid-cols-6 gap-1 sm:grid-cols-8">
               @for (emote of twitchList(); track emote.code + emote.scope) {
                 <button
@@ -107,11 +130,49 @@
                 </button>
               }
             </div>
-          } @else if (!loading() && twitchList().length === 0) {
+          } @else if (activeTwitchTab() === "7tv" && !loading() && twitchList().length === 0) {
             <p class="px-1 py-2 text-zinc-500 dark:text-zinc-400">
-              No third-party emotes in cache yet. They load after chat connects; open this panel
-              again.
+              No 7TV emotes in cache yet. They load after chat connects.
             </p>
+          }
+
+          @if (activeTwitchTab() === "twitch") {
+            @if (!loading() && twitchChannelEmotes().length > 0) {
+              <div class="grid grid-cols-6 gap-1 sm:grid-cols-8">
+                @for (emote of twitchChannelEmotes(); track emote.id) {
+                  <button
+                    type="button"
+                    [title]="emote.code"
+                    (click)="pickTwitchChannel(emote)"
+                    class="flex aspect-square flex-col items-center justify-center rounded-md border border-purple-100 bg-purple-50 p-0.5 hover:bg-purple-100 dark:border-purple-900/30 dark:bg-purple-900/20 dark:hover:bg-purple-900/40"
+                  >
+                    <img
+                      [src]="emote.url"
+                      [alt]="emote.code"
+                      class="max-h-6 max-w-full object-contain"
+                      loading="lazy"
+                    />
+                    <span
+                      class="mt-0.5 max-w-full truncate px-0.5 text-[9px] text-purple-700 dark:text-purple-300"
+                      >{{ emote.code }}</span
+                    >
+                  </button>
+                }
+              </div>
+            } @else if (
+              !loading() && twitchChannelEmotes().length === 0 && !twitchChannelEmotesError()
+            ) {
+              <p class="px-1 py-2 text-zinc-500 dark:text-zinc-400">
+                No Twitch channel emotes found. Channel may not have any uploaded.
+              </p>
+            }
+            @if (twitchChannelEmotesError()) {
+              <p
+                class="rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-800 dark:text-amber-200"
+              >
+                {{ twitchChannelEmotesError() }}
+              </p>
+            }
           }
         }
 

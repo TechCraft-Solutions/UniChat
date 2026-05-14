@@ -15,6 +15,10 @@ import {
 import { TwitchViewerCardService } from "@services/providers/twitch-viewer-card.service";
 import { IconsCatalogService, PickableIconsEmote } from "@services/ui/icons-catalog.service";
 import { KickEmoteLoaderService } from "@services/providers/kick-emote-loader.service";
+import {
+  TwitchEmotesCatalogService,
+  TwitchChannelEmote,
+} from "@services/providers/twitch-emotes-catalog.service";
 
 @Component({
   selector: "app-composer-emote-popover",
@@ -28,6 +32,7 @@ export class ComposerEmotePopoverComponent {
   private readonly iconsCatalog = inject(IconsCatalogService);
   private readonly twitchViewerCard = inject(TwitchViewerCardService);
   private readonly kickEmoteLoader = inject(KickEmoteLoaderService);
+  private readonly twitchEmotesCatalog = inject(TwitchEmotesCatalogService);
   private readonly logger = inject(LoggerService);
 
   readonly platform = input.required<PlatformType>();
@@ -39,9 +44,12 @@ export class ComposerEmotePopoverComponent {
   readonly searchQuery = signal("");
   readonly twitchIconsError = signal<string | null>(null);
   readonly kickEmotesError = signal<string | null>(null);
+  readonly activeTwitchTab = signal<"7tv" | "twitch">("7tv");
+  readonly twitchChannelEmotesError = signal<string | null>(null);
 
   private readonly twitchPickable = signal<PickableIconsEmote[]>([]);
   private readonly kickEmotes = signal<ChatMessageEmote[]>([]);
+  readonly twitchChannelEmotes = signal<TwitchChannelEmote[]>([]);
 
   readonly customList = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
@@ -84,6 +92,40 @@ export class ComposerEmotePopoverComponent {
     this.isOpen.set(false);
     this.searchQuery.set("");
     this.twitchIconsError.set(null);
+    this.twitchChannelEmotesError.set(null);
+    this.twitchChannelEmotes.set([]);
+  }
+
+  loadTwitchChannelEmotes(): void {
+    if (this.twitchChannelEmotes().length > 0 || this.twitchChannelEmotesError()) {
+      return;
+    }
+
+    const ch = this.channel();
+    const login = ch?.channelName?.trim();
+    if (!login) {
+      this.twitchChannelEmotesError.set("No channel selected");
+      return;
+    }
+
+    this.twitchViewerCard.fetchUserInfo(login).then((info) => {
+      if (!info?.id || !/^\d+$/.test(info.id)) {
+        this.twitchChannelEmotesError.set("Could not resolve channel ID");
+        return;
+      }
+
+      this.twitchEmotesCatalog
+        .fetchTwitchChannelEmotes(info.id)
+        .then((emotes) => {
+          this.twitchChannelEmotes.set(emotes);
+          if (emotes.length === 0) {
+            this.twitchChannelEmotesError.set("No Twitch channel emotes found");
+          }
+        })
+        .catch(() => {
+          this.twitchChannelEmotesError.set("Failed to load Twitch channel emotes");
+        });
+    });
   }
 
   private async loadEmotesForOpen(): Promise<void> {
@@ -135,6 +177,10 @@ export class ComposerEmotePopoverComponent {
   }
 
   pickTwitch(emote: PickableIconsEmote): void {
+    this.appendCode(emote.code);
+  }
+
+  pickTwitchChannel(emote: TwitchChannelEmote): void {
     this.appendCode(emote.code);
   }
 

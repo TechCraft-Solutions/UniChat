@@ -10,6 +10,7 @@ import { ChatMessage } from "@models/chat.model";
 /* services */
 import { AvatarCacheService } from "@services/core/avatar-cache.service";
 import { TwitchChatService } from "@services/providers/twitch-chat.service";
+import { KickChatService } from "@services/providers/kick-chat.service";
 import { ChatMessagePresentationService } from "@services/ui/chat-message-presentation.service";
 import { ChatTextSegment } from "@services/ui/chat-rich-text.service";
 import { ChatRichTextService } from "@services/ui/chat-rich-text.service";
@@ -41,6 +42,7 @@ export class ChatMessageCardComponent {
   }> = [];
   private static avatarBatchRafId: number | null = null;
   private static twitchChatRef: TwitchChatService | null = null;
+  private static kickChatRef: KickChatService | null = null;
   private static avatarCacheRef: AvatarCacheService | null = null;
 
   readonly message = input.required<ChatMessage>();
@@ -59,6 +61,7 @@ export class ChatMessageCardComponent {
   readonly pinnedMessagesService = inject(PinnedMessagesService);
   readonly channelAvatars = inject(ChannelAvatarService);
   private readonly twitchChat = inject(TwitchChatService);
+  private readonly kickChat = inject(KickChatService);
   private readonly avatarCache = inject(AvatarCacheService);
 
   readonly isSafeRemoteImageUrl = isSafeRemoteImageUrl;
@@ -66,6 +69,7 @@ export class ChatMessageCardComponent {
   constructor() {
     if (!ChatMessageCardComponent.twitchChatRef) {
       ChatMessageCardComponent.twitchChatRef = inject(TwitchChatService);
+      ChatMessageCardComponent.kickChatRef = inject(KickChatService);
       ChatMessageCardComponent.avatarCacheRef = inject(AvatarCacheService);
     }
 
@@ -173,33 +177,100 @@ export class ChatMessageCardComponent {
     }
 
     const twitchMessages = batch.filter((m) => m.platform === "twitch");
-    const nonTwitchMessages = batch.filter((m) => m.platform !== "twitch");
+    const kickMessages = batch.filter((m) => m.platform === "kick");
+    const otherMessages = batch.filter((m) => m.platform !== "twitch" && m.platform !== "kick");
 
-    for (const msg of nonTwitchMessages) {
+    for (const msg of otherMessages) {
       msg.resolve(null);
+    }
+
+    const cacheRef = ChatMessageCardComponent.avatarCacheRef;
+    if (!cacheRef) {
+      for (const msg of [...twitchMessages, ...kickMessages]) {
+        msg.resolve(null);
+      }
+      return;
     }
 
     if (twitchMessages.length > 0) {
       const chatRef = ChatMessageCardComponent.twitchChatRef;
-      const cacheRef = ChatMessageCardComponent.avatarCacheRef;
-      if (!chatRef || !cacheRef) {
+      if (chatRef) {
+        const byUsername = new Map<string, typeof twitchMessages>();
+        for (const msg of twitchMessages) {
+          const existing = byUsername.get(msg.username);
+          if (existing) {
+            existing.push(msg);
+          } else {
+            byUsername.set(msg.username, [msg]);
+          }
+        }
+
+        const fetchPromises: Promise<void>[] = [];
+        for (const [username, msgs] of byUsername) {
+          const promise = (async () => {
+            try {
+              const imageUrl = await chatRef.fetchUserProfileImage(username);
+              for (const msg of msgs) {
+                if (imageUrl) {
+                  cacheRef.setUserAvatar(msg.cacheKey, imageUrl);
+                }
+                msg.resolve(imageUrl);
+              }
+            } catch {
+              for (const msg of msgs) {
+                msg.resolve(null);
+              }
+            }
+          })();
+          fetchPromises.push(promise);
+        }
+
+        await Promise.all(fetchPromises);
+      } else {
         for (const msg of twitchMessages) {
           msg.resolve(null);
         }
-      } else {
-        const username = twitchMessages[0].username;
-        try {
-          const imageUrl = await chatRef.fetchUserProfileImage(username);
-          for (const msg of twitchMessages) {
-            if (imageUrl) {
-              cacheRef.setUserAvatar(msg.cacheKey, imageUrl);
+      }
+    }
+
+    if (kickMessages.length > 0) {
+      const chatRef = ChatMessageCardComponent.kickChatRef;
+      if (chatRef) {
+        const byUsername = new Map<string, typeof kickMessages>();
+        for (const msg of kickMessages) {
+          const existing = byUsername.get(msg.username);
+          if (existing) {
+            existing.push(msg);
+          } else {
+            byUsername.set(msg.username, [msg]);
+          }
+        }
+
+        const fetchPromises: Promise<void>[] = [];
+        for (const [username, msgs] of byUsername) {
+          const promise = (async () => {
+            try {
+              const userInfo = await chatRef.fetchUserInfo(username);
+              const imageUrl = userInfo?.profile_pic_url ?? null;
+              for (const msg of msgs) {
+                if (imageUrl) {
+                  cacheRef.setUserAvatar(msg.cacheKey, imageUrl);
+                }
+                msg.resolve(imageUrl);
+              }
+            } catch {
+              for (const msg of msgs) {
+                msg.resolve(null);
+              }
             }
-            msg.resolve(imageUrl);
-          }
-        } catch {
-          for (const msg of twitchMessages) {
-            msg.resolve(null);
-          }
+          })();
+          fetchPromises.push(promise);
+        }
+
+        await Promise.all(fetchPromises);
+      } else {
+        for (const msg of kickMessages) {
+          msg.resolve(null);
         }
       }
     }
@@ -241,7 +312,7 @@ export class ChatMessageCardComponent {
       return;
     }
 
-    if (msg.platform === "twitch") {
+    if (msg.platform === "twitch" || msg.platform === "kick") {
       void ChatMessageCardComponent.fetchUserImageBatched(
         cacheKey,
         msg.platform,

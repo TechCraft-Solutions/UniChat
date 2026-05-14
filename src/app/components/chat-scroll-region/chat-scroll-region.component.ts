@@ -167,12 +167,7 @@ export class ChatScrollRegionComponent implements AfterViewInit {
           return;
         }
 
-        if (!newestChanged) {
-          this.snapshotLength = Math.max(0, this.snapshotLength + delta);
-          return;
-        }
-
-        if (this.pinnedToBottom() && this.autoScroll()) {
+        if ((this.pinnedToBottom() || this.distanceFromBottom() <= 150) && this.autoScroll()) {
           this.pendingNewCount.set(0);
           this.snapshotLength = len;
           const node = this.getScrollContainer();
