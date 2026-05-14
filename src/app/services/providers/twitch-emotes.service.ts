@@ -72,17 +72,29 @@ export class TwitchEmotesService {
       }
 
       const seven = this.iconsCatalog.resolveSevenTvEmote(roomId, code);
-      if (!seven) {
+      if (seven) {
+        result.push({
+          provider: "7tv",
+          id: seven.id,
+          code,
+          start,
+          end,
+          url: seven.url,
+        });
         continue;
       }
-      result.push({
-        provider: "7tv",
-        id: seven.id,
-        code,
-        start,
-        end,
-        url: seven.url,
-      });
+
+      const twitchChannel = this.iconsCatalog.resolveTwitchChannelEmote(roomId, code);
+      if (twitchChannel) {
+        result.push({
+          provider: "twitch",
+          id: twitchChannel.id,
+          code,
+          start,
+          end,
+          url: twitchChannel.url,
+        });
+      }
     }
 
     return result.sort((left, right) => left.start - right.start);

@@ -8,6 +8,7 @@ import {
 } from "./icons-storage.service";
 import { Injectable, inject } from "@angular/core";
 import { invoke } from "@tauri-apps/api/core";
+import { TwitchEmotesCatalogService } from "@services/providers/twitch-emotes-catalog.service";
 export interface ResolveSevenTvEmoteResult {
   id: string;
   url: string;
@@ -31,6 +32,7 @@ export interface PickableIconsEmote {
 })
 export class IconsCatalogService {
   private readonly storage = inject(IconsStorageService);
+  private readonly twitchEmotesCatalog = inject(TwitchEmotesCatalogService);
 
   private globalEmotes: Record<string, IconsEmoteIcon> = {};
   private globalBadges: Record<string, IconsBadgeIcon> = {};
@@ -221,6 +223,13 @@ export class IconsCatalogService {
 
     const inGlobal = this.globalBadges[compoundKey];
     return inGlobal ?? null;
+  }
+
+  resolveTwitchChannelEmote(
+    twitchRoomId: string | undefined,
+    code: string
+  ): { id: string; url: string } | null {
+    return this.twitchEmotesCatalog.resolveTwitchChannelEmote(twitchRoomId, code);
   }
 
   private isStale(fetchedAtMs: number): boolean {

@@ -263,7 +263,7 @@ export class ChatListService {
     const channel = this.channelsSignal().find((ch) => ch.id === channelId);
     if (!channel) return;
 
-    const cacheKey = `${channel.platform}:${channel.id}`;
+    const cacheKey = `${channel.platform}:${channel.channelId}`;
     if (this.avatarCache.hasChannelAvatar(cacheKey)) {
       return;
     }
