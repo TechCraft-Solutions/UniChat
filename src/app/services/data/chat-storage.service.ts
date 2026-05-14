@@ -16,6 +16,7 @@ import { OverlaySourceBridgeService } from "@services/ui/overlay-source-bridge.s
 import { groupByPlatform } from "@helpers/chat.helper";
 
 /* config */
+import { APP_CONFIG } from "@config/app.constants";
 import { buildChannelRef, parseChannelRef } from "@utils/channel-ref.util";
 
 /**
@@ -388,11 +389,14 @@ export class ChatStorageService {
         for (const message of incoming) {
           messageMap.set(message.id, message);
         }
+        const maxPerChannel = APP_CONFIG.MAX_MESSAGES_PER_CHANNEL;
+        const sorted = [...messageMap.values()].sort(
+          (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        const trimmed = sorted.length > maxPerChannel ? sorted.slice(-maxPerChannel) : sorted;
         next = {
           ...next,
-          [channelId]: [...messageMap.values()].sort(
-            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          ),
+          [channelId]: trimmed,
         };
       }
       return next;

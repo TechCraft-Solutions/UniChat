@@ -4,8 +4,8 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
-  DestroyRef,
   computed,
+  DestroyRef,
   effect,
   inject,
   input,
@@ -15,7 +15,6 @@ import {
 } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { MatIconModule } from "@angular/material/icon";
-import { ScrollingModule } from "@angular/cdk/scrolling";
 import { fromEvent } from "rxjs";
 import { throttleTime } from "rxjs/operators";
 
@@ -24,7 +23,7 @@ import { ChatMessage } from "@models/chat.model";
 @Component({
   selector: "app-chat-scroll-region",
   standalone: true,
-  imports: [MatIconModule, ScrollingModule],
+  imports: [MatIconModule],
   templateUrl: "./chat-scroll-region.component.html",
   host: {
     class: "flex min-h-0 min-w-0 flex-1 flex-col",
@@ -54,7 +53,7 @@ export class ChatScrollRegionComponent implements AfterViewInit {
   readonly distanceFromBottom = signal(0);
 
   readonly showJumpButton = computed(() => {
-    return this.distanceFromBottom() > 10 || this.pendingNewCount() > 0;
+    return this.messages().length > 0;
   });
 
   readonly showUnreadCount = computed(
@@ -68,7 +67,17 @@ export class ChatScrollRegionComponent implements AfterViewInit {
   private pendingScrollTop: number | null = null;
 
   private getScrollContainer(): HTMLElement | null {
-    return this.scrollContainer() ?? null;
+    const ref = this.scrollContainer();
+    if (ref instanceof HTMLElement) {
+      return ref;
+    }
+    if (ref && typeof ref === "object") {
+      const maybeNative = (ref as { nativeElement?: HTMLElement }).nativeElement;
+      if (maybeNative) {
+        return maybeNative;
+      }
+    }
+    return null;
   }
 
   ngAfterViewInit(): void {
@@ -95,21 +104,10 @@ export class ChatScrollRegionComponent implements AfterViewInit {
   }
 
   private scheduleScrollTop(target: number): void {
-    if (this.pendingRaf) {
-      return;
+    const node = this.getScrollContainer();
+    if (node) {
+      node.scrollTop = target;
     }
-    this.pendingRaf = true;
-    this.pendingScrollTop = target;
-    requestAnimationFrame(() => {
-      this.pendingRaf = false;
-      const node = this.getScrollContainer();
-      if (node && this.pendingScrollTop !== null) {
-        node.scrollTop = this.pendingScrollTop;
-        this.prevTotalHeight = node.scrollHeight;
-      }
-      this.pendingScrollTop = null;
-      this.cdr.markForCheck();
-    });
   }
 
   constructor() {
@@ -241,11 +239,11 @@ export class ChatScrollRegionComponent implements AfterViewInit {
     const node = this.getScrollContainer();
     if (!node) return;
 
+    node.scrollTop = node.scrollHeight;
     this.pinnedToBottom.set(true);
     this.snapshotLength = this.messages().length;
     this.pendingNewCount.set(0);
     this.distanceFromBottom.set(0);
-    this.scheduleScrollTop(node.scrollHeight);
   }
 
   private getNewestMessageId(messages: readonly ChatMessage[] = this.messages()): string | null {

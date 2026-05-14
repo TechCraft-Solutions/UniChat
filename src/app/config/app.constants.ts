@@ -12,6 +12,7 @@ export const APP_CONFIG = {
 
   // Message limits (global cap across ALL channels, in-memory only)
   MAX_MESSAGES_TOTAL: 1000,
+  MAX_MESSAGES_PER_CHANNEL: 150, // Per-channel limit to prevent DOM overload
   MESSAGE_CACHE_SIZE: 1000,
 
   // History loading

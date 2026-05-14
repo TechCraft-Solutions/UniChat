@@ -23,14 +23,20 @@ export class ChatPruningService {
   /**
    * Prune old messages across all channels to prevent memory growth.
    * Trims to MAX_MESSAGES_TOTAL by removing oldest messages first.
+   * Also enforces per-channel limit (MAX_MESSAGES_PER_CHANNEL).
    * Returns the pruned store.
    */
   pruneOldMessages(store: Record<string, ChatMessage[]>): Record<string, ChatMessage[]> {
     const maxTotal = APP_CONFIG.MAX_MESSAGES_TOTAL;
+    const maxPerChannel = APP_CONFIG.MAX_MESSAGES_PER_CHANNEL;
 
     let totalCount = 0;
-    for (const messages of Object.values(store)) {
-      totalCount += messages.length;
+    for (const [channelId, messages] of Object.entries(store)) {
+      const trimmed = messages.length > maxPerChannel ? messages.slice(-maxPerChannel) : messages;
+      if (trimmed.length !== messages.length) {
+        store[channelId] = trimmed;
+      }
+      totalCount += trimmed.length;
     }
 
     if (totalCount <= maxTotal) {
