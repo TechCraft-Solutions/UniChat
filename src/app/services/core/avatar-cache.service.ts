@@ -1,9 +1,13 @@
 /* sys lib */
-import { Injectable } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
+import { ImageCacheDbService, AvatarType } from "@services/core/image-cache-db.service";
+import { LoggerService } from "@services/core/logger.service";
+import { imageToBase64, isValidBase64Image } from "@helpers/image-to-base64.helper";
 
 interface CacheEntry {
   url: string;
   timestamp: number;
+  base64Data?: string;
 }
 
 const DEFAULT_MAX_SIZE = 500;
@@ -18,10 +22,19 @@ const AVATAR_CACHE_CONFIG = {
   providedIn: "root",
 })
 export class AvatarCacheService {
+  private readonly imageDb = inject(ImageCacheDbService);
+  private readonly logger = inject(LoggerService);
   private userCache = new Map<string, CacheEntry>();
   private channelCache = new Map<string, CacheEntry>();
   private maxSize = AVATAR_CACHE_CONFIG.maxSize;
   private ttlMs = AVATAR_CACHE_CONFIG.ttlMs;
+  private dbInitialized = false;
+
+  private async ensureDbInitialized(): Promise<void> {
+    if (this.dbInitialized) return;
+    await this.imageDb.ensureInitialized();
+    this.dbInitialized = true;
+  }
 
   private isExpired(entry: CacheEntry): boolean {
     return Date.now() - entry.timestamp > this.ttlMs;
@@ -50,12 +63,38 @@ export class AvatarCacheService {
       this.userCache.delete(key);
       return undefined;
     }
+    if (entry.base64Data && isValidBase64Image(entry.base64Data)) {
+      return entry.base64Data;
+    }
     return entry.url;
+  }
+
+  async getUserAvatarAsync(key: string): Promise<string | undefined> {
+    const cached = this.getUserAvatar(key);
+    if (cached) return cached;
+
+    await this.ensureDbInitialized();
+    const dbEntry = await this.imageDb.getAvatar(key);
+    if (dbEntry) {
+      this.userCache.set(key, {
+        url: dbEntry.url,
+        timestamp: Date.now(),
+        base64Data: dbEntry.data,
+      });
+      return dbEntry.data;
+    }
+    return undefined;
   }
 
   setUserAvatar(key: string, url: string): void {
     this.evictIfNeeded(this.userCache);
     this.userCache.set(key, { url, timestamp: Date.now() });
+    this.persistToDb(key, url, "user");
+  }
+
+  setUserAvatarWithBase64(key: string, url: string, base64Data: string): void {
+    this.evictIfNeeded(this.userCache);
+    this.userCache.set(key, { url, timestamp: Date.now(), base64Data });
   }
 
   getChannelAvatar(key: string): string | undefined {
@@ -65,12 +104,38 @@ export class AvatarCacheService {
       this.channelCache.delete(key);
       return undefined;
     }
+    if (entry.base64Data && isValidBase64Image(entry.base64Data)) {
+      return entry.base64Data;
+    }
     return entry.url;
+  }
+
+  async getChannelAvatarAsync(key: string): Promise<string | undefined> {
+    const cached = this.getChannelAvatar(key);
+    if (cached) return cached;
+
+    await this.ensureDbInitialized();
+    const dbEntry = await this.imageDb.getAvatar(key);
+    if (dbEntry) {
+      this.channelCache.set(key, {
+        url: dbEntry.url,
+        timestamp: Date.now(),
+        base64Data: dbEntry.data,
+      });
+      return dbEntry.data;
+    }
+    return undefined;
   }
 
   setChannelAvatar(key: string, url: string): void {
     this.evictIfNeeded(this.channelCache);
     this.channelCache.set(key, { url, timestamp: Date.now() });
+    this.persistToDb(key, url, "channel");
+  }
+
+  setChannelAvatarWithBase64(key: string, url: string, base64Data: string): void {
+    this.evictIfNeeded(this.channelCache);
+    this.channelCache.set(key, { url, timestamp: Date.now(), base64Data });
   }
 
   hasUserAvatar(key: string): boolean {
@@ -99,5 +164,15 @@ export class AvatarCacheService {
       userCacheSize: this.userCache.size,
       channelCacheSize: this.channelCache.size,
     };
+  }
+
+  private async persistToDb(key: string, url: string, type: AvatarType): Promise<void> {
+    try {
+      await this.ensureDbInitialized();
+      const base64Data = await imageToBase64(url);
+      await this.imageDb.setAvatar(key, url, type, base64Data);
+    } catch (e) {
+      this.logger.warn("Failed to persist avatar to IndexedDB", e);
+    }
   }
 }
