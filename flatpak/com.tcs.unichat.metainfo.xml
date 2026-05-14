@@ -29,6 +29,24 @@
   </provides>
 
   <releases>
+    <release version="0.3.0" date="2026-05-14">
+      <description>
+        <p>Release version 0.3.0 with Twitch emotes support, analytics, update checker, and build improvements:</p>
+        <ul>
+          <li>Added Twitch emotes catalog service for fetching and managing Twitch emotes</li>
+          <li>Added Twitch emotes parser for processing Twitch emote data</li>
+          <li>Added icons storage service with enhanced caching</li>
+          <li>Added image-to-base64 helper and image cache database service</li>
+          <li>Updated emote popover and chat message card components with improved styling</li>
+          <li>Added analytics service for tracking metrics</li>
+          <li>Added analytics page view with new components</li>
+          <li>Added update check functionality for checking application updates</li>
+          <li>Implemented versioned build artifacts for Android and Flatpak</li>
+          <li>Updated application icons and launcher background for all platforms</li>
+          <li>Applied Prettier and rustfmt formatting to codebase</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-05-13">
       <description>
         <p>Release version 0.2.0 with Twitch integration, OAuth improvements, chat persistence, and major UI refinements:</p>
