@@ -6,6 +6,13 @@ import { DecimalPipe } from "@angular/common";
 
 /* services */
 import { ThemeService } from "@services/core/theme.service";
+import {
+  AnalyticsService,
+  AnalyticsStats,
+  PlatformDistribution,
+} from "@services/features/analytics.service";
+import { ChatStorageService } from "@services/data/chat-storage.service";
+import { ConnectionStateService } from "@services/data/connection-state.service";
 
 @Component({
   selector: "app-analytics-page-view",
@@ -18,27 +25,37 @@ export class AnalyticsPageView {
   readonly themeService = inject(ThemeService);
   readonly themeMode = this.themeService.themeMode;
 
+  private readonly analyticsService = inject(AnalyticsService);
+  private readonly chatStorageService = inject(ChatStorageService);
+  private readonly connectionStateService = inject(ConnectionStateService);
+
   readonly timeRangeOptions = ["Last 24 Hours", "Last 7 Days"];
   readonly selectedTimeRange = signal("Last 24 Hours");
 
-  readonly stats = computed(() => {
-    return {
-      peakViewers: 12402,
-      peakViewersChange: 12,
-      totalChatMsgs: "45.2k",
-      totalChatMsgsStable: true,
-      newSubs: 142,
-      newSubsChange: 5,
-      uniqueChatters: 3890,
-      uniqueChattersGreat: true,
-    };
+  readonly stats = computed<AnalyticsStats>(() => {
+    const allMessages = this.chatStorageService.allMessages();
+    const connections = this.connectionStateService.connections();
+    const timeRange = this.selectedTimeRange();
+
+    const filteredMessages = this.analyticsService.filterMessagesByTimeRange(
+      allMessages,
+      timeRange
+    );
+    const previousMessages = this.analyticsService.getPreviousPeriodMessages(
+      allMessages,
+      timeRange
+    );
+
+    return this.analyticsService.computeStats(filteredMessages, connections, previousMessages);
   });
 
-  readonly platformDistribution = computed(() => {
-    return [
-      { name: "Twitch", value: 80, color: "bg-[#9146ff]" },
-      { name: "YouTube", value: 33, color: "bg-[#ff0000]" },
-      { name: "Kick", value: 40, color: "bg-[#53fc18]" },
-    ];
+  readonly platformDistribution = computed<PlatformDistribution[]>(() => {
+    const allMessages = this.chatStorageService.allMessages();
+    const timeRange = this.selectedTimeRange();
+    const filteredMessages = this.analyticsService.filterMessagesByTimeRange(
+      allMessages,
+      timeRange
+    );
+    return this.analyticsService.computePlatformDistribution(filteredMessages);
   });
 }

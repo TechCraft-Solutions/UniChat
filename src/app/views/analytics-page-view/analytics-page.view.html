@@ -55,8 +55,17 @@
         >
           {{ stats().peakViewers | number }}
         </div>
-        <div class="mt-1 text-[10px] text-green-500">
-          <i class="fas fa-arrow-up"></i> {{ stats().peakViewersChange }}% vs last stream
+        <div
+          class="mt-1 flex items-center gap-1 text-[10px]"
+          [class.text-green-500]="stats().peakViewersChange >= 0"
+          [class.text-red-500]="stats().peakViewersChange < 0"
+        >
+          <i
+            class="fas"
+            [class.fa-arrow-up]="stats().peakViewersChange >= 0"
+            [class.fa-arrow-down]="stats().peakViewersChange < 0"
+          ></i>
+          {{ stats().peakViewersChange }}% vs last period
         </div>
       </div>
       <div
@@ -80,11 +89,22 @@
           {{ stats().totalChatMsgs }}
         </div>
         <div
-          class="mt-1 text-[10px]"
-          [class.text-zinc-500]="themeMode() === 'light'"
-          [class.text-zinc-400]="themeMode() === 'dark'"
+          class="mt-1 flex items-center gap-1 text-[10px]"
+          [class.text-green-500]="stats().totalChatMsgsChange >= 0"
+          [class.text-red-500]="stats().totalChatMsgsChange < 0"
+          [class.text-zinc-500]="themeMode() === 'light' && stats().totalChatMsgsChange === 0"
+          [class.text-zinc-400]="themeMode() === 'dark' && stats().totalChatMsgsChange === 0"
         >
-          Stable activity
+          @if (stats().totalChatMsgsChange !== 0) {
+            <i
+              class="fas"
+              [class.fa-arrow-up]="stats().totalChatMsgsChange >= 0"
+              [class.fa-arrow-down]="stats().totalChatMsgsChange < 0"
+            ></i>
+            {{ stats().totalChatMsgsChange }}% vs last period
+          } @else {
+            Stable activity
+          }
         </div>
       </div>
       <div
@@ -131,7 +151,22 @@
         >
           {{ stats().uniqueChatters | number }}
         </div>
-        <div class="mt-1 text-[10px] text-indigo-500">Great engagement</div>
+        <div
+          class="mt-1 flex items-center gap-1 text-[10px]"
+          [class.text-green-500]="stats().uniqueChattersChange >= 0"
+          [class.text-red-500]="stats().uniqueChattersChange < 0"
+        >
+          @if (stats().uniqueChattersChange !== 0) {
+            <i
+              class="fas"
+              [class.fa-arrow-up]="stats().uniqueChattersChange >= 0"
+              [class.fa-arrow-down]="stats().uniqueChattersChange < 0"
+            ></i>
+            {{ stats().uniqueChattersChange }}% vs last period
+          } @else {
+            Stable engagement
+          }
+        </div>
       </div>
     </div>
 
@@ -150,22 +185,32 @@
         Platform Distribution
       </h4>
       <div class="flex flex-1 items-end justify-between gap-4">
-        @for (bar of platformDistribution(); track bar.name) {
-          <div class="flex w-full flex-col items-center gap-2">
-            <div class="group relative h-40 w-full rounded-t-lg">
-              <div
-                class="absolute bottom-0 w-full rounded-t-lg transition-all"
-                [class]="bar.color"
-                [style.height.%]="bar.value"
-              ></div>
-            </div>
-            <span
-              class="text-[10px] font-bold"
-              [class.text-zinc-600]="themeMode() === 'light'"
-              [class.text-zinc-400]="themeMode() === 'dark'"
-              >{{ bar.name }}</span
-            >
+        @if (platformDistribution().length === 0) {
+          <div
+            class="flex w-full items-center justify-center text-sm"
+            [class.text-zinc-500]="themeMode() === 'light'"
+            [class.text-zinc-400]="themeMode() === 'dark'"
+          >
+            No messages in this time range
           </div>
+        } @else {
+          @for (bar of platformDistribution(); track bar.name) {
+            <div class="flex w-full flex-col items-center gap-2">
+              <div class="group relative h-40 w-full rounded-t-lg">
+                <div
+                  class="absolute bottom-0 w-full rounded-t-lg transition-all"
+                  [class]="bar.color"
+                  [style.height.%]="bar.value"
+                ></div>
+              </div>
+              <span
+                class="text-[10px] font-bold"
+                [class.text-zinc-600]="themeMode() === 'light'"
+                [class.text-zinc-400]="themeMode() === 'dark'"
+                >{{ bar.name }}</span
+              >
+            </div>
+          }
         }
       </div>
     </div>
