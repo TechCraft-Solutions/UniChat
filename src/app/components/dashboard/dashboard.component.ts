@@ -91,6 +91,8 @@ export class DashboardComponent {
     return new Set(saved.filter((id) => visible.has(id)));
   });
 
+  readonly enabledChannelsCount = computed(() => this.enabledChannels().size);
+
   readonly activeFilterChannelIds = computed(() => this.enabledChannels());
 
   readonly activePlatformFilter = this.feedData.platformFilter;

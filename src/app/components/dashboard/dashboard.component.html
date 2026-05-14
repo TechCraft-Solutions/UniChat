@@ -118,6 +118,7 @@
                 [channelLabel]="
                   chatListService.getChannelDisplayName(message.platform, message.sourceChannelId)
                 "
+                [enabledChannelsCount]="enabledChannelsCount()"
                 [highlighted]="interactions.isHighlightedMessage(message.id)"
               />
             }

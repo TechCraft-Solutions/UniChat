@@ -8,41 +8,52 @@
     <!-- Header Row: Platform (mixed only), User Info, Time -->
     <div class="flex items-center justify-between gap-2">
       <div class="flex min-w-0 items-center gap-1.5">
-        <!-- Platform Indicator Dot (mobile - compact) -->
-        @if (channelLabel()) {
-          <div
-            class="h-2 w-2 shrink-0 rounded-full"
-            [class]="getPlatformDotColor()"
+        @if (enabledChannelsCount() > 1) {
+          <img
+            [src]="getPlatformIconUrl()"
+            [alt]="presentation.platformLabel(message().platform)"
             [title]="presentation.platformLabel(message().platform)"
-          ></div>
+            class="h-4 w-4 shrink-0 rounded-sm object-contain"
+            loading="lazy"
+          />
+          @if (getChannelImage(); as channelImg) {
+            <img
+              [src]="channelImg"
+              [alt]="message().sourceChannelId"
+              class="h-5 w-5 shrink-0 rounded-full object-cover"
+              loading="lazy"
+            />
+          }
         }
 
-        <!-- User Profile Image -->
-        <button
-          type="button"
-          class="shrink-0 transition outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-zinc-900"
-          (click)="onUsernameClick($event); loadUserImage(); loadChannelImage()"
-          [title]="'View profile · ' + message().author"
-        >
-          @if (hasUserImage()) {
-            <img
-              [src]="getCachedUserImage()!"
-              [alt]="message().author"
-              class="h-7 w-7 rounded-full object-cover sm:h-6 sm:w-6"
-              loading="lazy"
-              (error)="onEmoteImageError($event)"
-            />
-          } @else {
-            <div
-              class="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold text-zinc-600 uppercase sm:h-6 sm:w-6 dark:bg-zinc-700 dark:text-zinc-300"
-              [class]="presentation.usernameColorClasses(message().author)"
-            >
-              {{ message().author.charAt(0) }}
-            </div>
-          }
-        </button>
+        @if (hasUserImage()) {
+          <img
+            [src]="getCachedUserImage()!"
+            [alt]="message().author"
+            class="h-6 w-6 shrink-0 rounded-full object-cover"
+            loading="lazy"
+            (error)="onEmoteImageError($event)"
+          />
+        } @else {
+          <div
+            class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold text-zinc-600 uppercase dark:bg-zinc-700 dark:text-zinc-300"
+            [class]="presentation.usernameColorClasses(message().author)"
+          >
+            {{ message().author.charAt(0) }}
+          </div>
+        }
 
-        <!-- Username -->
+        @for (badge of visibleBadgeIcons().slice(0, 3); track badge.id) {
+          <img
+            [src]="badge.url"
+            [alt]="badge.label"
+            [title]="badge.label"
+            class="h-4 w-4 shrink-0 object-contain"
+            loading="lazy"
+            (error)="onBadgeIconError(badge.url, $event)"
+          />
+        }
+
         <button
           type="button"
           class="max-w-full truncate text-left text-sm font-semibold transition outline-none hover:underline focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-zinc-900"
@@ -53,8 +64,7 @@
           {{ message().author }}
         </button>
 
-        <!-- Message Type Badge (desktop only) -->
-        @if (getMessageTypeConfig().badgeLabel && !channelLabel()) {
+        @if (getMessageTypeConfig().badgeLabel && enabledChannelsCount() <= 1) {
           <span
             class="hidden text-[10px] sm:inline-flex"
             [matTooltip]="getMessageTypeConfig().tooltip"

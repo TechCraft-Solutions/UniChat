@@ -1,5 +1,8 @@
 /* sys lib */
-import { Injectable } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
+import { ImageCacheDbService } from "@services/core/image-cache-db.service";
+import { LoggerService } from "@services/core/logger.service";
+import { imageToBase64 } from "@helpers/image-to-base64.helper";
 export interface IconsEmoteIcon {
   id: string;
   url: string;
@@ -25,16 +28,30 @@ function channelKey(roomId: string): string {
   return `unichat-icons-twitch-channel:${roomId}`;
 }
 
-/** Default TTL for emote cache: 24 hours */
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable({
   providedIn: "root",
 })
 export class IconsStorageService {
-  /**
-   * Check if cached data is still valid based on TTL
-   */
+  private readonly imageDb = inject(ImageCacheDbService);
+  private readonly logger = inject(LoggerService);
+  private dbInitialized = false;
+  private initPromise: Promise<void> | null = null;
+
+  private async ensureDbInitialized(): Promise<void> {
+    if (this.dbInitialized) return;
+    if (this.initPromise) {
+      await this.initPromise;
+      return;
+    }
+    this.initPromise = this.imageDb.ensureInitialized().finally(() => {
+      this.dbInitialized = true;
+      this.initPromise = null;
+    });
+    await this.initPromise;
+  }
+
   private isCacheValid(fetchedAtMs: number, ttlMs: number = DEFAULT_TTL_MS): boolean {
     const now = Date.now();
     return now - fetchedAtMs < ttlMs;
@@ -48,7 +65,6 @@ export class IconsStorageService {
     try {
       const payload = JSON.parse(raw) as IconsPayloadWithMeta;
       if (!this.isCacheValid(payload.fetchedAtMs, ttlMs)) {
-        // Cache expired, clear it
         localStorage.removeItem(GLOBAL_KEY);
         return null;
       }
@@ -60,6 +76,7 @@ export class IconsStorageService {
 
   setGlobal(payload: IconsPayloadWithMeta): void {
     localStorage.setItem(GLOBAL_KEY, JSON.stringify(payload));
+    this.cacheEmotesAndBadges(payload.emotes, payload.badges, "global");
   }
 
   clearGlobal(): void {
@@ -74,7 +91,6 @@ export class IconsStorageService {
     try {
       const payload = JSON.parse(raw) as IconsPayloadWithMeta;
       if (!this.isCacheValid(payload.fetchedAtMs, ttlMs)) {
-        // Cache expired, clear it
         localStorage.removeItem(channelKey(roomId));
         return null;
       }
@@ -86,18 +102,15 @@ export class IconsStorageService {
 
   setChannel(roomId: string, payload: IconsPayloadWithMeta): void {
     localStorage.setItem(channelKey(roomId), JSON.stringify(payload));
+    this.cacheEmotesAndBadges(payload.emotes, payload.badges, `channel:${roomId}`);
   }
 
   clearChannel(roomId: string): void {
     localStorage.removeItem(channelKey(roomId));
   }
 
-  /**
-   * Clear all emote caches (global and all channels)
-   */
   clearAll(): void {
     localStorage.removeItem(GLOBAL_KEY);
-    // Clear all channel caches by iterating localStorage
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -106,5 +119,78 @@ export class IconsStorageService {
       }
     }
     keysToRemove.forEach((key) => localStorage.removeItem(key));
+  }
+
+  async getCachedEmoteUrl(emoteKey: string, fallbackUrl: string): Promise<string> {
+    try {
+      await this.ensureDbInitialized();
+      const cached = await this.imageDb.getEmote(emoteKey);
+      if (cached?.data) {
+        return cached.data;
+      }
+      const base64 = await imageToBase64(fallbackUrl);
+      await this.imageDb.setEmote(emoteKey, fallbackUrl, "twitch", base64);
+      return base64;
+    } catch (e) {
+      this.logger.warn("Failed to cache emote", emoteKey, e);
+      return fallbackUrl;
+    }
+  }
+
+  async getCachedBadgeUrl(badgeKey: string, fallbackUrl: string): Promise<string> {
+    try {
+      await this.ensureDbInitialized();
+      const cached = await this.imageDb.getBadge(badgeKey);
+      if (cached?.data) {
+        return cached.data;
+      }
+      const base64 = await imageToBase64(fallbackUrl);
+      await this.imageDb.setBadge(badgeKey, fallbackUrl, base64);
+      return base64;
+    } catch (e) {
+      this.logger.warn("Failed to cache badge", badgeKey, e);
+      return fallbackUrl;
+    }
+  }
+
+  private cacheEmotesAndBadges(
+    emotes: Record<string, IconsEmoteIcon>,
+    badges: Record<string, IconsBadgeIcon>,
+    scope: string
+  ): void {
+    for (const [code, emote] of Object.entries(emotes)) {
+      if (!code || !emote?.url) continue;
+      const emoteKey = `${scope}:${code}`;
+      this.cacheEmoteImage(emoteKey, emote.url).catch(() => {});
+    }
+    for (const [key, badge] of Object.entries(badges)) {
+      if (!key || !badge?.url) continue;
+      const badgeKey = `${scope}:${key}`;
+      this.cacheBadgeImage(badgeKey, badge.url).catch(() => {});
+    }
+  }
+
+  private async cacheEmoteImage(emoteKey: string, url: string): Promise<void> {
+    try {
+      await this.ensureDbInitialized();
+      const existing = await this.imageDb.getEmote(emoteKey);
+      if (existing?.data) return;
+      const base64 = await imageToBase64(url);
+      await this.imageDb.setEmote(emoteKey, url, "twitch", base64);
+    } catch (e) {
+      this.logger.warn("Failed to cache emote image", emoteKey, e);
+    }
+  }
+
+  private async cacheBadgeImage(badgeKey: string, url: string): Promise<void> {
+    try {
+      await this.ensureDbInitialized();
+      const existing = await this.imageDb.getBadge(badgeKey);
+      if (existing?.data) return;
+      const base64 = await imageToBase64(url);
+      await this.imageDb.setBadge(badgeKey, url, base64);
+    } catch (e) {
+      this.logger.warn("Failed to cache badge image", badgeKey, e);
+    }
   }
 }

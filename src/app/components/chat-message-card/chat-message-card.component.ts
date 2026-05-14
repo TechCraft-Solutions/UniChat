@@ -47,6 +47,8 @@ export class ChatMessageCardComponent {
   readonly highlighted = input(false);
   /** When set (e.g. mixed feed), shown before the platform badge to separate streams. */
   readonly channelLabel = input<string | undefined>(undefined);
+  /** Number of enabled channels in the dashboard filter - used to determine visibility of platform icon and channel image */
+  readonly enabledChannelsCount = input<number>(0);
 
   readonly presentation = inject(ChatMessagePresentationService);
   readonly richText = inject(ChatRichTextService);
@@ -68,12 +70,11 @@ export class ChatMessageCardComponent {
     }
 
     effect(() => {
-      if (!this.channelLabel()) {
-        return;
-      }
-
       const msg = this.message();
-      this.channelAvatars.ensureChannelImage(msg.platform, msg.sourceChannelId);
+      this.loadUserImage();
+      if (this.enabledChannelsCount() > 1) {
+        this.channelAvatars.ensureChannelImage(msg.platform, msg.sourceChannelId);
+      }
     });
   }
 
@@ -319,6 +320,24 @@ export class ChatMessageCardComponent {
     } else {
       this.pinnedMessagesService.pinMessage(this.message());
     }
+  }
+
+  getPlatformIconUrl(): string {
+    return this.presentation.platformIconUrl(this.message().platform);
+  }
+
+  getChannelImage(): string | null {
+    const msg = this.message();
+    if (!this.channelLabel()) {
+      return null;
+    }
+    if (msg.channelImageUrl) {
+      return msg.channelImageUrl;
+    }
+    return this.channelAvatars.getChannelImageForChannel({
+      platform: msg.platform,
+      channelId: msg.sourceChannelId,
+    });
   }
 
   /** Get platform dot color for mobile indicator */
