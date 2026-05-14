@@ -22,7 +22,7 @@ use crate::routes::overlay_route::{
   emitOverlayConfigChanged, getOverlayConfig, getOverlayMessages, initOverlayConfigFromStorage,
   openOverlayWindow, startOverlayServer, stopOverlayServer,
 };
-use crate::routes::twitch_route::twitchDeleteMessage;
+use crate::routes::twitch_route::{twitchDeleteMessage, twitchFetchChannelEmotes};
 use crate::routes::update_route::{
   checkForUpdate, downloadUpdate, getCurrentVersion, installUpdate,
 };
@@ -125,6 +125,7 @@ pub fn run() {
       twitchFetchGlobalIcons,
       twitchFetchChannelIcons,
       twitchDeleteMessage,
+      twitchFetchChannelEmotes,
       startOverlayServer,
       stopOverlayServer,
       openOverlayWindow,

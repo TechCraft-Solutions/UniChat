@@ -1,9 +1,13 @@
 use log;
 
+use crate::helpers::auth_twitch_helper::{
+  normalize_twitch_cdn_url, twitch_app_access_token, twitch_client_credentials,
+};
 use crate::helpers::http_client::shared_client;
 use crate::helpers::oauth_config_helper::get_oauth_provider_config;
 use crate::models::platform_type_model::PlatformTypeModel;
 use crate::AppState;
+use serde::{Deserialize, Serialize};
 
 /// Delete a message from Twitch chat
 /// Requires moderator or broadcaster OAuth token
@@ -105,4 +109,90 @@ pub async fn twitchDeleteMessage(
     );
     Err(format!("Delete failed ({}): {}", status, error_text))
   }
+}
+
+// ---------- Twitch Helix Channel Emotes ----------
+#[derive(Debug, Deserialize)]
+struct HelixEmoteRow {
+  id: String,
+  name: String,
+  images: HelixEmoteImages,
+}
+
+#[derive(Debug, Deserialize)]
+struct HelixEmoteImages {
+  url1x: Option<String>,
+  url2x: Option<String>,
+  url4x: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HelixChannelEmotesResponse {
+  data: Option<Vec<HelixEmoteRow>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TwitchChannelEmoteModel {
+  pub id: String,
+  pub code: String,
+  pub url: String,
+}
+
+#[tauri::command]
+pub async fn twitchFetchChannelEmotes(
+  state: tauri::State<'_, AppState>,
+  room_id: String,
+) -> Result<Vec<TwitchChannelEmoteModel>, String> {
+  if room_id.trim().is_empty() {
+    return Err("room_id required".to_string());
+  }
+
+  let (client_id, client_secret) = twitch_client_credentials(&state.config)?;
+  let token = twitch_app_access_token(&client_id, client_secret.as_deref()).await?;
+
+  let client = shared_client();
+  let url = format!(
+    "https://api.twitch.tv/helix/chat/emotes?broadcaster_id={}",
+    room_id
+  );
+
+  let response = client
+    .get(&url)
+    .header("Client-Id", client_id)
+    .header("Authorization", format!("Bearer {token}"))
+    .send()
+    .await
+    .map_err(|e| e.to_string())?;
+
+  if !response.status().is_success() {
+    let status = response.status();
+    let error_text = response.text().await.unwrap_or_default();
+    return Err(format!("Twitch API error ({}): {}", status, error_text));
+  }
+
+  let emotes_response: HelixChannelEmotesResponse =
+    response.json().await.map_err(|e| e.to_string())?;
+
+  let emotes: Vec<TwitchChannelEmoteModel> = emotes_response
+    .data
+    .unwrap_or_default()
+    .into_iter()
+    .filter_map(|row| {
+      let url = row.images.url1x.or(row.images.url2x).or(row.images.url4x)?;
+      let normalized = normalize_twitch_cdn_url(&Some(url.clone())).unwrap_or(url);
+      Some(TwitchChannelEmoteModel {
+        id: row.id,
+        code: row.name,
+        url: normalized,
+      })
+    })
+    .collect();
+
+  log::info!(
+    "Fetched {} Twitch channel emotes for room {}",
+    emotes.len(),
+    room_id
+  );
+  Ok(emotes)
 }
