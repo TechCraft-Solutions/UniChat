@@ -149,6 +149,17 @@ fn find_platform_asset<'a>(
     }
   }
 
+  if matches!(platform, Platform::Android) {
+    for asset in assets {
+      let name_lower = asset.name.to_lowercase();
+      if name_lower.contains("app-universal-release")
+        && has_matching_extension(&name_lower, &extensions)
+      {
+        return Some(asset);
+      }
+    }
+  }
+
   for asset in assets {
     let name_lower = asset.name.to_lowercase();
     if has_matching_extension(&name_lower, &extensions) {
