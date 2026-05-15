@@ -191,18 +191,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/unichat-${{ env.VERSION }}.apk
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-aab
-          path: src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
+          path: src-tauri/gen/android/app/build/outputs/bundle/universalRelease/unichat-${{ env.VERSION }}.aab
 
       - name: Prepare versioned artifacts
         run: |
-          cp src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk unichat_${VERSION}_universal.apk
-          cp src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab unichat_${VERSION}_universal.aab
+          cp src-tauri/gen/android/app/build/outputs/apk/universal/release/unichat-${{ env.VERSION }}.apk unichat_${{ env.VERSION }}_universal.apk
+          cp src-tauri/gen/android/app/build/outputs/bundle/universalRelease/unichat-${{ env.VERSION }}.aab unichat_${{ env.VERSION }}_universal.aab
 
       - name: Upload to Existing Release
         uses: softprops/action-gh-release@v2
@@ -210,7 +210,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            unichat_${VERSION}_universal.apk
-            unichat_${VERSION}_universal.aab
+            unichat_${{ env.VERSION }}_universal.apk
+            unichat_${{ env.VERSION }}_universal.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
