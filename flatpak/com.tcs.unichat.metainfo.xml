@@ -29,6 +29,14 @@
   </provides>
 
   <releases>
+    <release version="0.3.1" date="2026-05-15">
+      <description>
+        <p>Release version 0.3.1 with Android CI improvements:</p>
+        <ul>
+          <li>Added versioned naming for Android release artifacts in CI pipeline</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-05-14">
       <description>
         <p>Release version 0.3.0 with Twitch emotes support, analytics, update checker, and build improvements:</p>
