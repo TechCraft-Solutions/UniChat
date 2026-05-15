@@ -187,22 +187,42 @@ jobs:
           chmod +x ./scripts/build-optimized.sh
           FORCE_BUILD=true ./scripts/build-optimized.sh build android release
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/unichat-${{ env.VERSION }}.apk
-
-      - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-aab
-          path: src-tauri/gen/android/app/build/outputs/bundle/universalRelease/unichat-${{ env.VERSION }}.aab
-
-      - name: Prepare versioned artifacts
+      - name: Find and Prepare Artifacts
+        id: prepare-artifacts
         run: |
-          cp src-tauri/gen/android/app/build/outputs/apk/universal/release/unichat-${{ env.VERSION }}.apk unichat_${{ env.VERSION }}_universal.apk
-          cp src-tauri/gen/android/app/build/outputs/bundle/universalRelease/unichat-${{ env.VERSION }}.aab unichat_${{ env.VERSION }}_universal.aab
+          echo "=== Finding APK files ==="
+          find src-tauri/gen/android -name "*.apk" 2>/dev/null || true
+          echo "=== Finding AAB files ==="
+          find src-tauri/gen/android -name "*.aab" 2>/dev/null || true
+
+          APK_PATH=$(find src-tauri/gen/android -name "unichat-*.apk" -path "*/release/*" | head -1)
+          AAB_PATH=$(find src-tauri/gen/android -name "unichat-*.aab" -path "*/universalRelease/*" | head -1)
+
+          if [ -z "$APK_PATH" ]; then
+            echo "Error: Could not find unichat APK in release directory"
+            exit 1
+          fi
+          if [ -z "$AAB_PATH" ]; then
+            echo "Error: Could not find unichat AAB in universalRelease directory"
+            exit 1
+          fi
+
+          echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+          echo "AAB_PATH=$AAB_PATH" >> $GITHUB_ENV
+          echo "Found APK: $APK_PATH"
+          echo "Found AAB: $AAB_PATH"
+
+          cp "$APK_PATH" "unichat_${{ env.VERSION }}_universal.apk"
+          cp "$AAB_PATH" "unichat_${{ env.VERSION }}_universal.aab"
+          ls -la unichat_${{ env.VERSION }}_universal.apk unichat_${{ env.VERSION }}_universal.aab
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifacts
+          path: |
+            unichat_${{ env.VERSION }}_universal.apk
+            unichat_${{ env.VERSION }}_universal.aab
 
       - name: Upload to Existing Release
         uses: softprops/action-gh-release@v2
