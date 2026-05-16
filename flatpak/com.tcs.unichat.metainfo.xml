@@ -29,6 +29,15 @@
   </provides>
 
   <releases>
+    <release version="0.3.3" date="2026-05-16">
+      <description>
+        <p>Release version 0.3.3 with Android build improvements:</p>
+        <ul>
+          <li>Switched to app-universal-release artifact names for Android builds</li>
+          <li>Added versioned unichat naming for release artifacts in CI pipeline</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.2" date="2026-05-15">
       <description>
         <p>Release version 0.3.2 with Android CI improvements:</p>
