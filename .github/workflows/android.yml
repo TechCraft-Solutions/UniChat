@@ -212,17 +212,17 @@ jobs:
           echo "Found APK: $APK_PATH"
           echo "Found AAB: $AAB_PATH"
 
-          cp "$APK_PATH" "app-universal-release.apk"
-          cp "$AAB_PATH" "app-universal-release.aab"
-          ls -la app-universal-release.apk app-universal-release.aab
+          cp "$APK_PATH" "unichat_${{ env.VERSION }}_universal.apk"
+          cp "$AAB_PATH" "unichat_${{ env.VERSION }}_universal.aab"
+          ls -la unichat_${{ env.VERSION }}_universal.apk unichat_${{ env.VERSION }}_universal.aab
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-artifacts
           path: |
-            app-universal-release.apk
-            app-universal-release.aab
+            unichat_${{ env.VERSION }}_universal.apk
+            unichat_${{ env.VERSION }}_universal.aab
 
       - name: Upload to Existing Release
         uses: softprops/action-gh-release@v2
@@ -230,7 +230,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            app-universal-release.apk
-            app-universal-release.aab
+            unichat_${{ env.VERSION }}_universal.apk
+            unichat_${{ env.VERSION }}_universal.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
